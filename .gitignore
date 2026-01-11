@@ -81,8 +81,8 @@ data/
 *.h5
 *.hdf5
 
-# Model files
-models/
+# Model files (only root models/ directory, not src/models/)
+/models/
 *.pt
 *.pth
 *.onnx
