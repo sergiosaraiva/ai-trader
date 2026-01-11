@@ -82,8 +82,10 @@ data/forex/*
 *.h5
 *.hdf5
 
-# Model files (only root models/ directory, not src/models/)
-/models/
+# Model files (ignore raw weights, keep compressed archives)
+/models/*
+!/models/README.md
+!/models/models_trained.tar.gz.part_*
 *.pt
 *.pth
 *.onnx
