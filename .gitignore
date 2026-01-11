@@ -74,9 +74,10 @@ venv.bak/
 mlruns/
 mlartifacts/
 
-# Data files (keep sample data for development)
-data/*
-!data/sample/
+# Data files
+# Keep sample, forex combined, crypto, and sentiment data
+data/forex/*
+!data/forex/*_combined.csv
 *.parquet
 *.h5
 *.hdf5
