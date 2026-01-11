@@ -55,6 +55,8 @@ class MTFEnsembleBacktester:
         tp_pips: float = 25.0,
         sl_pips: float = 15.0,
         max_holding_bars: int = 12,
+        filter_mode: bool = False,
+        strict_filter: bool = False,
     ):
         self.ensemble = ensemble
         self.min_confidence = min_confidence
@@ -62,6 +64,8 @@ class MTFEnsembleBacktester:
         self.tp_pips = tp_pips
         self.sl_pips = sl_pips
         self.max_holding_bars = max_holding_bars
+        self.filter_mode = filter_mode
+        self.strict_filter = strict_filter
         self.trades: List[Trade] = []
 
     def run(self, df_5min: pd.DataFrame, test_start_idx: int) -> Dict:
@@ -147,7 +151,12 @@ class MTFEnsembleBacktester:
         logger.info(f"4H: {len(pred_4h_map)} predictions, D: {len(pred_d_map)} predictions")
 
         # Now combine predictions for each test bar
-        logger.info("Combining predictions for ensemble...")
+        if self.strict_filter:
+            logger.info("Combining predictions using STRICT FILTER MODE (1H primary, 4H must agree)...")
+        elif self.filter_mode:
+            logger.info("Combining predictions using FILTER MODE (1H primary, 4H/D filters)...")
+        else:
+            logger.info("Combining predictions for ensemble...")
 
         weights = self.ensemble._normalize_weights(self.ensemble.config.weights)
         w_1h = weights.get("1H", 0.6)
@@ -192,25 +201,83 @@ class MTFEnsembleBacktester:
                 else:
                     p_d, c_d = p_1h, c_1h  # fallback to 1H
 
-            # Weighted combination
-            prob_up_1h = c_1h if p_1h == 1 else 1 - c_1h
-            prob_up_4h = c_4h if p_4h == 1 else 1 - c_4h
-            prob_up_d = c_d if p_d == 1 else 1 - c_d
+            if self.strict_filter:
+                # STRICT FILTER MODE: 1H is primary, 4H must agree to trade
+                # Direction comes from 1H only
+                direction = p_1h
 
-            weighted_prob_up = w_1h * prob_up_1h + w_4h * prob_up_4h + w_d * prob_up_d
+                # Agreement calculation
+                agreement_count = sum([1 for p in [p_1h, p_4h, p_d] if p == direction])
+                agreement_score = agreement_count / 3.0
 
-            direction = 1 if weighted_prob_up > 0.5 else 0
-            base_conf = abs(weighted_prob_up - 0.5) * 2 + 0.5
+                # In strict mode, if 4H disagrees, set confidence to 0 (skip trade)
+                if p_4h != direction:
+                    conf = 0.0  # Will be filtered out by min_confidence
+                else:
+                    # 4H agrees - use 1H confidence with small D adjustment
+                    base_conf = c_1h
+                    if p_d == direction:
+                        conf = min(base_conf + 0.05, 1.0)  # +5% for full agreement
+                    elif c_d >= 0.65:  # D strongly disagrees
+                        conf = base_conf * 0.95  # Small penalty
+                    else:
+                        conf = base_conf
 
-            # Agreement
-            agreement_count = sum([1 for p in [p_1h, p_4h, p_d] if p == direction])
-            agreement_score = agreement_count / 3.0
+            elif self.filter_mode:
+                # FILTER MODE: 1H is primary signal, 4H/D are filters
+                # Direction comes from 1H only
+                direction = p_1h
 
-            # Agreement bonus
-            if agreement_count == 3:
-                conf = min(base_conf + self.ensemble.config.agreement_bonus, 1.0)
+                # Agreement calculation
+                agreement_count = sum([1 for p in [p_1h, p_4h, p_d] if p == direction])
+                agreement_score = agreement_count / 3.0
+
+                # Confidence logic for filter mode:
+                # - Start with 1H confidence
+                # - Boost if 4H agrees
+                # - Boost more if D agrees
+                # - Penalize if 4H or D strongly disagrees
+
+                base_conf = c_1h
+
+                # 4H filter: if agrees, boost; if disagrees with high confidence, reduce
+                if p_4h == direction:
+                    base_conf = min(base_conf + 0.05, 1.0)  # +5% for 4H agreement
+                elif c_4h >= 0.65:  # 4H strongly disagrees
+                    base_conf = base_conf * 0.85  # -15% penalty
+
+                # Daily filter: smaller effect
+                if p_d == direction:
+                    base_conf = min(base_conf + 0.02, 1.0)  # +2% for D agreement
+                elif c_d >= 0.65:  # D strongly disagrees
+                    base_conf = base_conf * 0.95  # -5% penalty
+
+                # Full agreement bonus
+                if agreement_count == 3:
+                    conf = min(base_conf + 0.05, 1.0)
+                else:
+                    conf = base_conf
+
             else:
-                conf = base_conf
+                # WEIGHTED MODE: Original weighted combination
+                prob_up_1h = c_1h if p_1h == 1 else 1 - c_1h
+                prob_up_4h = c_4h if p_4h == 1 else 1 - c_4h
+                prob_up_d = c_d if p_d == 1 else 1 - c_d
+
+                weighted_prob_up = w_1h * prob_up_1h + w_4h * prob_up_4h + w_d * prob_up_d
+
+                direction = 1 if weighted_prob_up > 0.5 else 0
+                base_conf = abs(weighted_prob_up - 0.5) * 2 + 0.5
+
+                # Agreement
+                agreement_count = sum([1 for p in [p_1h, p_4h, p_d] if p == direction])
+                agreement_score = agreement_count / 3.0
+
+                # Agreement bonus
+                if agreement_count == 3:
+                    conf = min(base_conf + self.ensemble.config.agreement_bonus, 1.0)
+                else:
+                    conf = base_conf
 
             test_directions.append(direction)
             test_confidences.append(conf)
@@ -494,10 +561,19 @@ def main():
     parser.add_argument("--agreement", type=float, default=0.5)
     parser.add_argument("--test-ratio", type=float, default=0.2)
     parser.add_argument("--compare", action="store_true", help="Compare to individual models")
+    parser.add_argument("--filter-mode", action="store_true", help="Use 1H as primary signal with 4H/D as filters (instead of weighted averaging)")
+    parser.add_argument("--strict-filter", action="store_true", help="Require 4H agreement to trade (stricter than --filter-mode)")
     args = parser.parse_args()
 
     print("\n" + "=" * 70)
-    print("MTF ENSEMBLE BACKTEST")
+    if args.strict_filter:
+        print("MTF ENSEMBLE BACKTEST (STRICT FILTER MODE)")
+        print("1H = Primary signal | 4H must agree to trade")
+    elif args.filter_mode:
+        print("MTF ENSEMBLE BACKTEST (FILTER MODE)")
+        print("1H = Primary signal | 4H/D = Confirmation filters")
+    else:
+        print("MTF ENSEMBLE BACKTEST")
     print("=" * 70)
 
     # Load data
@@ -525,6 +601,8 @@ def main():
         ensemble=ensemble,
         min_confidence=args.confidence,
         min_agreement=args.agreement,
+        filter_mode=args.filter_mode,
+        strict_filter=args.strict_filter,
     )
     results = backtester.run(df, test_start_idx)
 
