@@ -74,9 +74,9 @@ venv.bak/
 mlruns/
 mlartifacts/
 
-# Data files
-data/
-*.csv
+# Data files (keep sample data for development)
+data/*
+!data/sample/
 *.parquet
 *.h5
 *.hdf5
@@ -88,6 +88,9 @@ data/
 *.onnx
 *.pkl
 *.joblib
+
+# Training checkpoints
+/checkpoints/
 
 # Cache
 cache/
