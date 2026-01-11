@@ -1,0 +1,222 @@
+# Short-Term Model (Intraday) - Technical Indicators Configuration
+# Timeframe: 1H-4H candles
+# Focus: Fast signals, quick reversals, intraday patterns
+# Approximate feature count: ~37
+
+version: "1.0"
+model_type: short_term
+
+indicators:
+  enabled_categories:
+    - trend
+    - momentum
+    - volatility
+    - volume
+
+  # =============================================================================
+  # TREND INDICATORS
+  # Focus on fast EMAs for quick trend detection
+  # =============================================================================
+  trend:
+    ema:
+      enabled: true
+      periods: [8, 13, 21, 55]
+      priority: P0  # Critical for short-term trend
+
+    sma:
+      enabled: true
+      periods: [20, 50]
+      priority: P1
+
+    supertrend:
+      enabled: true
+      period: 10
+      multiplier: 3.0
+      priority: P1
+
+    # ADX less useful for very short-term
+    adx:
+      enabled: false
+      period: 14
+      include_di: true
+      priority: P2
+
+    aroon:
+      enabled: false
+      period: 25
+      include_oscillator: true
+      priority: P3
+
+    parabolic_sar:
+      enabled: false
+      priority: P2
+
+  # =============================================================================
+  # MOMENTUM INDICATORS
+  # Focus on fast oscillators for quick reversal detection
+  # =============================================================================
+  momentum:
+    rsi:
+      enabled: true
+      periods: [7, 14]
+      overbought: 70
+      oversold: 30
+      priority: P0  # Critical
+
+    stochastic:
+      enabled: true
+      k_period: 5
+      d_period: 3
+      smooth_k: 3
+      priority: P1
+
+    macd:
+      enabled: true
+      fast_period: 12
+      slow_period: 26
+      signal_period: 9
+      priority: P0  # Critical
+
+    williams_r:
+      enabled: true
+      period: 14
+      priority: P2
+
+    momentum:
+      enabled: true
+      period: 10
+      priority: P2
+
+    mfi:
+      enabled: true
+      period: 14
+      priority: P2
+
+    roc:
+      enabled: false
+      period: 10
+      priority: P3
+
+    cci:
+      enabled: false
+      period: 20
+      priority: P3
+
+    tsi:
+      enabled: false
+      fast_period: 13
+      slow_period: 25
+      priority: P3
+
+    ultimate_oscillator:
+      enabled: false
+      period1: 7
+      period2: 14
+      period3: 28
+      priority: P3
+
+  # =============================================================================
+  # VOLATILITY INDICATORS
+  # Focus on ATR for sizing and Bollinger for squeeze detection
+  # =============================================================================
+  volatility:
+    atr:
+      enabled: true
+      period: 14
+      normalized: true  # Include NATR
+      priority: P0  # Critical for position sizing
+
+    bollinger:
+      enabled: true
+      period: 20
+      std_dev: 2.0
+      include_width: true
+      include_percent_b: true
+      priority: P1
+
+    keltner:
+      enabled: false
+      period: 20
+      multiplier: 2.0
+      priority: P3
+
+    donchian:
+      enabled: false
+      period: 20
+      priority: P3
+
+    historical_volatility:
+      enabled: false
+      period: 20
+      priority: P3
+
+  # =============================================================================
+  # VOLUME INDICATORS
+  # Focus on VWAP (critical for intraday) and OBV
+  # =============================================================================
+  volume:
+    obv:
+      enabled: true
+      priority: P1
+
+    vwap:
+      enabled: true
+      priority: P1  # Critical for intraday
+
+    force_index:
+      enabled: true
+      period: 13
+      priority: P2
+
+    cmf:
+      enabled: false
+      period: 20
+      priority: P3
+
+    ad_line:
+      enabled: false
+      priority: P3
+
+    vpt:
+      enabled: false
+      priority: P3
+
+  # =============================================================================
+  # DERIVED/ENGINEERED FEATURES
+  # =============================================================================
+  derived:
+    price_to_ma:
+      enabled: true
+      ma_type: ema
+      periods: [21, 55]
+
+    ma_crossovers:
+      enabled: true
+      pairs:
+        - fast: 8
+          slow: 21
+          type: ema
+        - fast: 13
+          slow: 55
+          type: ema
+
+    rsi_divergence:
+      enabled: true
+      rsi_period: 14
+      lookback: 20
+
+    macd_divergence:
+      enabled: false
+
+    support_resistance:
+      enabled: false
+
+# =============================================================================
+# FEATURE SUMMARY
+# =============================================================================
+# Trend:      EMA(4) + SMA(2) + Supertrend    = ~10 features
+# Momentum:   RSI(2) + Stoch(2) + MACD(3) + WillR + Mom + MFI = ~12 features
+# Volatility: ATR(2) + BB(5)                   = ~7 features
+# Volume:     OBV + VWAP + FI                  = ~3 features
+# Derived:    Price-to-MA(2) + Crossovers(2) + RSI Div = ~5 features
+# TOTAL:      ~37 features

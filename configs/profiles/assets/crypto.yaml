@@ -1,0 +1,327 @@
+# =============================================================================
+# CRYPTO ASSET PROFILE
+# =============================================================================
+# Asset-specific configuration for cryptocurrency trading
+# Applies to: BTC/USD, ETH/USD, etc.
+#
+# This profile is merged with a trading profile (scalper, trader, investor)
+# Asset settings override trading profile's asset section
+# =============================================================================
+
+asset:
+  class: "crypto"
+  version: "1.0"
+  description: "Configuration for cryptocurrency pairs"
+
+  # ===========================================================================
+  # MARKET CHARACTERISTICS
+  # ===========================================================================
+
+  market:
+    type: "crypto"
+    trading_hours: "24/7"           # Crypto never closes
+    market_open: null               # Always open
+    market_close: null
+
+    # Typical characteristics
+    leverage_available: true
+    max_leverage: 125               # Varies by exchange (Binance up to 125x)
+    leverage_warning: "Crypto leverage is extremely risky"
+
+    # Liquidity varies greatly
+    liquidity_profile: "variable"
+    average_daily_volume: "varies"
+
+    # Settlement
+    settlement: "instant"
+    on_chain_settlement: true
+
+    # Volatility
+    typical_daily_volatility_pct: 3.0  # Much higher than forex
+
+  # ===========================================================================
+  # TRADING SESSIONS (24/7 but activity varies)
+  # ===========================================================================
+
+  sessions:
+    enabled: true
+    timezone: "UTC"
+
+    # Activity periods based on global activity
+    activity_periods:
+      - name: "Asia_Peak"
+        start: "00:00"
+        end: "08:00"
+        weight: 1.0
+        characteristics: "Asian trading activity"
+
+      - name: "Europe_Peak"
+        start: "08:00"
+        end: "16:00"
+        weight: 1.1
+        characteristics: "European trading activity"
+
+      - name: "Americas_Peak"
+        start: "14:00"
+        end: "22:00"
+        weight: 1.2
+        characteristics: "Americas trading, highest activity"
+
+      - name: "Weekend"
+        days: ["Saturday", "Sunday"]
+        weight: 0.8
+        characteristics: "Lower volume, can have sudden moves"
+
+    # Low activity periods
+    low_activity_hours:
+      - start: "05:00"
+        end: "07:00"               # Between Asia close and Europe open
+
+    avoid_low_liquidity: false      # Crypto trades 24/7, can't avoid
+
+  # ===========================================================================
+  # INSTRUMENT SETTINGS
+  # ===========================================================================
+
+  instruments:
+    # Major cryptocurrencies
+    majors:
+      - symbol: "BTCUSD"
+        aliases: ["BTCUSDT", "XBTUSD", "BTC/USD"]
+        tick_size: 0.01
+        typical_spread_pct: 0.01    # 0.01% for liquid exchanges
+        min_order_size: 0.0001
+        liquidity: "very_high"
+        volatility: "high"
+        market_cap: "large"
+
+      - symbol: "ETHUSD"
+        aliases: ["ETHUSDT", "ETH/USD"]
+        tick_size: 0.01
+        typical_spread_pct: 0.02
+        min_order_size: 0.001
+        liquidity: "very_high"
+        volatility: "high"
+        market_cap: "large"
+
+      - symbol: "BNBUSD"
+        aliases: ["BNBUSDT"]
+        tick_size: 0.01
+        typical_spread_pct: 0.03
+        liquidity: "high"
+        volatility: "high"
+
+      - symbol: "XRPUSD"
+        aliases: ["XRPUSDT"]
+        tick_size: 0.0001
+        typical_spread_pct: 0.03
+        liquidity: "high"
+        volatility: "very_high"
+
+      - symbol: "SOLUSD"
+        aliases: ["SOLUSDT"]
+        tick_size: 0.01
+        typical_spread_pct: 0.03
+        liquidity: "high"
+        volatility: "very_high"
+
+    # Stablecoin pairs (for reference)
+    stablecoins:
+      - symbol: "USDTUSD"
+        tick_size: 0.0001
+        typical_spread_pct: 0.001
+        volatility: "very_low"
+        note: "Pegged to USD"
+
+    # Default for unspecified pairs
+    default:
+      tick_size: 0.0001
+      typical_spread_pct: 0.05
+      min_order_size: 1.0
+      liquidity: "medium"
+      volatility: "very_high"
+
+  # ===========================================================================
+  # COST STRUCTURE
+  # ===========================================================================
+
+  costs:
+    spread_type: "variable"
+
+    # Exchange fee tiers (typical)
+    maker_fee_pct: 0.02             # 0.02% maker
+    taker_fee_pct: 0.04             # 0.04% taker
+
+    # Funding rates for perpetuals
+    funding_rate:
+      enabled: true
+      interval_hours: 8             # Every 8 hours
+      typical_rate_pct: 0.01        # 0.01% typical
+
+    # Network fees for on-chain
+    withdrawal_fees:
+      BTC: 0.0005
+      ETH: 0.005
+      USDT_ERC20: 15.0
+      USDT_TRC20: 1.0
+
+    # Slippage expectations
+    typical_slippage_pct: 0.05
+    high_volatility_slippage_pct: 0.5
+
+  # ===========================================================================
+  # RISK ADJUSTMENTS FOR CRYPTO
+  # ===========================================================================
+
+  risk_adjustments:
+    # Position sizing - more conservative due to volatility
+    volatility_scaling: true
+    base_volatility_target_pct: 2.0   # Target 2% daily volatility
+
+    # Risk reduction factors
+    max_position_pct_adjustment: 0.5  # Reduce max position by 50% vs forex
+    stop_loss_multiplier: 1.5         # Wider stops due to volatility
+
+    # Correlation considerations (crypto highly correlated)
+    correlation_limit: 0.5            # Lower limit, crypto is correlated
+    btc_correlation_weight: 0.8       # Most alts follow BTC
+
+    # Weekend risk
+    weekend_position_reduction: true
+    weekend_reduction_pct: 30
+
+  # ===========================================================================
+  # NEWS AND EVENTS
+  # ===========================================================================
+
+  news:
+    enabled: true
+
+    high_impact_events:
+      - name: "BTC_Halving"
+        description: "Bitcoin block reward halving"
+        frequency: "~4 years"
+        affected_pairs: ["*BTC*", "*"]
+        impact: "major_trend_change"
+
+      - name: "ETH_Upgrade"
+        description: "Ethereum network upgrades"
+        affected_pairs: ["*ETH*"]
+        blackout_before_minutes: 120
+        blackout_after_minutes: 60
+
+      - name: "Regulatory_News"
+        description: "Major regulatory announcements"
+        affected_pairs: ["*"]
+        note: "Unpredictable timing, monitor news feeds"
+
+      - name: "Exchange_Issues"
+        description: "Major exchange hacks/outages"
+        affected_pairs: ["*"]
+        note: "Can cause flash crashes"
+
+    # Crypto-specific news sources
+    monitor_sources:
+      - "twitter"
+      - "reddit"
+      - "on_chain_metrics"
+
+    sentiment_weight: 0.3           # Crypto is sentiment-driven
+
+  # ===========================================================================
+  # INDICATOR ADJUSTMENTS FOR CRYPTO
+  # ===========================================================================
+
+  indicator_adjustments:
+    # Crypto-specific indicator settings
+    rsi:
+      # Crypto tends to stay overbought/oversold longer
+      overbought: 80
+      oversold: 20
+
+    bollinger:
+      # Wider bands for crypto volatility
+      std_dev: 2.5
+
+    # VWAP is useful in crypto (real volume data)
+    vwap:
+      enabled: true
+      use_for_entry: true
+
+    # On-chain metrics (crypto-specific)
+    on_chain:
+      enabled: true
+      metrics:
+        - "exchange_inflow"
+        - "exchange_outflow"
+        - "active_addresses"
+        - "hash_rate"              # BTC only
+        - "whale_transactions"
+
+    # Fear and Greed Index
+    sentiment:
+      fear_greed_index:
+        enabled: true
+        extreme_fear_threshold: 20
+        extreme_greed_threshold: 80
+
+  # ===========================================================================
+  # DATA SPECIFICS
+  # ===========================================================================
+
+  data:
+    # Crypto data characteristics
+    volume_reliability: "high"      # Real volume data available
+    use_exchange_volume: true
+
+    # Multiple exchange aggregation
+    aggregate_exchanges: true
+    primary_exchanges:
+      - "binance"
+      - "coinbase"
+      - "kraken"
+
+    # Gap handling
+    no_gaps_expected: true          # 24/7 market
+
+    # Data quality
+    min_tick_count_per_candle: 50   # Higher threshold due to higher activity
+
+    # Price manipulation detection
+    detect_wash_trading: true
+    min_exchange_coverage: 3        # Require data from 3+ exchanges
+
+  # ===========================================================================
+  # EXCHANGE SPECIFICS
+  # ===========================================================================
+
+  exchanges:
+    spot:
+      - name: "binance"
+        tier: 1
+        api_rate_limit: 1200
+        weight_limit: 1200
+
+      - name: "coinbase"
+        tier: 1
+        api_rate_limit: 10
+
+      - name: "kraken"
+        tier: 1
+        api_rate_limit: 15
+
+    futures:
+      - name: "binance_futures"
+        tier: 1
+        funding_interval: 8
+        max_leverage: 125
+
+      - name: "bybit"
+        tier: 1
+        funding_interval: 8
+        max_leverage: 100
+
+    # Exchange risk settings
+    exchange_risk:
+      max_single_exchange_exposure_pct: 50
+      require_withdrawal_address: true

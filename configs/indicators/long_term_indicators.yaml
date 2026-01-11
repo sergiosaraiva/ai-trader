@@ -1,0 +1,239 @@
+# Long-Term Model (Position Trading) - Technical Indicators Configuration
+# Timeframe: Weekly candles
+# Focus: Major trends, regime detection, breakout signals
+# Approximate feature count: ~42
+
+version: "1.0"
+model_type: long_term
+
+indicators:
+  enabled_categories:
+    - trend
+    - momentum
+    - volatility
+    - volume
+
+  # =============================================================================
+  # TREND INDICATORS
+  # Focus on major trend identification and regime detection
+  # Note: Periods are in WEEKS (e.g., 20 = 20 weeks ~ 5 months)
+  # =============================================================================
+  trend:
+    sma:
+      enabled: true
+      periods: [10, 20, 50]  # ~2.5mo, ~5mo, ~1yr in weekly
+      priority: P0  # Critical for major trends
+
+    ema:
+      enabled: true
+      periods: [12, 26]
+      priority: P1
+
+    adx:
+      enabled: true
+      period: 14
+      include_di: true  # Include +DI and -DI
+      priority: P0  # Critical for position trading
+
+    aroon:
+      enabled: true
+      period: 25
+      include_oscillator: true
+      priority: P1  # Important for trend changes
+
+    ichimoku:
+      enabled: true
+      tenkan_period: 9
+      kijun_period: 26
+      senkou_b_period: 52
+      priority: P2  # Comprehensive long-term analysis
+
+    parabolic_sar:
+      enabled: true
+      priority: P2
+
+    supertrend:
+      enabled: false
+      period: 10
+      multiplier: 3.0
+      priority: P3
+
+  # =============================================================================
+  # MOMENTUM INDICATORS
+  # Focus on reliable weekly signals and divergences
+  # =============================================================================
+  momentum:
+    rsi:
+      enabled: true
+      periods: [14]
+      overbought: 70
+      oversold: 30
+      priority: P1  # Weekly divergences are meaningful
+
+    macd:
+      enabled: true
+      fast_period: 12
+      slow_period: 26
+      signal_period: 9
+      priority: P0  # Weekly MACD is highly reliable
+
+    roc:
+      enabled: true
+      periods: [10, 20]
+      priority: P2
+
+    ultimate_oscillator:
+      enabled: true
+      period1: 7
+      period2: 14
+      period3: 28
+      priority: P3  # Multi-timeframe combination
+
+    stochastic:
+      enabled: false
+      k_period: 14
+      d_period: 3
+      smooth_k: 3
+      priority: P3
+
+    cci:
+      enabled: false
+      period: 20
+      priority: P3
+
+    mfi:
+      enabled: false
+      period: 14
+      priority: P3
+
+    tsi:
+      enabled: false
+      fast_period: 13
+      slow_period: 25
+      priority: P3
+
+    williams_r:
+      enabled: false
+      period: 14
+      priority: P3
+
+    momentum:
+      enabled: false
+      period: 10
+      priority: P3
+
+  # =============================================================================
+  # VOLATILITY INDICATORS
+  # Focus on regime detection and breakout identification
+  # =============================================================================
+  volatility:
+    atr:
+      enabled: true
+      period: 14
+      normalized: true  # Include NATR
+      priority: P0  # Critical for major moves
+
+    bollinger:
+      enabled: true
+      period: 20
+      std_dev: 2.0
+      include_width: true  # Important for regime
+      include_percent_b: false
+      priority: P1
+
+    donchian:
+      enabled: true
+      period: 20
+      priority: P1  # Important for breakout detection
+
+    historical_volatility:
+      enabled: true
+      periods: [10, 20]
+      priority: P2  # Important for regime classification
+
+    keltner:
+      enabled: false
+      period: 20
+      multiplier: 2.0
+      priority: P3
+
+  # =============================================================================
+  # VOLUME INDICATORS
+  # Only OBV for weekly - others less useful at this timeframe
+  # =============================================================================
+  volume:
+    obv:
+      enabled: true
+      priority: P2
+
+    cmf:
+      enabled: false
+      period: 20
+      priority: P3
+
+    ad_line:
+      enabled: false
+      priority: P3
+
+    vpt:
+      enabled: false
+      priority: P3
+
+    vwap:
+      enabled: false
+      priority: P3
+
+    force_index:
+      enabled: false
+      period: 13
+      priority: P3
+
+  # =============================================================================
+  # DERIVED/ENGINEERED FEATURES
+  # Focus on regime detection and major trend signals
+  # =============================================================================
+  derived:
+    price_to_ma:
+      enabled: true
+      ma_type: sma
+      periods: [20, 50]
+
+    ma_crossovers:
+      enabled: true
+      pairs:
+        - fast: 10
+          slow: 20
+          type: sma
+        - fast: 20
+          slow: 50
+          type: sma
+
+    rsi_divergence:
+      enabled: false  # Less useful weekly
+      rsi_period: 14
+      lookback: 20
+
+    macd_divergence:
+      enabled: false
+
+    support_resistance:
+      enabled: false
+
+    regime_detection:
+      enabled: true
+      volatility_percentile:
+        enabled: true
+        lookback: 52  # 1 year
+      trend_strength:
+        enabled: true
+        adx_threshold: 25
+
+# =============================================================================
+# FEATURE SUMMARY
+# =============================================================================
+# Trend:      SMA(3) + EMA(2) + ADX(3) + Aroon(3) + Ichimoku(5) + PSAR = ~18 features
+# Momentum:   RSI + MACD(3) + ROC(2) + UO = ~7 features
+# Volatility: ATR(2) + BB(4) + DC(2) + HV(2) = ~10 features
+# Volume:     OBV = ~1 feature
+# Derived:    Price-to-MA(2) + Crossovers(2) + Regime(2) = ~6 features
+# TOTAL:      ~42 features

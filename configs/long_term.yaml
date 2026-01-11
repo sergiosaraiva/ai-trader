@@ -1,0 +1,65 @@
+# Long-term model configuration
+model:
+  name: long_term
+  version: "1.0.0"
+
+data:
+  sequence_length: 52  # 52 weeks (1 year) of weekly data
+  prediction_horizon: [1, 2, 4]  # 1W, 2W, 4W ahead
+  timeframe: "1W"
+  train_ratio: 0.7
+  val_ratio: 0.15
+
+architecture:
+  # N-BEATS Configuration
+  nbeats_stacks: 30
+  nbeats_blocks: 3
+  nbeats_layers: 4
+  nbeats_width: 256
+
+  # Transformer Configuration
+  transformer_heads: 8
+  transformer_layers: 4
+  transformer_dim: 512
+
+  # Additional outputs
+  regime_classes:
+    - trending_up
+    - trending_down
+    - ranging
+    - volatile
+
+training:
+  batch_size: 32  # Smaller due to less data
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  epochs: 150
+  early_stopping_patience: 20
+  gradient_clip: 1.0
+
+  optimizer: AdamW
+  scheduler: OneCycleLR
+
+  loss:
+    price: HuberLoss
+    direction: CrossEntropyLoss
+    regime: CrossEntropyLoss
+
+  loss_weights:
+    price: 1.0
+    direction: 0.5
+    regime: 0.3
+
+features:
+  # Reference to indicator configuration file
+  # See configs/indicators/long_term_indicators.yaml for full specification
+  indicators_config: configs/indicators/long_term_indicators.yaml
+
+  # Override specific indicators if needed (optional)
+  # indicators_override:
+  #   trend:
+  #     sma:
+  #       periods: [10, 20, 40]
+
+  temporal_features: true
+  session_features: false  # Not relevant for weekly

@@ -1,0 +1,104 @@
+# Timeframe Transformation Configuration
+# =======================================
+#
+# This configuration defines how to transform OHLCV data from a base timeframe
+# to multiple target timeframes using sliding window aggregation.
+#
+# Sliding Window Aggregation:
+# ---------------------------
+# Instead of traditional resampling (which loses records), we create multiple
+# "slices" at different offsets, preserving the total record count.
+#
+# Example: 5min -> 15min (factor=3)
+#   Slice 0: T0 -> T15 -> T30 (offset 0)
+#   Slice 1: T5 -> T20 -> T35 (offset 5min)
+#   Slice 2: T10 -> T25 -> T40 (offset 10min)
+#
+# Each slice has 1/3 of records, but combined = original count
+
+# =============================================================================
+# INPUT/OUTPUT PATHS
+# =============================================================================
+
+input_path: "data/forex"
+output_path: "data/forex/derived"
+
+# =============================================================================
+# TIMEFRAME SETTINGS
+# =============================================================================
+
+# Base timeframe of source data (in minutes)
+# This should match the interval of your raw CSV files
+base_minutes: 5
+
+# Target timeframes to generate (in minutes)
+# Each must be a multiple of base_minutes
+#
+# Common timeframe conversions:
+#   15 minutes  = 15    (factor: 3 from 5min)
+#   30 minutes  = 30    (factor: 6 from 5min)
+#   1 hour      = 60    (factor: 12 from 5min)
+#   4 hours     = 240   (factor: 48 from 5min)
+#   1 day       = 1440  (factor: 288 from 5min)
+#   1 week      = 10080 (factor: 2016 from 5min)
+#
+target_minutes:
+  - 15      # 15m - Scalper short-term
+  - 60      # 1H  - Scalper medium / Trader short-term
+  - 240     # 4H  - Scalper long / Trader medium
+  - 1440    # 1D  - Trader long / Investor short-term
+  - 10080   # 1W  - Investor medium-term
+  # - 43200 # 1M  - Investor long-term (requires ~30 days of 5min data per candle)
+
+# =============================================================================
+# COLUMN MAPPING
+# =============================================================================
+# Adjust these if your CSV files have different column names
+
+timestamp_col: "timestamp"
+open_col: "open"
+high_col: "high"
+low_col: "low"
+close_col: "close"
+volume_col: "volume"
+
+# =============================================================================
+# PROCESSING OPTIONS
+# =============================================================================
+
+# Glob pattern to match input files
+file_pattern: "*.csv"
+
+# Regex pattern to extract symbol from filename
+# Default matches 6 uppercase letters (e.g., EURUSD, GBPUSD)
+symbol_pattern: "^([A-Z]{6})"
+
+# Whether to combine all input files per symbol before transformation
+# true: Combine all EURUSD_*.csv files into one dataset, then transform
+# false: Process each file separately
+combine_input_files: true
+
+# Position of timestamp in aggregated candle
+# 'start': Timestamp is the start of the candle period (e.g., 10:00 for 10:00-10:15)
+# 'end': Timestamp is the end of the candle period (e.g., 10:15 for 10:00-10:15)
+timestamp_position: "start"
+
+# =============================================================================
+# OUTPUT OPTIONS
+# =============================================================================
+
+# Output format
+# 'parquet': Efficient binary format, smaller files, faster loading (recommended)
+# 'csv': Human-readable text format
+output_format: "parquet"
+
+# Include metadata columns in output
+# true: Adds slice_id, base_minutes, target_minutes, candles_aggregated
+# false: Only OHLCV columns
+include_metadata: true
+
+# Parquet compression (ignored for CSV output)
+# 'snappy': Fast compression/decompression (recommended)
+# 'gzip': Better compression ratio, slower
+# 'none': No compression
+compression: "snappy"

@@ -1,0 +1,415 @@
+# =============================================================================
+# INVESTOR PROFILE
+# =============================================================================
+# Optimized for long-term position trading and investment
+# Target users: Position traders, long-term investors, portfolio managers
+#
+# Inherits from: base.yaml
+# Only override values that differ from base profile
+# =============================================================================
+
+profile:
+  name: "investor"
+  version: "1.0"
+  description: "Long-term investment profile for position traders and investors"
+  inherits: "base"
+
+  # ===========================================================================
+  # TIMEFRAMES - Longer intervals for investment decisions
+  # ===========================================================================
+  # Factor progression: 1D -> 1W (7x) -> 1M (~4.3x)
+  # Higher timeframes = less noise, major trend focus
+
+  timeframes:
+    short_term:
+      candle_minutes: 1440        # Daily candles
+      input_window: 120           # 4 months of daily data
+      min_history_required: 252   # 1 year minimum history
+      prediction_horizons:
+        - {periods: 1, label: "1D"}
+        - {periods: 3, label: "3D"}
+        - {periods: 5, label: "5D"}
+        - {periods: 10, label: "2W"}
+
+    medium_term:
+      candle_minutes: 10080       # Weekly candles
+      input_window: 52            # 1 year of weekly data
+      min_history_required: 104   # 2 years minimum history
+      prediction_horizons:
+        - {periods: 1, label: "1W"}
+        - {periods: 2, label: "2W"}
+        - {periods: 4, label: "1M"}
+        - {periods: 8, label: "2M"}
+
+    long_term:
+      candle_minutes: 43200       # Monthly candles (~30 days)
+      input_window: 36            # 3 years of monthly data
+      min_history_required: 60    # 5 years minimum history
+      prediction_horizons:
+        - {periods: 1, label: "1M"}
+        - {periods: 3, label: "1Q"}
+        - {periods: 6, label: "6M"}
+        - {periods: 12, label: "1Y"}
+
+  # ===========================================================================
+  # TECHNICAL INDICATORS - Slow, trend-focused indicators
+  # ===========================================================================
+
+  indicators:
+    short_term:  # Daily timeframe
+      trend:
+        sma:
+          enabled: true
+          periods: [20, 50, 100, 200]  # Major daily levels
+          priority: P0
+        ema:
+          enabled: true
+          periods: [21, 55, 100, 200]
+          priority: P0
+        adx:
+          enabled: true
+          period: 14
+          include_di: true
+          priority: P0
+        aroon:
+          enabled: true
+          period: 25
+          priority: P1
+        ichimoku:
+          enabled: true
+          tenkan: 9
+          kijun: 26
+          senkou_b: 52
+          priority: P1
+
+      momentum:
+        rsi:
+          enabled: true
+          periods: [14, 21]
+          overbought: 70
+          oversold: 30
+          priority: P0
+        macd:
+          enabled: true
+          fast: 12
+          slow: 26
+          signal: 9
+          priority: P0
+        stochastic:
+          enabled: true
+          k_period: 14
+          d_period: 3
+          priority: P1
+        roc:
+          enabled: true
+          periods: [10, 20]
+          priority: P1
+
+      volatility:
+        atr:
+          enabled: true
+          period: 14
+          normalized: true
+          priority: P0
+        bollinger:
+          enabled: true
+          period: 20
+          std_dev: 2.0
+          priority: P1
+        historical_volatility:
+          enabled: true
+          period: 20
+          annualization_factor: 252
+          priority: P1
+
+      volume:
+        obv:
+          enabled: true
+          priority: P0
+        ad_line:
+          enabled: true
+          priority: P1
+        cmf:
+          enabled: true
+          period: 21
+          priority: P1
+
+    medium_term:  # Weekly timeframe
+      trend:
+        sma:
+          enabled: true
+          periods: [10, 20, 50]       # 10W, 20W, 50W (major yearly levels)
+          priority: P0
+        ema:
+          enabled: true
+          periods: [12, 26, 52]       # Quarter, half-year, year
+          priority: P0
+        adx:
+          enabled: true
+          period: 14
+          include_di: true
+          priority: P0
+        ichimoku:
+          enabled: true
+          priority: P1
+
+      momentum:
+        rsi:
+          enabled: true
+          periods: [14]
+          priority: P0
+        macd:
+          enabled: true
+          priority: P0
+        cci:
+          enabled: true
+          period: 20
+          priority: P1
+
+      volatility:
+        atr:
+          enabled: true
+          period: 14
+          priority: P0
+        bollinger:
+          enabled: true
+          period: 20
+          priority: P1
+
+      volume:
+        obv:
+          enabled: true
+          priority: P0
+
+    long_term:  # Monthly timeframe
+      trend:
+        sma:
+          enabled: true
+          periods: [6, 12, 24]        # 6M, 1Y, 2Y
+          priority: P0
+        ema:
+          enabled: true
+          periods: [6, 12]
+          priority: P0
+        adx:
+          enabled: true
+          period: 14
+          priority: P0
+
+      momentum:
+        rsi:
+          enabled: true
+          periods: [14]
+          priority: P0
+        macd:
+          enabled: true
+          priority: P0
+        roc:
+          enabled: true
+          periods: [6, 12]            # 6M, 12M momentum
+          priority: P0
+
+      volatility:
+        atr:
+          enabled: true
+          period: 14
+          priority: P0
+
+      volume:
+        obv:
+          enabled: true
+          priority: P0
+
+  # ===========================================================================
+  # MODEL - Larger models for complex long-term patterns
+  # ===========================================================================
+
+  models:
+    short_term:
+      architecture: "tft"           # TFT for daily - better for longer sequences
+      tft:
+        hidden_size: 256
+        attention_heads: 8
+        dropout: 0.2
+        num_encoder_layers: 3
+        num_decoder_layers: 2
+
+    medium_term:
+      architecture: "nbeats_transformer"
+      nbeats:
+        stack_types: ["trend", "seasonality", "generic"]
+        num_blocks: 3
+        num_layers: 4
+        width: 512
+      transformer:
+        d_model: 256
+        nhead: 8
+        num_encoder_layers: 4
+
+    long_term:
+      architecture: "nbeats_transformer"
+      nbeats:
+        stack_types: ["trend", "seasonality", "generic"]
+        num_blocks: 4
+        num_layers: 4
+        width: 512
+      transformer:
+        d_model: 256
+        nhead: 8
+        num_encoder_layers: 6
+        include_regime_head: true
+
+  # ===========================================================================
+  # TRAINING - Longer training for complex patterns
+  # ===========================================================================
+
+  training:
+    batch_size: 32                  # Smaller batches for longer sequences
+    epochs: 200
+    early_stopping_patience: 30
+    learning_rate: 0.0001           # Lower LR for stability
+
+  # ===========================================================================
+  # ENSEMBLE - Favor long-term signals
+  # ===========================================================================
+
+  ensemble:
+    base_weights:
+      short_term: 0.20              # Daily provides entry timing
+      medium_term: 0.35             # Weekly for trend confirmation
+      long_term: 0.45               # Monthly for major direction
+
+    dynamic_adjustment:
+      enabled: true
+      regime_weights:
+        trending_up:
+          short_term: 0.15
+          medium_term: 0.30
+          long_term: 0.55
+        trending_down:
+          short_term: 0.15
+          medium_term: 0.30
+          long_term: 0.55
+        ranging:
+          short_term: 0.30
+          medium_term: 0.40
+          long_term: 0.30
+        volatile:
+          short_term: 0.25
+          medium_term: 0.35
+          long_term: 0.40
+
+  # ===========================================================================
+  # SIGNALS - Higher thresholds for fewer, higher-quality signals
+  # ===========================================================================
+
+  signals:
+    min_confidence: 0.70            # Higher threshold
+    high_confidence: 0.85
+
+    buy_threshold: 0.40             # More conservative
+    sell_threshold: -0.40
+    strong_buy_threshold: 0.60
+    strong_sell_threshold: -0.60
+
+    neutral_zone:
+      lower: -0.20
+      upper: 0.20
+
+    require_alignment: true         # Require multi-timeframe alignment
+    min_aligned_models: 2
+    cooldown_periods: 5             # Longer cooldown for position sizing
+
+  # ===========================================================================
+  # RISK - Conservative risk management
+  # ===========================================================================
+
+  risk:
+    position_sizing:
+      method: "risk_parity"
+      max_position_pct: 5.0         # Larger positions (fewer trades)
+      risk_per_trade_pct: 2.0
+
+    stop_loss:
+      method: "atr"
+      atr_multiplier: 3.0           # Wider stops for long-term
+      min_pct: 2.0
+      max_pct: 10.0
+
+    take_profit:
+      method: "risk_reward"
+      risk_reward_ratio: 3.0        # Higher R:R for position trades
+      atr_multiplier: 5.0
+
+    trailing_stop:
+      enabled: true
+      activation_pct: 3.0
+      trail_pct: 1.5
+
+    max_drawdown_pct: 20.0          # More tolerance for long-term
+    max_daily_loss_pct: 5.0
+    max_consecutive_losses: 3
+
+  # ===========================================================================
+  # SESSIONS - Less sensitive to sessions for long-term
+  # ===========================================================================
+
+  sessions:
+    enabled: false                  # Sessions less relevant for investors
+
+    news_handling:
+      enabled: true
+      blackout_minutes_before: 60   # Longer blackout for major events
+      blackout_minutes_after: 60
+
+  # ===========================================================================
+  # DATA - More history required
+  # ===========================================================================
+
+  data:
+    min_history_candles: 1000       # Need more historical data
+    max_gap_minutes: 1440           # Allow larger gaps (daily data)
+
+  # ===========================================================================
+  # REGIME - Critical for long-term investing
+  # ===========================================================================
+
+  regime:
+    detection:
+      enabled: true
+      lookback_periods: 60          # 60 days for regime detection
+      volatility_threshold: 1.5
+      trend_strength_threshold: 25
+      use_adx: true
+      use_ma_slope: true
+      use_volatility_percentile: true
+
+    classification:
+      bull_market_threshold: 0.6
+      bear_market_threshold: -0.6
+      ranging_band: 0.2
+      include_cycle_analysis: true  # Add market cycle detection
+
+  # ===========================================================================
+  # BACKTESTING - Longer periods for statistical significance
+  # ===========================================================================
+
+  backtesting:
+    walk_forward:
+      enabled: true
+      train_periods: 756            # 3 years training
+      test_periods: 252             # 1 year testing
+      step_periods: 63              # Quarterly retraining
+
+    monte_carlo:
+      enabled: true
+      num_simulations: 5000         # More simulations for confidence
+      confidence_level: 0.99        # Higher confidence interval
+
+  # ===========================================================================
+  # LOGGING
+  # ===========================================================================
+
+  logging:
+    mlflow:
+      experiment_name: "investor_profile"

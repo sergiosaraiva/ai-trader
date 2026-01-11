@@ -1,0 +1,101 @@
+# Investor Timeframe Profile
+# ==========================
+# Optimized for long-term investment decisions with reduced noise
+# Target users: Position traders, long-term investors, portfolio managers
+#
+# Timeframe Selection Rationale:
+# - Follows the Factor of 4-7 Rule: 1D → 1W (7x) → 1M (~4x)
+# - 1D: Tactical timing with lowest noise for "fast" investor signals
+# - 1W: Standard for institutional position management, highly reliable
+# - 1M: Strategic allocation and regime detection, highest reliability
+
+profile:
+  name: "investor"
+  description: "Long-term investment profile for position traders and investors"
+  version: "1.0"
+
+  # Short-Term Model Configuration
+  # Purpose: Tactical adjustments and entry timing for investors
+  # Rationale: Daily provides lowest noise level for "fast" signals while
+  #            offering sufficient data points for training (252/year).
+  short_term:
+    candle_timeframe: "1D"
+    candle_minutes: 1440
+    input_window: 90               # 3 months of daily data (90 days)
+    min_history_required: 250      # Minimum candles needed for indicators
+    prediction_horizons:
+      - periods: 1
+        label: "1D"
+        description: "1 day ahead"
+      - periods: 3
+        label: "3D"
+        description: "3 days ahead"
+      - periods: 5
+        label: "5D"
+        description: "5 days ahead"
+      - periods: 7
+        label: "7D"
+        description: "7 days (1 week) ahead"
+
+  # Medium-Term Model Configuration
+  # Purpose: Position management and rebalancing signals
+  # Rationale: Weekly is standard for institutional position management.
+  #            Captures weekly cycles and options expiration effects.
+  #            7x factor from Daily. Weekly MACD/RSI highly reliable.
+  medium_term:
+    candle_timeframe: "1W"
+    candle_minutes: 10080
+    input_window: 52               # 1 year of weekly data (52 weeks)
+    min_history_required: 104      # Minimum candles needed (2 years)
+    prediction_horizons:
+      - periods: 1
+        label: "1W"
+        description: "1 week ahead"
+      - periods: 2
+        label: "2W"
+        description: "2 weeks ahead"
+      - periods: 4
+        label: "4W"
+        description: "4 weeks (1 month) ahead"
+
+  # Long-Term Model Configuration
+  # Purpose: Strategic allocation and market regime detection
+  # Rationale: Monthly has highest signal reliability for regime detection.
+  #            Best for identifying bull/bear phases. Limited data (12/year)
+  #            requires 3+ years historical data for meaningful training.
+  long_term:
+    candle_timeframe: "1M"
+    candle_minutes: 43200          # Approximately 30 days
+    input_window: 36               # 3 years of monthly data (36 months)
+    min_history_required: 60       # Minimum candles needed (5 years)
+    prediction_horizons:
+      - periods: 1
+        label: "1M"
+        description: "1 month ahead"
+      - periods: 2
+        label: "2M"
+        description: "2 months ahead"
+      - periods: 3
+        label: "3M"
+        description: "3 months (1 quarter) ahead"
+
+# Profile metadata
+metadata:
+  factor_progression: "1D → 1W (7x) → 1M (~4x)"
+  typical_holding_period: "weeks to months"
+  check_frequency: "weekly or monthly"
+  signal_noise_level: "low"
+  min_data_required: "3+ years (for monthly model)"
+  trading_opportunities: "infrequent but high quality"
+  suitable_for:
+    - "Long-term investing"
+    - "Position trading"
+    - "Portfolio rebalancing"
+    - "Strategic asset allocation"
+  not_suitable_for:
+    - "Day trading (use trader profile)"
+    - "Swing trading (use trader profile)"
+  data_considerations:
+    - "Monthly data limited to ~12 candles/year"
+    - "Requires 3+ years of historical data"
+    - "Weekly model needs 2+ years for best results"

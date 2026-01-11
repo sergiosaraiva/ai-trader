@@ -1,0 +1,62 @@
+# Short-term model configuration
+model:
+  name: short_term
+  version: "1.0.0"
+
+data:
+  sequence_length: 168  # 7 days of hourly data
+  prediction_horizon: [1, 4, 12, 24]
+  timeframe: "1H"
+  train_ratio: 0.7
+  val_ratio: 0.15
+
+architecture:
+  # CNN
+  cnn_filters: [64, 128, 256]
+  cnn_kernel_sizes: [3, 5, 7]
+  cnn_dropout: 0.2
+
+  # LSTM
+  lstm_hidden_size: 256
+  lstm_num_layers: 2
+  lstm_dropout: 0.3
+  lstm_bidirectional: true
+
+  # Attention
+  attention_heads: 8
+  attention_dim: 256
+
+training:
+  batch_size: 64
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  epochs: 100
+  early_stopping_patience: 15
+  gradient_clip: 1.0
+
+  optimizer: AdamW
+  scheduler: OneCycleLR
+
+  loss:
+    price: HuberLoss
+    direction: CrossEntropyLoss
+    volatility: GaussianNLLLoss
+
+  loss_weights:
+    price: 1.0
+    direction: 0.5
+    volatility: 0.3
+
+features:
+  # Reference to indicator configuration file
+  # See configs/indicators/short_term_indicators.yaml for full specification
+  indicators_config: configs/indicators/short_term_indicators.yaml
+
+  # Override specific indicators if needed (optional)
+  # indicators_override:
+  #   momentum:
+  #     rsi:
+  #       periods: [5, 10]
+
+  temporal_features: true
+  session_features: true

@@ -1,0 +1,66 @@
+# Medium-term model configuration
+model:
+  name: medium_term
+  version: "1.0.0"
+
+data:
+  sequence_length: 90  # 90 days of daily data
+  prediction_horizon: [1, 3, 5, 7]  # 1D, 3D, 5D, 7D ahead
+  timeframe: "1D"
+  train_ratio: 0.7
+  val_ratio: 0.15
+
+architecture:
+  # Temporal Fusion Transformer configuration
+  hidden_size: 256
+  attention_heads: 4
+  dropout: 0.1
+  hidden_continuous_size: 64
+  num_lstm_layers: 2
+
+  # Variable Selection
+  static_categoricals:
+    - currency_pair
+  time_varying_known:
+    - temporal_features
+  time_varying_unknown:
+    - price_features
+    - indicator_features
+
+  # Quantile outputs for uncertainty
+  quantiles: [0.1, 0.25, 0.5, 0.75, 0.9]
+
+training:
+  batch_size: 64
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  epochs: 100
+  early_stopping_patience: 15
+  gradient_clip: 1.0
+
+  optimizer: AdamW
+  scheduler: OneCycleLR
+
+  loss:
+    price: HuberLoss
+    direction: CrossEntropyLoss
+    volatility: GaussianNLLLoss
+
+  loss_weights:
+    price: 1.0
+    direction: 0.5
+    volatility: 0.3
+
+features:
+  # Reference to indicator configuration file
+  # See configs/indicators/medium_term_indicators.yaml for full specification
+  indicators_config: configs/indicators/medium_term_indicators.yaml
+
+  # Override specific indicators if needed (optional)
+  # indicators_override:
+  #   trend:
+  #     sma:
+  #       periods: [10, 20, 50, 100]
+
+  temporal_features: true
+  session_features: false  # Less relevant for daily

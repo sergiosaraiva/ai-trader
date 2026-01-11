@@ -1,0 +1,100 @@
+# Trader Timeframe Profile
+# ========================
+# Optimized for active trading with faster decision cycles
+# Target users: Day traders, swing traders, active position traders
+#
+# Timeframe Selection Rationale:
+# - Follows the Factor of 4-6 Rule: 1H → 4H (4x) → 1D (6x)
+# - 1H: Optimal signal-to-noise for ML-based intraday prediction
+# - 4H: Industry standard for swing trading, filters intraday noise
+# - 1D: Gold standard for position trading, where indicators were designed
+
+profile:
+  name: "trader"
+  description: "Active trading profile for day/swing traders"
+  version: "1.0"
+
+  # Short-Term Model Configuration
+  # Purpose: Intraday signals for day trading
+  # Rationale: 1H provides optimal balance - clean enough for pattern recognition
+  #            while capturing intraday dynamics. Widely used by quant firms.
+  short_term:
+    candle_timeframe: "1H"
+    candle_minutes: 60
+    input_window: 168              # 7 days of hourly data (168 hours)
+    min_history_required: 200      # Minimum candles needed for indicators
+    prediction_horizons:
+      - periods: 1
+        label: "1H"
+        description: "1 hour ahead"
+      - periods: 4
+        label: "4H"
+        description: "4 hours ahead"
+      - periods: 12
+        label: "12H"
+        description: "12 hours ahead"
+      - periods: 24
+        label: "24H"
+        description: "24 hours (1 day) ahead"
+
+  # Medium-Term Model Configuration
+  # Purpose: Swing trading signals for multi-day positions
+  # Rationale: 4H is industry standard for swing trading. 4x factor from 1H
+  #            provides distinct perspective while filtering intraday noise.
+  medium_term:
+    candle_timeframe: "4H"
+    candle_minutes: 240
+    input_window: 180              # 30 days of 4H data (180 candles)
+    min_history_required: 250      # Minimum candles needed for indicators
+    prediction_horizons:
+      - periods: 1
+        label: "4H"
+        description: "4 hours ahead"
+      - periods: 3
+        label: "12H"
+        description: "12 hours ahead"
+      - periods: 6
+        label: "24H"
+        description: "24 hours (1 day) ahead"
+      - periods: 12
+        label: "48H"
+        description: "48 hours (2 days) ahead"
+
+  # Long-Term Model Configuration
+  # Purpose: Position trading signals and trend context
+  # Rationale: Daily is gold standard - technical indicators (RSI, MACD) were
+  #            originally designed for daily data. 6x factor from 4H.
+  long_term:
+    candle_timeframe: "1D"
+    candle_minutes: 1440
+    input_window: 90               # 3 months of daily data (90 days)
+    min_history_required: 250      # Minimum candles needed for indicators
+    prediction_horizons:
+      - periods: 1
+        label: "1D"
+        description: "1 day ahead"
+      - periods: 3
+        label: "3D"
+        description: "3 days ahead"
+      - periods: 5
+        label: "5D"
+        description: "5 days ahead"
+      - periods: 7
+        label: "7D"
+        description: "7 days (1 week) ahead"
+
+# Profile metadata
+metadata:
+  factor_progression: "1H → 4H (4x) → 1D (6x)"
+  typical_holding_period: "hours to weeks"
+  check_frequency: "multiple times per day"
+  signal_noise_level: "medium"
+  min_data_required: "1 year"
+  trading_opportunities: "frequent"
+  suitable_for:
+    - "Day trading"
+    - "Swing trading"
+    - "Active position trading"
+  not_suitable_for:
+    - "High-frequency trading (use lower timeframes)"
+    - "Long-term investing (use investor profile)"

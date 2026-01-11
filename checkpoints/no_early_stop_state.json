@@ -1,0 +1,77 @@
+{
+  "current_epoch": 3,
+  "total_epochs": 3,
+  "best_epoch": 3,
+  "best_val_loss": 3.441393595475417,
+  "best_val_metric": 3.441393595475417,
+  "monitor_metric": "val_loss",
+  "epochs_without_improvement": 0,
+  "global_step": 0,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 4.240361251083075,
+      "val_loss": 4.742261959956243,
+      "train_metrics": {
+        "price": 0.40788692119074804,
+        "direction": 1.0244289543114455,
+        "confidence": 2.8080453872680664,
+        "total": 4.240361251083075
+      },
+      "val_metrics": {
+        "price": 0.5711000882662259,
+        "direction": 0.9714637490419241,
+        "confidence": 3.199698044703557,
+        "total": 4.742261959956243
+      },
+      "learning_rate": 0.0001,
+      "duration_seconds": 0.8595454692840576,
+      "timestamp": "2026-01-09T09:04:12.174884"
+    },
+    {
+      "epoch": 2,
+      "train_loss": 3.649710734685262,
+      "val_loss": 3.9117386524493876,
+      "train_metrics": {
+        "price": 0.41722624091541066,
+        "direction": 0.9903153064204198,
+        "confidence": 2.2421691511191573,
+        "total": 3.649710734685262
+      },
+      "val_metrics": {
+        "price": 0.5477715730667114,
+        "direction": 0.9017595786314744,
+        "confidence": 2.4622074640714207,
+        "total": 3.9117386524493876
+      },
+      "learning_rate": 0.0001,
+      "duration_seconds": 1.1390483379364014,
+      "timestamp": "2026-01-09T09:04:13.387927"
+    },
+    {
+      "epoch": 3,
+      "train_loss": 3.1843159105263505,
+      "val_loss": 3.441393595475417,
+      "train_metrics": {
+        "price": 0.39752838015556335,
+        "direction": 0.9848297974642586,
+        "confidence": 1.8019577743960362,
+        "total": 3.1843159105263505
+      },
+      "val_metrics": {
+        "price": 0.5390362922961895,
+        "direction": 0.9069444491313055,
+        "confidence": 1.9954129549173207,
+        "total": 3.441393595475417
+      },
+      "learning_rate": 0.0001,
+      "duration_seconds": 0.7146430015563965,
+      "timestamp": "2026-01-09T09:04:14.168137"
+    }
+  ],
+  "status": "completed",
+  "stop_reason": null,
+  "started_at": "2026-01-09T09:04:11.315320",
+  "ended_at": "2026-01-09T09:04:14.237831",
+  "total_duration_seconds": 2.922511
+}

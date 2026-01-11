@@ -1,0 +1,230 @@
+# Medium-Term Model (Swing Trading) - Technical Indicators Configuration
+# Timeframe: Daily candles
+# Focus: Balanced signals, trend confirmation, volume validation
+# Approximate feature count: ~54
+
+version: "1.0"
+model_type: medium_term
+
+indicators:
+  enabled_categories:
+    - trend
+    - momentum
+    - volatility
+    - volume
+
+  # =============================================================================
+  # TREND INDICATORS
+  # Focus on standard MA periods and trend strength indicators
+  # =============================================================================
+  trend:
+    sma:
+      enabled: true
+      periods: [20, 50, 100, 200]
+      priority: P0  # Critical - major support/resistance levels
+
+    ema:
+      enabled: true
+      periods: [12, 26, 50]
+      priority: P0
+
+    adx:
+      enabled: true
+      period: 14
+      include_di: true  # Include +DI and -DI
+      priority: P0  # Critical for trend strength
+
+    aroon:
+      enabled: true
+      period: 25
+      include_oscillator: true
+      priority: P2
+
+    parabolic_sar:
+      enabled: true
+      priority: P2
+
+    supertrend:
+      enabled: false
+      period: 10
+      multiplier: 3.0
+      priority: P3
+
+  # =============================================================================
+  # MOMENTUM INDICATORS
+  # Focus on standard periods with multiple confirmation signals
+  # =============================================================================
+  momentum:
+    rsi:
+      enabled: true
+      periods: [14]
+      overbought: 70
+      oversold: 30
+      priority: P0  # Critical
+
+    stochastic:
+      enabled: true
+      k_period: 14
+      d_period: 3
+      smooth_k: 3
+      priority: P1
+
+    macd:
+      enabled: true
+      fast_period: 12
+      slow_period: 26
+      signal_period: 9
+      priority: P0  # Critical for swing trading
+
+    cci:
+      enabled: true
+      period: 20
+      priority: P1  # Good for cyclical patterns
+
+    roc:
+      enabled: true
+      period: 14
+      priority: P2
+
+    mfi:
+      enabled: true
+      period: 14
+      priority: P1
+
+    tsi:
+      enabled: true
+      fast_period: 13
+      slow_period: 25
+      priority: P2
+
+    williams_r:
+      enabled: false
+      period: 14
+      priority: P3
+
+    momentum:
+      enabled: false
+      period: 10
+      priority: P3
+
+    ultimate_oscillator:
+      enabled: false
+      period1: 7
+      period2: 14
+      period3: 28
+      priority: P3
+
+  # =============================================================================
+  # VOLATILITY INDICATORS
+  # Focus on multiple volatility measures for regime detection
+  # =============================================================================
+  volatility:
+    atr:
+      enabled: true
+      period: 14
+      normalized: true  # Include NATR
+      priority: P0  # Critical for risk management
+
+    bollinger:
+      enabled: true
+      period: 20
+      std_dev: 2.0
+      include_width: true
+      include_percent_b: true
+      priority: P1
+
+    keltner:
+      enabled: true
+      period: 20
+      multiplier: 2.0
+      priority: P2  # Useful for squeeze detection with Bollinger
+
+    donchian:
+      enabled: false
+      period: 20
+      priority: P3
+
+    historical_volatility:
+      enabled: true
+      period: 20
+      priority: P2
+
+  # =============================================================================
+  # VOLUME INDICATORS
+  # Focus on volume confirmation and money flow
+  # =============================================================================
+  volume:
+    obv:
+      enabled: true
+      priority: P1  # Important for accumulation/distribution
+
+    cmf:
+      enabled: true
+      period: 20
+      priority: P2
+
+    ad_line:
+      enabled: true
+      priority: P2
+
+    vpt:
+      enabled: true
+      priority: P3
+
+    vwap:
+      enabled: false  # Less useful for daily
+      priority: P3
+
+    force_index:
+      enabled: false
+      period: 13
+      priority: P3
+
+  # =============================================================================
+  # DERIVED/ENGINEERED FEATURES
+  # =============================================================================
+  derived:
+    price_to_ma:
+      enabled: true
+      ma_types:
+        - type: sma
+          periods: [20, 50, 200]
+        - type: ema
+          periods: [50]
+
+    ma_crossovers:
+      enabled: true
+      pairs:
+        - fast: 20
+          slow: 50
+          type: sma
+        - fast: 50
+          slow: 200
+          type: sma
+        - fast: 12
+          slow: 26
+          type: ema
+
+    rsi_divergence:
+      enabled: true
+      rsi_period: 14
+      lookback: 30
+
+    macd_divergence:
+      enabled: true
+      lookback: 30
+
+    support_resistance:
+      enabled: true
+      lookback: 20
+      method: pivot  # pivot, fractal, or rolling
+
+# =============================================================================
+# FEATURE SUMMARY
+# =============================================================================
+# Trend:      SMA(4) + EMA(3) + ADX(3) + Aroon(3) + PSAR = ~15 features
+# Momentum:   RSI + Stoch(2) + MACD(3) + CCI + ROC + MFI + TSI = ~11 features
+# Volatility: ATR(2) + BB(5) + KC(3) + HV = ~11 features
+# Volume:     OBV + CMF + AD + VPT = ~4 features
+# Derived:    Price-to-MA(6) + Crossovers(3) + Divs(2) + S/R = ~13 features
+# TOTAL:      ~54 features

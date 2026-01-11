@@ -1,0 +1,845 @@
+# =============================================================================
+# BASE PROFILE - Default Configuration
+# =============================================================================
+# All other profiles inherit from this base profile.
+# Override only the values you need to change in child profiles.
+#
+# Profile Hierarchy:
+#   base.yaml
+#     ├── scalper.yaml
+#     ├── trader.yaml
+#     └── investor.yaml
+#
+# Asset Profiles (merged on top):
+#   assets/forex.yaml
+#   assets/crypto.yaml
+#   assets/stocks.yaml
+# =============================================================================
+
+profile:
+  name: "base"
+  version: "1.0"
+  description: "Base profile with all default configurations"
+  inherits: null  # Base profile has no parent
+
+  # ===========================================================================
+  # TIMEFRAMES
+  # ===========================================================================
+  # Defines candle intervals, input windows, and prediction horizons
+  # for each model tier (short, medium, long term)
+
+  timeframes:
+    short_term:
+      candle_minutes: 60          # 1H candles
+      input_window: 168           # 7 days of data
+      min_history_required: 200   # Minimum candles for indicators
+      prediction_horizons:
+        - {periods: 1, label: "1H"}
+        - {periods: 4, label: "4H"}
+        - {periods: 12, label: "12H"}
+        - {periods: 24, label: "24H"}
+
+    medium_term:
+      candle_minutes: 240         # 4H candles
+      input_window: 180           # 30 days of data
+      min_history_required: 250
+      prediction_horizons:
+        - {periods: 1, label: "4H"}
+        - {periods: 3, label: "12H"}
+        - {periods: 6, label: "24H"}
+        - {periods: 12, label: "48H"}
+
+    long_term:
+      candle_minutes: 1440        # Daily candles
+      input_window: 90            # 3 months of data
+      min_history_required: 250
+      prediction_horizons:
+        - {periods: 1, label: "1D"}
+        - {periods: 3, label: "3D"}
+        - {periods: 5, label: "5D"}
+        - {periods: 7, label: "7D"}
+
+  # ===========================================================================
+  # TECHNICAL INDICATORS
+  # ===========================================================================
+  # Configurable per timeframe tier
+  # Priority levels: P0 (critical), P1 (important), P2 (useful), P3 (optional)
+
+  indicators:
+    short_term:
+      # Trend indicators - fast response
+      trend:
+        sma:
+          enabled: true
+          periods: [20, 50]
+          priority: P1
+        ema:
+          enabled: true
+          periods: [8, 13, 21, 55]
+          priority: P0
+        supertrend:
+          enabled: true
+          period: 10
+          multiplier: 3.0
+          priority: P1
+        adx:
+          enabled: false
+          period: 14
+          priority: P2
+
+      # Momentum indicators - quick reversals
+      momentum:
+        rsi:
+          enabled: true
+          periods: [7, 14]
+          overbought: 70
+          oversold: 30
+          priority: P0
+        macd:
+          enabled: true
+          fast: 12
+          slow: 26
+          signal: 9
+          priority: P0
+        stochastic:
+          enabled: true
+          k_period: 5
+          d_period: 3
+          smooth_k: 3
+          priority: P1
+        williams_r:
+          enabled: true
+          period: 14
+          priority: P2
+        mfi:
+          enabled: true
+          period: 14
+          priority: P2
+        cci:
+          enabled: false
+          period: 20
+          priority: P3
+        momentum:
+          enabled: true
+          period: 10
+          priority: P2
+
+      # Volatility indicators
+      volatility:
+        atr:
+          enabled: true
+          period: 14
+          normalized: true
+          priority: P0
+        bollinger:
+          enabled: true
+          period: 20
+          std_dev: 2.0
+          include_width: true
+          include_percent_b: true
+          priority: P1
+        keltner:
+          enabled: false
+          period: 20
+          multiplier: 2.0
+          priority: P3
+
+      # Volume indicators
+      volume:
+        obv:
+          enabled: true
+          priority: P1
+        vwap:
+          enabled: true
+          priority: P1
+        force_index:
+          enabled: true
+          period: 13
+          priority: P2
+
+      # Derived features (TODO: implement in future)
+      # These require additional implementation beyond basic indicators
+      # - price_to_ma: Price distance from moving averages
+      # - ma_crossovers: Moving average crossover signals
+      # - rsi_divergence: RSI divergence detection
+
+    medium_term:
+      trend:
+        sma:
+          enabled: true
+          periods: [20, 50, 100, 200]
+          priority: P0
+        ema:
+          enabled: true
+          periods: [12, 26, 50]
+          priority: P1
+        adx:
+          enabled: true
+          period: 14
+          include_di: true
+          priority: P0
+        aroon:
+          enabled: true
+          period: 25
+          include_oscillator: true
+          priority: P2
+        parabolic_sar:
+          enabled: true
+          priority: P2
+
+      momentum:
+        rsi:
+          enabled: true
+          periods: [14]
+          overbought: 70
+          oversold: 30
+          priority: P0
+        macd:
+          enabled: true
+          fast: 12
+          slow: 26
+          signal: 9
+          priority: P0
+        stochastic:
+          enabled: true
+          k_period: 14
+          d_period: 3
+          smooth_k: 3
+          priority: P1
+        cci:
+          enabled: true
+          period: 20
+          priority: P1
+        roc:
+          enabled: true
+          period: 14
+          priority: P2
+        mfi:
+          enabled: true
+          period: 14
+          priority: P1
+        tsi:
+          enabled: true
+          fast: 13
+          slow: 25
+          priority: P2
+
+      volatility:
+        atr:
+          enabled: true
+          period: 14
+          normalized: true
+          priority: P0
+        bollinger:
+          enabled: true
+          period: 20
+          std_dev: 2.0
+          include_width: true
+          include_percent_b: true
+          priority: P1
+        keltner:
+          enabled: true
+          period: 20
+          multiplier: 2.0
+          priority: P2
+        historical_volatility:
+          enabled: true
+          period: 20
+          priority: P2
+
+      volume:
+        obv:
+          enabled: true
+          priority: P1
+        cmf:
+          enabled: true
+          period: 20
+          priority: P1
+        ad_line:
+          enabled: true
+          priority: P2
+        vpt:
+          enabled: true
+          priority: P2
+
+      # Derived features (TODO: implement in future)
+      # - price_to_ma, ma_crossovers, macd_divergence
+      # - rsi_divergence, support_resistance
+
+    long_term:
+      trend:
+        sma:
+          enabled: true
+          periods: [20, 50, 200]
+          priority: P0
+        ema:
+          enabled: true
+          periods: [12, 26]
+          priority: P1
+        adx:
+          enabled: true
+          period: 14
+          include_di: true
+          priority: P0
+        aroon:
+          enabled: true
+          period: 25
+          include_oscillator: true
+          priority: P1
+        ichimoku:
+          enabled: true
+          tenkan: 9
+          kijun: 26
+          senkou_b: 52
+          priority: P2
+        parabolic_sar:
+          enabled: true
+          priority: P2
+
+      momentum:
+        rsi:
+          enabled: true
+          periods: [14]
+          overbought: 70
+          oversold: 30
+          priority: P0
+        macd:
+          enabled: true
+          fast: 12
+          slow: 26
+          signal: 9
+          priority: P0
+        roc:
+          enabled: true
+          periods: [10, 20]
+          priority: P2
+        ultimate_oscillator:
+          enabled: true
+          period1: 7
+          period2: 14
+          period3: 28
+          priority: P3
+
+      volatility:
+        atr:
+          enabled: true
+          period: 14
+          normalized: true
+          priority: P0
+        bollinger:
+          enabled: true
+          period: 20
+          std_dev: 2.0
+          include_width: true
+          priority: P1
+        donchian:
+          enabled: true
+          period: 20
+          priority: P1
+        historical_volatility:
+          enabled: true
+          periods: [10, 20]
+          priority: P2
+
+      volume:
+        obv:
+          enabled: true
+          priority: P1
+
+      # Derived features (TODO: implement in future)
+      # - price_to_ma, ma_crossovers, regime_detection
+
+  # ===========================================================================
+  # MODEL ARCHITECTURE
+  # ===========================================================================
+  # Neural network configurations per timeframe tier
+
+  models:
+    short_term:
+      architecture: "cnn_lstm_attention"
+
+      cnn:
+        filters: [64, 128, 256]
+        kernel_sizes: [3, 5, 7]
+        dropout: 0.2
+        activation: "relu"
+        batch_norm: true
+
+      lstm:
+        hidden_size: 256
+        num_layers: 2
+        dropout: 0.3
+        bidirectional: true
+
+      attention:
+        heads: 8
+        dim: 256
+        dropout: 0.1
+
+      output:
+        features: ["price", "direction", "volatility"]
+        direction_classes: 3  # up, down, neutral
+
+    medium_term:
+      architecture: "temporal_fusion_transformer"
+
+      hidden_size: 256
+      attention_heads: 4
+      dropout: 0.1
+      hidden_continuous_size: 64
+      num_lstm_layers: 2
+
+      variable_selection:
+        static_categoricals: ["symbol"]
+        time_varying_known: ["temporal_features"]
+        time_varying_unknown: ["price_and_indicators"]
+
+      quantiles: [0.1, 0.25, 0.5, 0.75, 0.9]
+
+    long_term:
+      architecture: "nbeats_transformer"
+
+      nbeats:
+        stacks: 30
+        blocks: 3
+        layers: 4
+        width: 256
+        sharing: true
+
+      transformer:
+        heads: 8
+        layers: 4
+        dim: 512
+        dropout: 0.1
+
+      regime_detection:
+        enabled: true
+        classes: ["trending_up", "trending_down", "ranging", "volatile"]
+
+  # ===========================================================================
+  # TRAINING CONFIGURATION
+  # ===========================================================================
+
+  training:
+    # Optimizer settings
+    optimizer: "AdamW"
+    learning_rate: 0.0001
+    weight_decay: 0.00001
+    betas: [0.9, 0.999]
+
+    # Scheduler
+    scheduler: "OneCycleLR"
+    scheduler_params:
+      max_lr: 0.001
+      pct_start: 0.3
+
+    # Training loop
+    batch_size: 64
+    epochs: 100
+    early_stopping_patience: 15
+    gradient_clip: 1.0
+
+    # Loss functions
+    loss_functions:
+      price: "HuberLoss"
+      direction: "CrossEntropyLoss"
+      volatility: "GaussianNLLLoss"
+
+    loss_weights:
+      price: 1.0
+      direction: 0.5
+      volatility: 0.3
+
+    # Regularization
+    dropout: 0.3
+    label_smoothing: 0.1
+
+    # Data augmentation
+    augmentation:
+      enabled: true
+      noise_injection: 0.01
+      time_masking: 0.1
+
+    # Validation strategy
+    validation:
+      method: "walk_forward"
+      n_splits: 5
+      train_ratio: 0.7
+      val_ratio: 0.15
+      test_ratio: 0.15
+
+    # Checkpointing
+    save_best_only: true
+    save_frequency: 10  # Save every N epochs
+
+    # Hardware
+    device: "auto"  # auto, cuda, cpu, mps
+    num_workers: 4
+    pin_memory: true
+
+  # ===========================================================================
+  # ENSEMBLE CONFIGURATION
+  # ===========================================================================
+
+  ensemble:
+    method: "weighted_average"  # weighted_average, stacking, attention
+
+    # Base weights for combining predictions
+    base_weights:
+      short_term: 0.25
+      medium_term: 0.35
+      long_term: 0.40
+
+    # Dynamic weight adjustment
+    dynamic_adjustment:
+      enabled: true
+
+      # Regime-based weight adjustment
+      regime_weights:
+        trending_up:
+          short_term: 0.20
+          medium_term: 0.35
+          long_term: 0.45
+        trending_down:
+          short_term: 0.20
+          medium_term: 0.35
+          long_term: 0.45
+        ranging:
+          short_term: 0.40
+          medium_term: 0.35
+          long_term: 0.25
+        volatile:
+          short_term: 0.35
+          medium_term: 0.40
+          long_term: 0.25
+
+      # Performance-based adjustment
+      performance_lookback_periods: 20
+      performance_weight_factor: 0.2
+      min_weight: 0.1
+      max_weight: 0.6
+
+    # Confidence aggregation
+    confidence_method: "weighted_average"  # weighted_average, min, product
+
+    # Meta-model (for stacking method)
+    meta_model:
+      type: "gradient_boosting"
+      features: ["predictions", "confidences", "regime", "volatility"]
+
+  # ===========================================================================
+  # SIGNAL GENERATION
+  # ===========================================================================
+
+  signals:
+    # Confidence thresholds
+    min_confidence: 0.6
+    high_confidence: 0.8
+
+    # Signal thresholds
+    buy_threshold: 0.3
+    sell_threshold: -0.3
+    strong_buy_threshold: 0.5
+    strong_sell_threshold: -0.5
+
+    # Neutral zone (no action)
+    neutral_zone:
+      lower: -0.15
+      upper: 0.15
+
+    # Multi-timeframe alignment
+    require_alignment: false
+    min_aligned_models: 2
+    alignment_bonus: 0.1  # Confidence boost when aligned
+
+    # Signal smoothing
+    smoothing:
+      enabled: true
+      method: "ema"
+      period: 3
+
+    # Cooldown between signals
+    cooldown_periods: 1
+
+  # ===========================================================================
+  # RISK MANAGEMENT
+  # ===========================================================================
+
+  risk:
+    # Position sizing
+    position_sizing:
+      method: "risk_parity"  # fixed, risk_parity, kelly, volatility_adjusted
+      max_position_pct: 2.0
+      max_total_exposure_pct: 10.0
+      risk_per_trade_pct: 1.0
+
+    # Stop loss
+    stop_loss:
+      enabled: true
+      method: "atr"  # atr, fixed_pct, support_resistance, trailing
+      atr_multiplier: 2.0
+      fixed_pct: 1.5
+      min_pct: 0.5
+      max_pct: 5.0
+
+    # Take profit
+    take_profit:
+      enabled: true
+      method: "risk_reward"  # risk_reward, atr, fixed_pct, resistance
+      risk_reward_ratio: 2.0
+      atr_multiplier: 3.0
+      fixed_pct: 3.0
+
+    # Trailing stop
+    trailing_stop:
+      enabled: true
+      activation_pct: 1.0
+      trail_pct: 0.5
+      trail_method: "percent"  # percent, atr
+      atr_multiplier: 1.5
+
+    # Portfolio risk limits
+    max_drawdown_pct: 15.0
+    max_daily_loss_pct: 3.0
+    max_consecutive_losses: 5
+
+    # Correlation limits
+    max_correlated_positions: 3
+    correlation_threshold: 0.7
+
+  # ===========================================================================
+  # DATA CONFIGURATION
+  # ===========================================================================
+
+  data:
+    # Data quality requirements
+    min_history_candles: 500
+    max_gap_minutes: 60
+    min_volume: 0
+
+    # Gap handling
+    gap_handling:
+      method: "forward_fill"  # forward_fill, interpolate, drop, mark
+      max_consecutive_gaps: 5
+
+    # Normalization
+    normalization:
+      method: "zscore"  # zscore, minmax, robust, none
+      lookback_window: 100
+      clip_outliers: true
+      outlier_std: 3.0
+
+    # Feature engineering
+    feature_engineering:
+      log_returns: true
+      price_ratios: true
+      candle_patterns: true
+      time_features: true
+
+    # Data splits (must be chronological)
+    splits:
+      train_pct: 70
+      val_pct: 15
+      test_pct: 15
+      method: "chronological"
+      purge_gap: 0  # Gap between train/val/test to prevent leakage
+
+  # ===========================================================================
+  # MARKET REGIME DETECTION
+  # ===========================================================================
+
+  regime:
+    enabled: true
+    method: "composite"  # adx_volatility, hmm, clustering, composite
+
+    # ADX-based trend detection
+    adx:
+      trending_threshold: 25
+      strong_trend_threshold: 40
+
+    # Volatility regime
+    volatility:
+      method: "percentile"  # percentile, std, atr
+      high_volatility_percentile: 80
+      low_volatility_percentile: 20
+      lookback_periods: 20
+
+    # Regime change smoothing
+    smoothing:
+      enabled: true
+      min_periods: 3
+      confirmation_periods: 2
+
+    # Regime labels
+    labels: ["trending_up", "trending_down", "ranging", "volatile"]
+
+  # ===========================================================================
+  # TRADING SESSIONS
+  # ===========================================================================
+
+  sessions:
+    enabled: true
+    timezone: "UTC"
+    # Note: Times are standard (non-DST). During DST, add 1 hour.
+
+    # Define active trading sessions (standard UTC times)
+    active_sessions:
+      - name: "Sydney"
+        start: "21:00"
+        end: "06:00"
+        weight: 0.8
+      - name: "Tokyo"
+        start: "23:00"              # 23:00-08:00 UTC
+        end: "08:00"
+        weight: 0.9
+      - name: "London"
+        start: "07:00"              # 07:00-16:00 UTC (~35% of volume)
+        end: "16:00"
+        weight: 1.2
+      - name: "NewYork"
+        start: "12:00"              # 12:00-21:00 UTC (~20% of volume)
+        end: "21:00"
+        weight: 1.2
+
+    # Session overlap bonus
+    overlap_weight_bonus: 1.3
+
+    # Low liquidity periods
+    avoid_low_liquidity: true
+    low_liquidity_weight: 0.5
+
+    # News handling
+    news_handling:
+      enabled: true
+      blackout_minutes_before: 30
+      blackout_minutes_after: 15
+      high_impact_only: true
+
+  # ===========================================================================
+  # ASSET SETTINGS (Default - Override in asset profiles)
+  # ===========================================================================
+
+  asset:
+    type: "forex"  # forex, crypto, stocks, futures
+
+    # Spread and costs
+    default_spread_pips: 1.0
+    max_spread_pips: 3.0
+    commission_per_lot: 0.0
+
+    # Contract specifications
+    pip_value: 0.0001
+    pip_location: 4  # Decimal places
+    contract_size: 100000
+    min_lot_size: 0.01
+    lot_step: 0.01
+
+    # Margin requirements
+    margin_requirement: 0.01  # 1% = 100:1 leverage
+
+    # Trading hours
+    trading_hours:
+      enabled: false  # Forex is 24/5
+      start: "00:00"
+      end: "23:59"
+
+    # Specific pair settings (can be overridden)
+    pair_settings: {}
+
+  # ===========================================================================
+  # EXECUTION
+  # ===========================================================================
+
+  execution:
+    mode: "backtest"  # backtest, paper, live
+
+    # Order settings
+    order_type: "market"  # market, limit, stop
+    limit_offset_pips: 1.0
+
+    # Slippage model
+    slippage:
+      enabled: true
+      model: "random"  # fixed, random, volume_based
+      fixed_pips: 0.5
+      random_max_pips: 1.0
+
+    # Execution retry
+    retry:
+      enabled: true
+      max_attempts: 3
+      delay_seconds: 1
+
+    # Partial fills
+    allow_partial_fills: true
+    min_fill_pct: 50
+
+  # ===========================================================================
+  # BACKTESTING
+  # ===========================================================================
+
+  backtesting:
+    # Capital
+    initial_capital: 100000
+    currency: "USD"
+
+    # Costs
+    commission_model: "per_trade"  # per_trade, per_lot, percentage
+    commission_value: 0.0
+    spread_model: "variable"  # fixed, variable, historical
+
+    # Walk-forward optimization
+    walk_forward:
+      enabled: true
+      train_periods: 252
+      test_periods: 63
+      step_periods: 21
+      min_train_periods: 126
+
+    # Monte Carlo simulation
+    monte_carlo:
+      enabled: false
+      num_simulations: 1000
+      confidence_level: 0.95
+
+    # Performance metrics to track
+    metrics:
+      - "total_return"
+      - "sharpe_ratio"
+      - "sortino_ratio"
+      - "max_drawdown"
+      - "win_rate"
+      - "profit_factor"
+      - "calmar_ratio"
+      - "avg_trade_duration"
+
+  # ===========================================================================
+  # LOGGING & MONITORING
+  # ===========================================================================
+
+  logging:
+    level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+    # What to save
+    save_predictions: true
+    save_signals: true
+    save_trades: true
+    save_portfolio: true
+
+    # MLflow integration
+    mlflow:
+      enabled: true
+      tracking_uri: "mlruns"
+      experiment_name: "base_profile"
+      log_models: true
+      log_artifacts: true
+
+    # Alerting
+    alerts:
+      enabled: false
+      channels: []  # email, slack, telegram
+      triggers:
+        - type: "drawdown"
+          threshold: 10.0
+        - type: "consecutive_losses"
+          threshold: 3

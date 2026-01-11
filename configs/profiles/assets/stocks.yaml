@@ -1,0 +1,472 @@
+# =============================================================================
+# STOCKS ASSET PROFILE
+# =============================================================================
+# Asset-specific configuration for stock/equity trading
+# Applies to: AAPL, MSFT, SPY, QQQ, etc.
+#
+# This profile is merged with a trading profile (scalper, trader, investor)
+# Asset settings override trading profile's asset section
+# =============================================================================
+
+asset:
+  class: "stocks"
+  version: "1.0"
+  description: "Configuration for stocks and ETFs"
+
+  # ===========================================================================
+  # MARKET CHARACTERISTICS
+  # ===========================================================================
+
+  market:
+    type: "equity"
+    trading_hours: "regular"        # Fixed trading hours
+
+    # US Market hours (primary)
+    us_market:
+      regular_open: "09:30 EST"
+      regular_close: "16:00 EST"
+      pre_market_open: "04:00 EST"
+      pre_market_close: "09:30 EST"
+      after_hours_open: "16:00 EST"
+      after_hours_close: "20:00 EST"
+
+    # Settlement
+    settlement: "T+2"               # T+2 for US stocks
+
+    # Leverage
+    leverage_available: true
+    max_leverage: 4                 # Reg T margin (2:1 overnight, 4:1 intraday)
+
+    # PDT Rule (US)
+    pdt_rule:
+      enabled: true
+      min_equity: 25000
+      applies_to: "margin_accounts"
+      description: "Pattern Day Trader rule limits day trades to 3 per 5 days under $25k"
+
+  # ===========================================================================
+  # TRADING SESSIONS
+  # ===========================================================================
+
+  sessions:
+    enabled: true
+    timezone: "America/New_York"
+
+    session_types:
+      - name: "Pre-Market"
+        start: "04:00"
+        end: "09:30"
+        weight: 0.6
+        characteristics: "Low liquidity, wide spreads, gap fills"
+        trade_enabled: true
+        reduce_position_size: true
+        position_size_multiplier: 0.5
+
+      - name: "Market_Open"
+        start: "09:30"
+        end: "10:30"
+        weight: 1.3
+        characteristics: "High volatility, gap plays, momentum"
+        trade_enabled: true
+
+      - name: "Mid-Day"
+        start: "10:30"
+        end: "14:00"
+        weight: 0.9
+        characteristics: "Lower volatility, lunch lull"
+        trade_enabled: true
+
+      - name: "Power_Hour"
+        start: "15:00"
+        end: "16:00"
+        weight: 1.2
+        characteristics: "Increased activity, end-of-day moves"
+        trade_enabled: true
+
+      - name: "After_Hours"
+        start: "16:00"
+        end: "20:00"
+        weight: 0.5
+        characteristics: "Low liquidity, earnings reactions"
+        trade_enabled: true
+        reduce_position_size: true
+        position_size_multiplier: 0.3
+
+    # Closed periods
+    closed_days:
+      - "Saturday"
+      - "Sunday"
+
+    holidays:
+      - name: "New Years Day"
+        date: "January 1"
+      - name: "MLK Day"
+        date: "Third Monday of January"
+      - name: "Presidents Day"
+        date: "Third Monday of February"
+      - name: "Good Friday"
+        date: "Variable"
+      - name: "Memorial Day"
+        date: "Last Monday of May"
+      - name: "Independence Day"
+        date: "July 4"
+      - name: "Labor Day"
+        date: "First Monday of September"
+      - name: "Thanksgiving"
+        date: "Fourth Thursday of November"
+      - name: "Christmas"
+        date: "December 25"
+
+    half_days:
+      - "Day before Independence Day"
+      - "Day after Thanksgiving"
+      - "Christmas Eve"
+
+  # ===========================================================================
+  # INSTRUMENT SETTINGS
+  # ===========================================================================
+
+  instruments:
+    # Index ETFs
+    index_etfs:
+      - symbol: "SPY"
+        description: "S&P 500 ETF"
+        tick_size: 0.01
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "medium"
+        beta: 1.0
+        sector: "index"
+
+      - symbol: "QQQ"
+        description: "Nasdaq 100 ETF"
+        tick_size: 0.01
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "medium_high"
+        beta: 1.1
+        sector: "index"
+
+      - symbol: "IWM"
+        description: "Russell 2000 ETF"
+        tick_size: 0.01
+        typical_spread: 0.01
+        liquidity: "high"
+        volatility: "high"
+        beta: 1.2
+        sector: "index"
+
+      - symbol: "DIA"
+        description: "Dow Jones ETF"
+        tick_size: 0.01
+        typical_spread: 0.01
+        liquidity: "high"
+        volatility: "medium"
+        beta: 0.95
+        sector: "index"
+
+    # Sector ETFs
+    sector_etfs:
+      - symbol: "XLK"
+        sector: "technology"
+        beta: 1.15
+
+      - symbol: "XLF"
+        sector: "financials"
+        beta: 1.1
+
+      - symbol: "XLE"
+        sector: "energy"
+        beta: 1.3
+
+      - symbol: "XLV"
+        sector: "healthcare"
+        beta: 0.85
+
+    # Large-cap stocks
+    large_cap:
+      - symbol: "AAPL"
+        sector: "technology"
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "medium"
+
+      - symbol: "MSFT"
+        sector: "technology"
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "medium"
+
+      - symbol: "GOOGL"
+        sector: "technology"
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "medium_high"
+
+      - symbol: "AMZN"
+        sector: "consumer_discretionary"
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "medium_high"
+
+      - symbol: "NVDA"
+        sector: "technology"
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "high"
+
+      - symbol: "TSLA"
+        sector: "consumer_discretionary"
+        typical_spread: 0.01
+        liquidity: "very_high"
+        volatility: "very_high"
+
+    # Default for unspecified stocks
+    default:
+      tick_size: 0.01
+      typical_spread: 0.02
+      liquidity: "medium"
+      volatility: "medium"
+
+  # ===========================================================================
+  # COST STRUCTURE
+  # ===========================================================================
+
+  costs:
+    # Commission models
+    commission_model: "per_share"   # or "flat_fee"
+
+    # Per-share pricing (typical)
+    commission_per_share: 0.005
+    min_commission: 1.00
+    max_commission_pct: 1.0         # Cap at 1% of trade value
+
+    # Flat-fee pricing (alternative)
+    flat_fee_per_trade: 0.00        # Many brokers now $0 commission
+
+    # SEC and FINRA fees
+    sec_fee_per_million: 22.90      # SEC transaction fee
+    finra_taf_per_share: 0.000119   # FINRA TAF
+    finra_taf_max: 5.95
+
+    # Slippage expectations
+    typical_slippage_cents: 1
+    illiquid_slippage_cents: 5
+    news_slippage_cents: 10
+
+  # ===========================================================================
+  # RISK ADJUSTMENTS FOR STOCKS
+  # ===========================================================================
+
+  risk_adjustments:
+    # Position sizing by market cap
+    market_cap_adjustments:
+      large_cap:
+        min_market_cap_billions: 10
+        position_multiplier: 1.0
+
+      mid_cap:
+        min_market_cap_billions: 2
+        max_market_cap_billions: 10
+        position_multiplier: 0.8
+
+      small_cap:
+        max_market_cap_billions: 2
+        position_multiplier: 0.5
+
+    # Sector exposure limits
+    max_sector_exposure_pct: 40
+    max_single_stock_pct: 10
+
+    # Beta adjustments
+    beta_scaling: true
+    target_portfolio_beta: 1.0
+
+    # Overnight gap risk
+    overnight_risk:
+      reduce_position_for_overnight: true
+      overnight_reduction_pct: 30
+      exception_for_swing_trades: true
+
+    # Earnings risk
+    earnings_risk:
+      avoid_holding_through_earnings: true
+      close_before_earnings_hours: 24
+      exception_for_investors: true
+
+  # ===========================================================================
+  # NEWS AND EVENTS
+  # ===========================================================================
+
+  news:
+    enabled: true
+
+    high_impact_events:
+      - name: "Earnings"
+        description: "Quarterly earnings reports"
+        frequency: "quarterly"
+        blackout_before_hours: 24
+        blackout_after_hours: 4
+        affected: "individual_stock"
+
+      - name: "FOMC"
+        description: "Federal Reserve announcements"
+        frequency: "8x_per_year"
+        blackout_before_minutes: 60
+        blackout_after_minutes: 60
+        affected: "market_wide"
+
+      - name: "CPI"
+        description: "Consumer Price Index"
+        frequency: "monthly"
+        blackout_before_minutes: 30
+        blackout_after_minutes: 30
+        affected: "market_wide"
+
+      - name: "Jobs_Report"
+        description: "Non-Farm Payrolls"
+        frequency: "monthly"
+        schedule: "First Friday 08:30 EST"
+        blackout_before_minutes: 30
+        blackout_after_minutes: 30
+        affected: "market_wide"
+
+      - name: "GDP"
+        description: "GDP Reports"
+        frequency: "quarterly"
+        blackout_before_minutes: 30
+        blackout_after_minutes: 15
+        affected: "market_wide"
+
+    # Earnings calendar integration
+    earnings_calendar:
+      enabled: true
+      source: "yahoo_finance"       # or "sec_edgar"
+      pre_market_threshold: "08:00"
+      after_hours_threshold: "16:00"
+
+  # ===========================================================================
+  # INDICATOR ADJUSTMENTS FOR STOCKS
+  # ===========================================================================
+
+  indicator_adjustments:
+    # Stock-specific indicator settings
+    rsi:
+      # Standard RSI levels work well for stocks
+      overbought: 70
+      oversold: 30
+
+    # VWAP is critical for stock trading
+    vwap:
+      enabled: true
+      use_for_intraday_bias: true
+      institutional_reference: true
+
+    # Moving averages - stocks respect these
+    moving_averages:
+      key_levels:
+        - 20                        # 1-month
+        - 50                        # 10-week
+        - 200                       # 40-week (major)
+
+    # Volume analysis
+    volume:
+      relative_volume:
+        enabled: true
+        lookback_days: 20
+        high_volume_threshold: 1.5
+        low_volume_threshold: 0.7
+
+      institutional_volume:
+        enabled: true
+        block_trade_threshold: 10000
+
+    # Options-derived indicators
+    options:
+      put_call_ratio:
+        enabled: true
+        extreme_bullish: 0.5
+        extreme_bearish: 1.5
+
+      max_pain:
+        enabled: true
+        description: "Strike where most options expire worthless"
+
+      unusual_activity:
+        enabled: true
+        volume_threshold: 3.0       # 3x normal volume
+
+  # ===========================================================================
+  # DATA SPECIFICS
+  # ===========================================================================
+
+  data:
+    # Stock data characteristics
+    volume_reliability: "very_high" # Exchange-reported volume
+    use_consolidated_volume: true   # All exchanges combined
+
+    # Gap handling
+    gap_handling: "acknowledge"     # Gaps are normal in stocks
+    max_overnight_gap_pct: 10       # Alert if gap > 10%
+
+    # Split/dividend adjustments
+    adjust_for_splits: true
+    adjust_for_dividends: true
+    adjustment_type: "backward"     # Adjust historical prices
+
+    # Data sources
+    primary_source: "exchange"
+    backup_sources:
+      - "yahoo_finance"
+      - "polygon"
+      - "alpaca"
+
+    # Corporate actions
+    track_corporate_actions: true
+    actions_to_track:
+      - "splits"
+      - "dividends"
+      - "earnings"
+      - "ex_dividend_date"
+
+  # ===========================================================================
+  # MARKET MICROSTRUCTURE
+  # ===========================================================================
+
+  microstructure:
+    # Order types available
+    order_types:
+      - "market"
+      - "limit"
+      - "stop"
+      - "stop_limit"
+      - "trailing_stop"
+      - "MOO"                       # Market on Open
+      - "MOC"                       # Market on Close
+      - "LOO"                       # Limit on Open
+      - "LOC"                       # Limit on Close
+
+    # Routing
+    smart_routing: true
+    preferred_venues:
+      - "NYSE"
+      - "NASDAQ"
+      - "ARCA"
+      - "BATS"
+
+    # Circuit breakers
+    circuit_breakers:
+      level_1:
+        trigger_pct: 7
+        halt_minutes: 15
+      level_2:
+        trigger_pct: 13
+        halt_minutes: 15
+      level_3:
+        trigger_pct: 20
+        halt_duration: "rest_of_day"
+
+    # Single stock halts
+    luld_bands:
+      enabled: true
+      description: "Limit Up/Limit Down"

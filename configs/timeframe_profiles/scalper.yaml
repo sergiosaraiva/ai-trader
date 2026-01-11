@@ -1,0 +1,124 @@
+# Scalper Timeframe Profile
+# =========================
+# Optimized for very short-term, almost real-time trading
+# Target users: Scalpers, high-frequency day traders, algorithmic traders
+#
+# Timeframe Selection Rationale:
+# - Follows the Factor of 4 Rule: 15m → 1H (4x) → 4H (4x)
+# - 15m: Fastest practical timeframe for ML models (~65% noise)
+# - 1H: Context for intraday trend direction
+# - 4H: Major intraday support/resistance levels
+#
+# WARNING: Lower timeframes have higher noise and require:
+# - More data for training
+# - Tighter risk management
+# - Lower latency execution
+# - Higher transaction frequency (more fees)
+
+profile:
+  name: "scalper"
+  description: "Very short-term trading profile for scalpers and fast day traders"
+  version: "1.0"
+
+  # Short-Term Model Configuration
+  # Purpose: Fast entry/exit signals for scalping
+  # Rationale: 15m is the fastest practical timeframe for ML models.
+  #            Below 15m, noise dominates (>70%) making ML unreliable.
+  #            Captures micro-trends and quick reversals.
+  short_term:
+    candle_timeframe: "15m"
+    candle_minutes: 15
+    input_window: 192              # 2 days of 15m data (48 hours = 192 candles)
+    min_history_required: 500      # More data needed due to higher noise
+    prediction_horizons:
+      - periods: 1
+        label: "15m"
+        description: "15 minutes ahead"
+      - periods: 2
+        label: "30m"
+        description: "30 minutes ahead"
+      - periods: 4
+        label: "1H"
+        description: "1 hour ahead"
+      - periods: 8
+        label: "2H"
+        description: "2 hours ahead"
+
+  # Medium-Term Model Configuration
+  # Purpose: Intraday trend direction and bias
+  # Rationale: 1H provides cleaner signals for trend context.
+  #            4x factor from 15m. Standard for intraday trading.
+  medium_term:
+    candle_timeframe: "1H"
+    candle_minutes: 60
+    input_window: 168              # 7 days of hourly data (168 hours)
+    min_history_required: 250      # Minimum candles needed for indicators
+    prediction_horizons:
+      - periods: 1
+        label: "1H"
+        description: "1 hour ahead"
+      - periods: 2
+        label: "2H"
+        description: "2 hours ahead"
+      - periods: 4
+        label: "4H"
+        description: "4 hours ahead"
+      - periods: 8
+        label: "8H"
+        description: "8 hours ahead"
+
+  # Long-Term Model Configuration
+  # Purpose: Major intraday levels and session context
+  # Rationale: 4H captures major support/resistance and session dynamics.
+  #            4x factor from 1H. Provides broader context for scalping.
+  long_term:
+    candle_timeframe: "4H"
+    candle_minutes: 240
+    input_window: 180              # 30 days of 4H data (180 candles)
+    min_history_required: 250      # Minimum candles needed for indicators
+    prediction_horizons:
+      - periods: 1
+        label: "4H"
+        description: "4 hours ahead"
+      - periods: 2
+        label: "8H"
+        description: "8 hours ahead"
+      - periods: 3
+        label: "12H"
+        description: "12 hours ahead"
+      - periods: 6
+        label: "24H"
+        description: "24 hours (1 day) ahead"
+
+# Profile metadata
+metadata:
+  factor_progression: "15m → 1H (4x) → 4H (4x)"
+  typical_holding_period: "minutes to hours"
+  check_frequency: "continuous / every 15 minutes"
+  signal_noise_level: "high"
+  min_data_required: "6+ months (more data needed for noisy timeframes)"
+  trading_opportunities: "very frequent"
+  suitable_for:
+    - "Scalping"
+    - "Fast day trading"
+    - "Algorithmic trading"
+    - "High-frequency strategies"
+  not_suitable_for:
+    - "Swing trading (use trader profile)"
+    - "Position trading (use trader profile)"
+    - "Long-term investing (use investor profile)"
+
+  # Important considerations for scalping
+  considerations:
+    - "Higher noise level requires more conservative position sizing"
+    - "Transaction costs significantly impact profitability"
+    - "Requires low-latency execution infrastructure"
+    - "More prone to false signals - use strict stop losses"
+    - "Best during high-liquidity sessions (London/NY overlap)"
+    - "Avoid during major news events"
+
+  # Signal quality warning
+  noise_levels:
+    short_term_15m: "~65-70% noise"
+    medium_term_1h: "~50% noise"
+    long_term_4h: "~40% noise"
