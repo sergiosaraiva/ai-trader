@@ -1,0 +1,147 @@
+# Sentiment Features Configuration
+# ================================
+# Configuration for sentiment analysis integration with technical models
+
+sentiment:
+  # Master switch to enable/disable sentiment features
+  enabled: true
+
+  # Data source configuration
+  data_path: "data/sentiment/sentiment_epu_20200101_20251231_daily.csv"
+
+  # Look-ahead bias prevention
+  # shift_days: Number of days to shift sentiment data
+  # 1 = use yesterday's sentiment for today (RECOMMENDED)
+  # 0 = use same-day sentiment (RISKY - potential look-ahead bias)
+  shift_days: 1
+
+  # Feature selection
+  features:
+    # Raw sentiment score for the trading pair
+    include_raw: true
+
+    # Moving averages (smoothed trends)
+    include_ma: true
+    ma_periods: [3, 7, 14, 30]
+
+    # Standard deviation (sentiment volatility)
+    include_std: true
+    std_periods: [7, 14, 30]
+
+    # Momentum (sentiment change rate)
+    include_momentum: true
+    momentum_periods: [3, 7, 14]
+
+    # Rate of change
+    include_roc: true
+
+    # Z-score (deviation from normal)
+    include_zscore: true
+    zscore_lookback: 30
+
+    # Regime classification (-1: bearish, 0: neutral, 1: bullish)
+    include_regime: true
+    regime_thresholds:
+      bearish: -0.05
+      bullish: 0.05
+
+    # Lag features (historical sentiment)
+    include_lags: true
+    lag_days: [1, 2, 3]
+
+    # Country-level sentiments (for forex pairs)
+    include_country: true
+
+    # Raw EPU (Economic Policy Uncertainty) values
+    # More features but may be noisy
+    include_epu: false
+
+    # Sentiment differential (base vs quote currency)
+    include_differential: true
+
+    # Cross-country features (mean, std, range)
+    include_cross_features: true
+
+# Forex-specific sentiment features
+# Maps trading pairs to sentiment columns
+forex_features:
+  EURUSD:
+    primary: "Sentiment_EURUSD"
+    base_country: "Sentiment_Europe"
+    quote_country: "Sentiment_US"
+  GBPUSD:
+    primary: "Sentiment_GBPUSD"
+    base_country: "Sentiment_UK"
+    quote_country: "Sentiment_US"
+  USDJPY:
+    primary: "Sentiment_USDJPY"
+    base_country: "Sentiment_US"
+    quote_country: "Sentiment_Japan"
+  AUDUSD:
+    primary: "Sentiment_AUDUSD"
+    base_country: "Sentiment_Australia"
+    quote_country: "Sentiment_US"
+  EURGBP:
+    primary: "Sentiment_EURGBP"
+    base_country: "Sentiment_Europe"
+    quote_country: "Sentiment_UK"
+
+# Crypto-specific sentiment features
+crypto_features:
+  default: "Sentiment_Crypto"
+  fallback: "Sentiment_Global"
+
+# Normalization settings
+normalization:
+  # Method: "zscore", "minmax", or "robust"
+  method: "zscore"
+
+  # Clip extreme values
+  clip_outliers: true
+  clip_std: 3.0
+
+# Feature groups for model configuration
+# Use these in model configs to include sentiment
+feature_groups:
+  # Minimal sentiment features (fast, less prone to overfitting)
+  minimal:
+    - sentiment_raw
+    - sentiment_ma_7
+    - sentiment_momentum_7
+    - sentiment_zscore
+
+  # Standard sentiment features (recommended)
+  standard:
+    - sentiment_raw
+    - sentiment_ma_7
+    - sentiment_ma_14
+    - sentiment_momentum_7
+    - sentiment_std_7
+    - sentiment_zscore
+    - sentiment_regime
+    - sentiment_lag_1
+
+  # Full sentiment features (maximum information)
+  full:
+    - sentiment_raw
+    - sentiment_ma_3
+    - sentiment_ma_7
+    - sentiment_ma_14
+    - sentiment_ma_30
+    - sentiment_std_7
+    - sentiment_std_14
+    - sentiment_std_30
+    - sentiment_momentum_3
+    - sentiment_momentum_7
+    - sentiment_momentum_14
+    - sentiment_roc_7
+    - sentiment_roc_14
+    - sentiment_zscore
+    - sentiment_regime
+    - sentiment_lag_1
+    - sentiment_lag_2
+    - sentiment_lag_3
+    - sentiment_differential
+    - cross_sent_mean
+    - cross_sent_std
+    - cross_sent_range

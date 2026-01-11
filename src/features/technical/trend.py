@@ -107,18 +107,22 @@ class TrendIndicators:
         plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
         minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
 
+        # Convert to Series with correct index
+        plus_dm_series = pd.Series(plus_dm, index=df.index)
+        minus_dm_series = pd.Series(minus_dm, index=df.index)
+
         # Smoothed values
         atr = tr.ewm(span=period, adjust=False).mean()
-        plus_di = 100 * pd.Series(plus_dm).ewm(span=period, adjust=False).mean() / atr
-        minus_di = 100 * pd.Series(minus_dm).ewm(span=period, adjust=False).mean() / atr
+        plus_di = 100 * plus_dm_series.ewm(span=period, adjust=False).mean() / atr
+        minus_di = 100 * minus_dm_series.ewm(span=period, adjust=False).mean() / atr
 
         # ADX
         dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)
         adx = dx.ewm(span=period, adjust=False).mean()
 
-        df[f"adx_{period}"] = adx.values
-        df[f"plus_di_{period}"] = plus_di.values
-        df[f"minus_di_{period}"] = minus_di.values
+        df[f"adx_{period}"] = adx
+        df[f"plus_di_{period}"] = plus_di
+        df[f"minus_di_{period}"] = minus_di
 
         self._feature_names.extend([f"adx_{period}", f"plus_di_{period}", f"minus_di_{period}"])
         return df

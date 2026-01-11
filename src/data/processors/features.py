@@ -1,6 +1,7 @@
 """Feature processor for creating model inputs."""
 
-from typing import List, Dict, Optional, Tuple
+from pathlib import Path
+from typing import List, Dict, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
@@ -8,10 +9,67 @@ import pandas as pd
 class FeatureProcessor:
     """Process and prepare features for model training."""
 
-    def __init__(self):
-        """Initialize feature processor."""
+    def __init__(
+        self,
+        include_sentiment: bool = False,
+        sentiment_path: Optional[Union[str, Path]] = None,
+    ):
+        """
+        Initialize feature processor.
+
+        Args:
+            include_sentiment: Whether to include sentiment features
+            sentiment_path: Path to sentiment data file
+        """
         self.feature_names: List[str] = []
         self.scalers: Dict = {}
+        self.include_sentiment = include_sentiment
+        self.sentiment_path = sentiment_path
+        self._sentiment_features = None
+
+        if include_sentiment:
+            self._init_sentiment()
+
+    def _init_sentiment(self) -> None:
+        """Initialize sentiment features module."""
+        try:
+            from src.features.sentiment import SentimentFeatures
+            default_path = 'data/sentiment/sentiment_epu_20200101_20251231_daily.csv'
+            self._sentiment_features = SentimentFeatures(
+                sentiment_path=self.sentiment_path or default_path
+            )
+        except ImportError:
+            print("Warning: Sentiment features module not available")
+            self.include_sentiment = False
+
+    def add_sentiment_features(
+        self,
+        df: pd.DataFrame,
+        pair: str,
+        shift_days: int = 1,
+    ) -> pd.DataFrame:
+        """
+        Add sentiment features to price data.
+
+        CRITICAL: Uses shift_days to avoid look-ahead bias. Default is 1 day,
+        meaning we use yesterday's sentiment for today's prediction.
+
+        Args:
+            df: Price DataFrame with DatetimeIndex
+            pair: Trading pair (e.g., 'EURUSD', 'BTCUSDT')
+            shift_days: Days to shift sentiment (default 1 for no look-ahead)
+
+        Returns:
+            DataFrame with sentiment features added
+        """
+        if not self.include_sentiment or self._sentiment_features is None:
+            return df
+
+        return self._sentiment_features.calculate_all(
+            df=df,
+            pair=pair,
+            shift_days=shift_days,
+        )
 
     def add_temporal_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -117,6 +175,7 @@ class FeatureProcessor:
             "momentum": ["rsi", "stoch", "macd", "cci", "mom", "roc", "willr", "mfi", "tsi", "uo"],
             "volatility": ["atr", "natr", "trange", "bb_", "kc_", "dc_", "stddev"],
             "volume": ["obv", "ad", "adosc", "cmf", "vwap", "vpt", "emv", "fi", "nvi", "pvi"],
+            "sentiment": ["sentiment_", "sent_country_", "cross_sent_", "epu_"],
         }
 
         for group in feature_groups:
@@ -227,3 +286,89 @@ class FeatureProcessor:
             "sequence_length": sequence_length,
             "prediction_horizon": prediction_horizon,
         }
+
+    def prepare_all_features(
+        self,
+        price_df: pd.DataFrame,
+        pair: str,
+        include_technical: bool = True,
+        include_temporal: bool = True,
+        include_session: bool = True,
+        feature_groups: Optional[List[str]] = None,
+    ) -> pd.DataFrame:
+        """
+        Prepare all features for model training (technical, temporal, session, sentiment).
+
+        This method combines all feature engineering steps into a single call.
+
+        Args:
+            price_df: OHLCV DataFrame with DatetimeIndex
+            pair: Trading pair (e.g., 'EURUSD', 'BTCUSDT')
+            include_technical: Include technical indicators
+            include_temporal: Include cyclical temporal features
+            include_session: Include trading session features
+            feature_groups: Feature groups to select (None = all)
+
+        Returns:
+            DataFrame with all requested features
+        """
+        result = price_df.copy()
+
+        # Step 1: Technical indicators
+        if include_technical:
+            try:
+                from src.features.technical import TechnicalIndicators
+                tech = TechnicalIndicators()
+                result = tech.calculate_all(result)
+            except ImportError:
+                print("Warning: Technical indicators module not available")
+
+        # Step 2: Temporal features
+        if include_temporal:
+            result = self.add_temporal_features(result)
+
+        # Step 3: Trading session features
+        if include_session:
+            result = self.add_trading_session_features(result)
+
+        # Step 4: Sentiment features (if enabled)
+        if self.include_sentiment:
+            result = self.add_sentiment_features(result, pair)
+
+        # Step 5: Select feature groups
+        if feature_groups:
+            result = self.select_features(result, feature_groups)
+
+        # Step 6: Handle missing and infinite values
+        result = self.handle_missing_values(result)
+        result = self.remove_infinite_values(result)
+
+        # Store feature names
+        self.feature_names = result.columns.tolist()
+
+        return result
+
+    def get_sentiment_feature_names(self) -> List[str]:
+        """
+        Get list of sentiment feature names.
+
+        Returns:
+            List of sentiment feature column names
+        """
+        if self._sentiment_features is not None:
+            return self._sentiment_features.get_feature_names()
+        return []
+
+    def validate_sentiment_coverage(self, df: pd.DataFrame) -> Dict:
+        """
+        Validate sentiment data coverage for price data.
+
+        Args:
+            df: Price DataFrame
+
+        Returns:
+            Dictionary with validation results
+        """
+        if self._sentiment_features is not None:
+            return self._sentiment_features.validate_data(df)
+        return {"error": "Sentiment features not initialized"}
