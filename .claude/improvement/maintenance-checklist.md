@@ -81,9 +81,141 @@ Run pattern discovery to capture current state:
 
 ### Per-Skill Review
 
-For each skill in `.claude/skills/`:
+For each skill in `.claude/skills/` (23 total):
 
-#### implementing-prediction-models
+---
+
+#### Backend Layer (6 skills)
+
+##### creating-fastapi-endpoints
+- [ ] File references still valid (`src/api/routes/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### creating-python-services
+- [ ] File references still valid (`src/api/services/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### creating-pydantic-schemas
+- [ ] File references still valid (`src/api/schemas/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### implementing-prediction-models
+- [ ] File references still valid (`src/models/**/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### creating-api-endpoints (legacy)
+- [ ] File references still valid
+- [ ] Consider merging with creating-fastapi-endpoints
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### creating-data-processors
+- [ ] File references still valid (`src/data/processors/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+---
+
+#### Frontend Layer (2 skills)
+
+##### creating-react-components
+- [ ] File references still valid (`frontend/src/components/*.jsx`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### creating-api-clients
+- [ ] File references still valid (`frontend/src/api/*.js`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+---
+
+#### Database Layer (1 skill)
+
+##### creating-sqlalchemy-models
+- [ ] File references still valid (`src/api/database/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+---
+
+#### Feature Engineering Layer (2 skills)
+
+##### creating-technical-indicators
+- [ ] File references still valid (`src/features/technical/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### configuring-indicator-yaml
+- [ ] File references still valid (`configs/indicators/*.yaml`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+---
+
+#### Data Layer (2 skills)
+
+##### adding-data-sources
+- [ ] File references still valid (`src/data/sources/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### ~~processing-ohlcv-data~~ (DEPRECATED)
+- [ ] Verify merged into creating-data-processors
+- [ ] Remove from skill registry
+- [ ] **Action**: [ ] Archive
+
+---
+
+#### Trading Domain Layer (3 skills)
+
+##### running-backtests
+- [ ] File references still valid (`src/simulation/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### analyzing-trading-performance
 - [ ] File references still valid
 - [ ] Examples still compile/run
 - [ ] Invocation count this quarter: ___
@@ -91,7 +223,39 @@ For each skill in `.claude/skills/`:
 - [ ] Needs more examples: [ ] Yes / [ ] No
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
-#### creating-api-endpoints
+##### implementing-risk-management
+- [ ] File references still valid (`src/trading/risk.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+---
+
+#### Testing Layer (2 skills)
+
+##### writing-pytest-tests
+- [ ] File references still valid (`tests/**/*.py`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+##### writing-vitest-tests
+- [ ] File references still valid (`frontend/src/**/*.test.jsx`)
+- [ ] Examples still compile/run
+- [ ] Invocation count this quarter: ___
+- [ ] Error reports against it: ___
+- [ ] Needs more examples: [ ] Yes / [ ] No
+- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+
+---
+
+#### Quality & Testing Layer (4 skills)
+
+##### creating-dataclasses
 - [ ] File references still valid
 - [ ] Examples still compile/run
 - [ ] Invocation count this quarter: ___
@@ -99,7 +263,7 @@ For each skill in `.claude/skills/`:
 - [ ] Needs more examples: [ ] Yes / [ ] No
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
-#### creating-data-processors
+##### validating-time-series-data
 - [ ] File references still valid
 - [ ] Examples still compile/run
 - [ ] Invocation count this quarter: ___
@@ -107,7 +271,7 @@ For each skill in `.claude/skills/`:
 - [ ] Needs more examples: [ ] Yes / [ ] No
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
-#### creating-technical-indicators
+##### planning-test-scenarios
 - [ ] File references still valid
 - [ ] Examples still compile/run
 - [ ] Invocation count this quarter: ___
@@ -115,7 +279,7 @@ For each skill in `.claude/skills/`:
 - [ ] Needs more examples: [ ] Yes / [ ] No
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
-#### configuring-indicator-yaml
+##### generating-test-data
 - [ ] File references still valid
 - [ ] Examples still compile/run
 - [ ] Invocation count this quarter: ___
@@ -123,72 +287,36 @@ For each skill in `.claude/skills/`:
 - [ ] Needs more examples: [ ] Yes / [ ] No
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
-#### adding-data-sources
-- [ ] File references still valid
+---
+
+#### Build & Deployment Layer (1 skill)
+
+##### creating-cli-scripts
+- [ ] File references still valid (`scripts/*.py`)
 - [ ] Examples still compile/run
 - [ ] Invocation count this quarter: ___
 - [ ] Error reports against it: ___
 - [ ] Needs more examples: [ ] Yes / [ ] No
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
-#### processing-ohlcv-data
-- [ ] File references still valid
-- [ ] Examples still compile/run
-- [ ] Invocation count this quarter: ___
-- [ ] Error reports against it: ___
-- [ ] Needs more examples: [ ] Yes / [ ] No
-- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+---
 
-#### running-backtests
-- [ ] File references still valid
-- [ ] Examples still compile/run
-- [ ] Invocation count this quarter: ___
-- [ ] Error reports against it: ___
-- [ ] Needs more examples: [ ] Yes / [ ] No
-- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
+#### Meta-Skills (2 skills)
 
-#### analyzing-trading-performance
-- [ ] File references still valid
-- [ ] Examples still compile/run
-- [ ] Invocation count this quarter: ___
-- [ ] Error reports against it: ___
-- [ ] Needs more examples: [ ] Yes / [ ] No
-- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
-
-#### implementing-risk-management
-- [ ] File references still valid
-- [ ] Examples still compile/run
-- [ ] Invocation count this quarter: ___
-- [ ] Error reports against it: ___
-- [ ] Needs more examples: [ ] Yes / [ ] No
-- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
-
-#### creating-dataclasses
-- [ ] File references still valid
-- [ ] Examples still compile/run
-- [ ] Invocation count this quarter: ___
-- [ ] Error reports against it: ___
-- [ ] Needs more examples: [ ] Yes / [ ] No
-- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
-
-#### validating-time-series-data
-- [ ] File references still valid
-- [ ] Examples still compile/run
-- [ ] Invocation count this quarter: ___
-- [ ] Error reports against it: ___
-- [ ] Needs more examples: [ ] Yes / [ ] No
-- [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
-
-#### routing-to-skills (meta-skill)
-- [ ] Skill registry up to date
+##### routing-to-skills
+- [ ] Skill registry up to date (all 23 skills)
 - [ ] Scoring algorithm accurate
+- [ ] Path triggers current
+- [ ] Keyword triggers current
 - [ ] Routing accuracy this quarter: ___%
 - [ ] Error reports against it: ___
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
-#### improving-framework-continuously (meta-skill)
+##### improving-framework-continuously
 - [ ] Workflow still applicable
 - [ ] Metrics tracking working
+- [ ] Error template up to date
+- [ ] Maintenance checklist current
 - [ ] Error reports against it: ___
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 

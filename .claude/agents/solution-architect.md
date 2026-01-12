@@ -136,12 +136,18 @@ The Solution Architect agent transforms refined requirements into actionable tec
 
 | Skill | Usage |
 |-------|-------|
+| `creating-fastapi-endpoints` | Reference for API design patterns |
+| `creating-python-services` | Reference for service architecture decisions |
+| `creating-pydantic-schemas` | Reference for request/response design |
+| `creating-react-components` | Reference for frontend component design |
+| `creating-api-clients` | Reference for frontend API integration |
+| `creating-sqlalchemy-models` | Reference for database design |
 | `implementing-prediction-models` | Reference for model architecture decisions |
-| `creating-api-endpoints` | Reference for API design patterns |
 | `creating-technical-indicators` | Reference for indicator implementation |
 | `creating-data-processors` | Reference for data pipeline design |
 | `adding-data-sources` | Reference for data source integration |
 | `implementing-risk-management` | Reference for trading constraints |
+| `creating-cli-scripts` | Reference for CLI tool design |
 
 ### Post-Design Skills (Invoked)
 
@@ -162,11 +168,16 @@ After completing technical design:
    → `planning-test-scenarios` invokes `generating-test-data`
 
 Design reference selection:
-- Model changes → Read `implementing-prediction-models`
-- API changes → Read `creating-api-endpoints`
+- API endpoints → Read `creating-fastapi-endpoints`
+- Backend services → Read `creating-python-services`
+- Schemas → Read `creating-pydantic-schemas`
+- Frontend components → Read `creating-react-components`
+- Database models → Read `creating-sqlalchemy-models`
+- ML model changes → Read `implementing-prediction-models`
 - Indicator changes → Read `creating-technical-indicators`
 - Data changes → Read `creating-data-processors` + `adding-data-sources`
 - Trading changes → Read `implementing-risk-management`
+- CLI scripts → Read `creating-cli-scripts`
 ```
 
 **Fallback:** If skill doesn't cover scenario, reference codebase directly and document custom approach.
@@ -476,35 +487,39 @@ DataSourceFactory.register("polygon", PolygonDataSource)
 
 | Requirement Type | Pattern | Reference File |
 |------------------|---------|----------------|
-| New ML model | BaseModel + Registry | `src/models/base.py` |
-| New indicator | Calculator class | `src/features/technical/trend.py` |
-| New API endpoint | Router + Pydantic | `src/api/routes/predictions.py` |
-| New data source | BaseDataSource + Factory | `src/data/sources/base.py` |
-| New config | Pydantic Settings | `src/config/settings.py` |
-| Result structure | Dataclass + to_dict | `src/simulation/backtester.py` |
+| New API endpoint | FastAPI Router + Pydantic | `src/api/routes/predictions.py` |
+| New backend service | Singleton + Thread-safe | `src/api/services/model_service.py` |
+| New schema | Pydantic BaseModel + Field | `src/api/schemas/prediction.py` |
+| New database model | SQLAlchemy + Indexes | `src/api/database/models.py` |
+| New React component | Loading/Error/Data states | `frontend/src/components/PredictionCard.jsx` |
+| New ML model | MTFEnsembleConfig dataclass | `src/models/multi_timeframe/mtf_ensemble.py` |
+| New indicator | Calculator class + _feature_names | `src/features/technical/calculator.py` |
+| New CLI script | argparse + logging | `scripts/train_mtf_ensemble.py` |
 
 ### Dependency Order Reference
 ```
-1. Base classes (src/models/base.py, src/data/sources/base.py)
-2. Configurations (src/config/, configs/*.yaml)
-3. Data layer (src/data/sources/, src/data/processors/)
-4. Feature layer (src/features/technical/)
-5. Model layer (src/models/technical/, src/models/ensemble/)
-6. Trading layer (src/trading/)
-7. Simulation layer (src/simulation/)
-8. API layer (src/api/)
-9. Tests (tests/)
+1. Database models (src/api/database/models.py)
+2. Pydantic schemas (src/api/schemas/)
+3. Feature layer (src/features/technical/, src/features/sentiment/)
+4. Model layer (src/models/multi_timeframe/)
+5. Services (src/api/services/)
+6. API routes (src/api/routes/)
+7. Frontend API client (frontend/src/api/)
+8. Frontend components (frontend/src/components/)
+9. Tests (tests/api/, frontend/src/components/*.test.jsx)
 ```
 
 ### Integration Points Checklist
-- [ ] Registry registration at module end
-- [ ] Factory pattern for creation
-- [ ] Config in appropriate YAML file
-- [ ] Tests in corresponding test directory
+- [ ] Service singleton instantiated at module end
+- [ ] Route included in main.py via include_router()
+- [ ] Schema used in route response_model
+- [ ] Frontend component handles loading/error/data states
+- [ ] Tests mock services in finally block
 - [ ] Exports in `__init__.py`
 
 ### Performance Constraints
 - Prediction latency: <100ms
 - Indicator calculation: Vectorized (no row-by-row)
-- API response: Async handlers
+- API response: Async handlers with proper error handling
 - Memory: Process OHLCV in chunks if >100k rows
+- Frontend: Use usePolling for data refresh

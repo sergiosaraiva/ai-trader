@@ -85,17 +85,22 @@ The Requirements Analyst agent transforms vague or incomplete feature requests i
 ```
 1. Identify affected layers:
    ├─ API Layer (src/api/)
-   │   └─ New endpoints? Schema changes?
-   ├─ Model Layer (src/models/)
-   │   └─ New model? Training changes?
+   │   ├─ Routes: New endpoints? (predictions, trading, market)
+   │   ├─ Services: Business logic changes?
+   │   ├─ Schemas: Pydantic model changes?
+   │   └─ Database: SQLAlchemy model changes?
+   ├─ Model Layer (src/models/multi_timeframe/)
+   │   └─ MTFEnsemble changes? Training config?
    ├─ Feature Layer (src/features/)
-   │   └─ New indicators? Config changes?
-   ├─ Data Layer (src/data/)
-   │   └─ New sources? Processing changes?
+   │   ├─ technical/: New indicators?
+   │   └─ sentiment/: Sentiment feature changes?
    ├─ Trading Layer (src/trading/)
-   │   └─ Risk changes? Execution impact?
-   └─ Simulation Layer (src/simulation/)
-       └─ Backtesting impact?
+   │   └─ Risk changes? Position sizing?
+   ├─ Simulation Layer (src/simulation/)
+   │   └─ Backtesting impact?
+   └─ Frontend Layer (frontend/src/)
+       ├─ Components: New UI elements?
+       └─ API client: New endpoints to consume?
 
 2. Map to existing components
 3. Identify integration points
@@ -138,20 +143,28 @@ This agent primarily performs analysis and doesn't invoke implementation skills.
 
 | Skill | Usage |
 |-------|-------|
+| `creating-fastapi-endpoints` | Understand API patterns for interface requirements |
+| `creating-python-services` | Understand service patterns for business logic |
+| `creating-pydantic-schemas` | Understand validation patterns for data requirements |
+| `creating-react-components` | Understand frontend patterns for UI requirements |
+| `creating-sqlalchemy-models` | Understand database patterns for persistence |
 | `implementing-prediction-models` | Understand model capabilities for ML requirements |
-| `creating-api-endpoints` | Understand API patterns for interface requirements |
 | `creating-technical-indicators` | Understand indicator capabilities for feature requests |
 | `running-backtests` | Understand validation capabilities for testing requirements |
 | `implementing-risk-management` | Understand risk constraints for trading requirements |
 
 **Selection Logic:**
 ```
+If request mentions "API" or "endpoint":
+  → Read creating-fastapi-endpoints for context
 If request mentions "prediction" or "model":
   → Read implementing-prediction-models for context
-If request mentions "API" or "endpoint":
-  → Read creating-api-endpoints for context
 If request mentions "indicator" or "feature":
   → Read creating-technical-indicators for context
+If request mentions "frontend" or "component" or "UI":
+  → Read creating-react-components for context
+If request mentions "database" or "persist":
+  → Read creating-sqlalchemy-models for context
 ```
 
 **Fallback:** If no skill matches, analyze codebase directly using Grep/Glob/Read.
@@ -363,44 +376,59 @@ Uses Wilder's smoothing via `ewm(span=period)`
 ## Codebase-Specific Customizations
 
 ### Technology Stack Reference
-- **Language:** Python 3.11+
-- **ML Framework:** PyTorch 2.0+ with PyTorch Lightning
+- **Language:** Python 3.12+
+- **ML Framework:** XGBoost, scikit-learn
 - **API:** FastAPI with Pydantic validation
-- **Data:** pandas, numpy, polars for processing
-- **Indicators:** pandas-ta, TA-Lib
-- **Testing:** pytest with pytest-asyncio
+- **Database:** SQLAlchemy with SQLite
+- **Data:** pandas, numpy for processing
+- **Indicators:** pandas-ta
+- **Scheduling:** APScheduler
+- **Frontend:** React 19, Vite 7, TailwindCSS 4, Recharts
+- **Testing:** pytest, Vitest + Testing Library
 
 ### Layer Organization
 ```
 src/
-├── api/routes/          # FastAPI endpoints
-├── config/              # Pydantic settings
-├── data/
-│   ├── sources/         # Data source adapters
-│   └── processors/      # OHLCV processing
-├── features/technical/  # Indicator calculators
+├── api/                     # FastAPI web layer
+│   ├── main.py             # App entry point with lifespan
+│   ├── routes/             # API endpoints (predictions, trading, market)
+│   ├── services/           # Business logic (model_service, trading_service)
+│   ├── schemas/            # Pydantic request/response models
+│   └── database/           # SQLAlchemy models
+├── features/
+│   ├── technical/          # Technical indicator calculators
+│   └── sentiment/          # Sentiment features (EPU/VIX)
 ├── models/
-│   ├── technical/       # Short/Medium/Long-term models
-│   └── ensemble/        # Model combination
-├── simulation/          # Backtesting
-└── trading/             # Risk management, execution
+│   └── multi_timeframe/    # MTF Ensemble (PRIMARY)
+│       ├── mtf_ensemble.py # MTFEnsemble, MTFEnsembleConfig
+│       └── improved_model.py # ImprovedTimeframeModel
+├── simulation/             # Backtesting
+└── trading/                # Risk management, position sizing
+
+frontend/
+└── src/
+    ├── components/         # React components (Dashboard, PredictionCard)
+    ├── api/                # API client
+    └── hooks/              # Custom React hooks
 ```
 
 ### Key Patterns to Reference
-1. **BaseModel pattern** (`src/models/base.py`) - For model requirements
-2. **Indicator calculator pattern** (`src/features/technical/`) - For feature requirements
-3. **API router pattern** (`src/api/routes/`) - For endpoint requirements
-4. **RiskLimits pattern** (`src/trading/risk.py`) - For trading constraints
+1. **Service singleton pattern** (`src/api/services/model_service.py`) - Thread-safe services
+2. **MTFEnsembleConfig dataclass** (`src/models/multi_timeframe/mtf_ensemble.py`) - Configuration objects
+3. **FastAPI router pattern** (`src/api/routes/predictions.py`) - Endpoint patterns
+4. **Pydantic schemas** (`src/api/schemas/`) - Request/response validation
+5. **React component pattern** (`frontend/src/components/PredictionCard.jsx`) - UI components
 
 ### Domain-Specific Terms
-- **Multi-horizon prediction**: Models predict 1H, 4H, 12H, 24H simultaneously
-- **Indicator priority**: P0 (critical) to P3 (optional)
+- **MTF Ensemble**: Multi-Timeframe Ensemble with 1H (60%), 4H (30%), Daily (10%) weights
+- **Confidence threshold**: 70% recommended for optimal trading (62.1% win rate)
+- **Sentiment integration**: EPU/VIX on Daily model only (resolution matching)
 - **Time series leakage**: Using future data in training (critical to prevent)
 
-### Performance Targets
-| Metric | Target | Notes |
-|--------|--------|-------|
-| Directional Accuracy | >55% | All models |
-| Sharpe Ratio | >1.5 | Backtested |
-| Max Drawdown | <15% | Risk limit |
-| Prediction Latency | <100ms | API response |
+### Performance Targets (Achieved at 70% Threshold)
+| Metric | Target | Achieved |
+|--------|--------|----------|
+| Win Rate | >55% | **62.1%** |
+| Profit Factor | >2.0 | **2.69** |
+| Sharpe Ratio | >2.0 | **7.67** |
+| Total Pips | >0 | **+8,693** |

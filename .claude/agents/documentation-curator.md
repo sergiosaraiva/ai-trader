@@ -136,7 +136,14 @@ Release Notes:
 
 | Skill | Usage |
 |-------|-------|
-| `creating-api-endpoints` | Understand API patterns for docs |
+| `creating-fastapi-endpoints` | Understand API route patterns for docs |
+| `creating-python-services` | Document service interfaces |
+| `creating-pydantic-schemas` | Document request/response schemas |
+| `creating-react-components` | Document component props |
+| `creating-api-clients` | Document frontend API usage |
+| `writing-pytest-tests` | Document testing patterns |
+| `writing-vitest-tests` | Document frontend testing |
+| `creating-cli-scripts` | Document CLI usage |
 | `implementing-prediction-models` | Document model interfaces |
 | `creating-technical-indicators` | Document indicator usage |
 | `configuring-indicator-yaml` | Document configuration |
@@ -148,16 +155,30 @@ Release Notes:
 Documentation type determines reference:
 
 API documentation:
-  → Read creating-api-endpoints
-  → Extract patterns for examples
+  → Read creating-fastapi-endpoints
+  → Extract endpoint patterns for examples
+  → Read creating-pydantic-schemas for request/response
+
+Frontend documentation:
+  → Read creating-react-components
+  → Document component props and states
+  → Read creating-api-clients for API usage
+
+Service documentation:
+  → Read creating-python-services
+  → Document singleton pattern and methods
+
+CLI documentation:
+  → Read creating-cli-scripts
+  → Document argparse options
+
+Testing documentation:
+  → Read writing-pytest-tests for backend
+  → Read writing-vitest-tests for frontend
 
 Model documentation:
   → Read implementing-prediction-models
-  → Document build/train/predict interface
-
-Indicator documentation:
-  → Read creating-technical-indicators
-  → Document calculate_all pattern
+  → Document MTFEnsemble interface
 
 Configuration documentation:
   → Read configuring-indicator-yaml
@@ -620,47 +641,40 @@ If indicators return NaN:
 ### Documentation Structure
 ```
 docs/
-├── api/                     # API documentation
-│   ├── predictions.md
-│   ├── trading.md
-│   └── health.md
-├── configuration/           # Configuration guides
-│   ├── indicators.md
-│   ├── models.md
-│   └── environment.md
-├── deployment/              # Deployment guides
-│   ├── docker.md
-│   └── kubernetes.md
-├── development/             # Developer guides
-│   ├── getting-started.md
-│   ├── testing.md
-│   └── contributing.md
-└── architecture/            # Architecture docs
-    ├── overview.md
-    └── data-flow.md
+├── 01-current-state-of-the-art.md    # Comprehensive system overview
+├── 02-walk-forward-optimization-results.md
+├── 03-kelly-criterion-position-sizing.md
+├── 04-confidence-threshold-optimization.md
+├── 05-regime-detection-analysis.md
+├── 06-web-showcase-implementation-plan.md
+└── 07-backend-implementation-prompt.md
+
+CLAUDE.md                              # Primary project guide
+README.md                              # Project overview
 ```
 
 ### Documentation Standards
 
 **Docstring Format (Google Style):**
 ```python
-def calculate_rsi(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
-    """Calculate Relative Strength Index.
+def predict(self, df: pd.DataFrame) -> Dict[str, Any]:
+    """Generate MTF ensemble prediction.
 
     Args:
-        df: OHLCV DataFrame with 'close' column
-        period: RSI period (default 14)
+        df: 5-minute OHLCV DataFrame with enough history
 
     Returns:
-        DataFrame with 'rsi_{period}' column added
+        Dict with keys: direction, confidence, should_trade,
+        component_directions, component_confidences
 
     Raises:
-        ValueError: If 'close' column missing
+        RuntimeError: If model not trained
 
     Example:
-        >>> df = load_ohlcv("EURUSD")
-        >>> df = calculate_rsi(df, period=14)
-        >>> print(df["rsi_14"].tail())
+        >>> ensemble = MTFEnsemble()
+        >>> ensemble.load("models/mtf_ensemble")
+        >>> prediction = ensemble.predict(df)
+        >>> print(prediction["direction"], prediction["confidence"])
     """
 ```
 
@@ -707,10 +721,40 @@ What this endpoint does.
 
 ### Example
 ```bash
-curl -X POST ...
+curl -X POST http://localhost:8001/api/v1/predictions/latest
 ```
 
 ### Errors
 | Code | Description |
 |------|-------------|
+| 200 | Success |
+| 503 | Model not loaded / Insufficient data |
+| 500 | Internal server error |
+```
+
+### React Component Documentation Template
+```markdown
+## ComponentName
+
+### Props
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| data | object | No | Data to display |
+| loading | boolean | No | Show loading state |
+| error | string | No | Error message |
+
+### States
+- **Loading**: Shows skeleton loader
+- **Error**: Shows error message with icon
+- **Empty**: Shows "No data available" message
+- **Data**: Renders component with data
+
+### Example Usage
+```jsx
+<ComponentName
+  data={predictionData}
+  loading={isLoading}
+  error={errorMessage}
+/>
+```
 ```

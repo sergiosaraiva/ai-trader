@@ -135,6 +135,8 @@ For each test scenario:
 
 | Skill | When Invoked | Purpose |
 |-------|--------------|---------|
+| `writing-pytest-tests` | Backend API tests | TestClient, mocked services, fixtures |
+| `writing-vitest-tests` | Frontend component tests | Testing Library, component states |
 | `planning-test-scenarios` | Receive scenarios from SA | Understand test requirements |
 | `generating-test-data` | Need test fixtures | Create data builders |
 | `validating-time-series-data` | Test data handling | Verify no leakage |
@@ -143,8 +145,12 @@ For each test scenario:
 
 | Skill | Usage |
 |-------|-------|
+| `creating-fastapi-endpoints` | How to test API routes |
+| `creating-python-services` | How to mock services |
+| `creating-pydantic-schemas` | How to validate schemas |
+| `creating-react-components` | How to test component states |
+| `creating-api-clients` | How to mock API calls |
 | `implementing-prediction-models` | How to test models |
-| `creating-api-endpoints` | How to test APIs |
 | `creating-technical-indicators` | How to test indicators |
 | `running-backtests` | How to test backtesting |
 
@@ -152,19 +158,27 @@ For each test scenario:
 ```
 Test type determines skill usage:
 
-Unit tests for models:
-  → Read implementing-prediction-models
-  → Mock data sources, test build/train/predict
+Backend API tests:
+  → Read writing-pytest-tests
+  → Use TestClient from FastAPI
+  → Mock services in setup_mocks fixture
+  → Restore services in finally block
+
+Frontend component tests:
+  → Read writing-vitest-tests
+  → Test loading/error/empty/data states
+  → Use screen.getByText for assertions
+  → Use document.querySelector for class checks
+
+Unit tests for services:
+  → Read creating-python-services
+  → Mock external dependencies
+  → Test thread-safety considerations
 
 Unit tests for indicators:
   → Read creating-technical-indicators
   → Test with sample OHLCV data
   → Verify feature names tracked
-
-Unit tests for API:
-  → Read creating-api-endpoints
-  → Use TestClient from FastAPI
-  → Mock model predictions
 
 Integration tests:
   → Read running-backtests
@@ -671,84 +685,111 @@ test_prediction_api.py::TestHealthEndpoint::test_health_returns_status PASSED
 ### Test Directory Structure
 ```
 tests/
-├── unit/                    # Isolated unit tests
-│   ├── test_models.py
-│   ├── test_indicators.py
-│   └── test_processors.py
-├── integration/             # Component integration
-│   ├── test_api.py
-│   └── test_backtester.py
+├── api/                     # Backend API tests
+│   ├── test_predictions.py  # Prediction endpoint tests
+│   ├── test_trading.py      # Trading endpoint tests
+│   └── test_health.py       # Health check tests
+├── services/                # Service tests
+│   └── test_model_service.py
 ├── conftest.py              # Shared fixtures
 └── factories.py             # Data builders
+
+frontend/src/components/
+├── PredictionCard.test.jsx  # Component tests
+├── AccountStatus.test.jsx
+└── TradeHistory.test.jsx
 ```
 
-### Common Test Fixtures
+### Backend Test Pattern (pytest)
 
 ```python
-# OHLCV data fixture
-@pytest.fixture
-def sample_ohlcv():
-    dates = pd.date_range("2024-01-01", periods=200, freq="D")
-    return pd.DataFrame({
-        "open": np.random.randn(200).cumsum() + 100,
-        "high": ...,
-        "low": ...,
-        "close": ...,
-        "volume": np.random.randint(1000, 10000, 200),
-    }, index=dates)
+# tests/api/test_predictions.py
+import pytest
+from unittest.mock import Mock
+from fastapi.testclient import TestClient
+from fastapi import FastAPI
 
-# Model config fixture
-@pytest.fixture
-def model_config():
-    return {
-        "name": "test_model",
-        "sequence_length": 50,
-        "prediction_horizon": [1, 4],
-    }
 
-# API client fixture
-@pytest.fixture
-def api_client():
-    from fastapi.testclient import TestClient
-    from src.api.main import create_app
-    return TestClient(create_app())
+class TestPredictionEndpoints:
+    @pytest.fixture(autouse=True)
+    def setup_mocks(self):
+        """Set up service mocks before each test."""
+        self.mock_model_service = Mock()
+        self.mock_model_service.is_loaded = True
+        self.mock_model_service.get_model_info.return_value = {...}
+
+    def test_endpoint_success(self):
+        from src.api.routes import predictions
+
+        original = predictions.model_service
+        predictions.model_service = self.mock_model_service
+
+        try:
+            app = FastAPI()
+            app.include_router(predictions.router)
+            client = TestClient(app)
+
+            response = client.get("/models/status")
+            assert response.status_code == 200
+        finally:
+            predictions.model_service = original
 ```
 
-### Pytest Commands
+### Frontend Test Pattern (Vitest)
+
+```jsx
+// frontend/src/components/Component.test.jsx
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { Component } from './Component';
+
+describe('Component', () => {
+  it('renders loading state', () => {
+    render(<Component loading={true} />);
+    const skeleton = document.querySelector('.animate-pulse');
+    expect(skeleton).toBeInTheDocument();
+  });
+
+  it('renders error state', () => {
+    render(<Component error="Test error" />);
+    expect(screen.getByText('Error')).toBeInTheDocument();
+  });
+
+  it('renders data state', () => {
+    render(<Component data={{ value: 'test' }} />);
+    expect(screen.getByText('test')).toBeInTheDocument();
+  });
+});
+```
+
+### Test Commands
 ```bash
-# Run all tests
-pytest
+# Backend tests
+pytest tests/ -v
 
-# Run with coverage
-pytest --cov=src --cov-report=term-missing
+# Backend coverage
+pytest tests/ --cov=src --cov-report=term-missing
 
-# Run specific file
-pytest tests/unit/test_indicators.py
+# Specific backend test
+pytest tests/api/test_predictions.py -v
 
-# Run specific test class
-pytest tests/unit/test_indicators.py::TestRSI
+# Frontend tests
+cd frontend && npm test
 
-# Run with verbose output
-pytest -v --tb=short
+# Frontend test with UI
+cd frontend && npm run test:ui
 
-# Run and stop on first failure
-pytest -x
-
-# Run in parallel
-pytest -n auto
+# Frontend coverage
+cd frontend && npm run test:coverage
 ```
 
 ### Time Series Test Patterns
 ```python
 def test_no_future_leakage():
     """Verify features don't use future data."""
-    # Create data with known pattern
     df = create_test_ohlcv()
-
-    # Calculate features
     features = calculate_features(df)
 
-    # Verify no correlation with future
     future_returns = df["close"].pct_change().shift(-1)
     for col in features.columns:
         corr = features[col].corr(future_returns)
@@ -757,6 +798,5 @@ def test_no_future_leakage():
 def test_chronological_split():
     """Verify train/test split is chronological."""
     X_train, X_test, y_train, y_test, times = split_data(df)
-
     assert times["train"].max() < times["test"].min()
 ```

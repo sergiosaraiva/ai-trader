@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* Custom CSS variables for the trading dashboard */
+:root {
+  --color-profit: #22c55e;
+  --color-loss: #ef4444;
+  --color-neutral: #6b7280;
+  --color-primary: #3b82f6;
+  --color-warning: #f59e0b;
+}
+
+/* Base styles */
+body {
+  @apply bg-gray-900 text-gray-100 antialiased;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+
+/* Utility classes */
+.text-profit {
+  color: var(--color-profit);
+}
+
+.text-loss {
+  color: var(--color-loss);
+}
+
+.bg-profit {
+  background-color: var(--color-profit);
+}
+
+.bg-loss {
+  background-color: var(--color-loss);
+}
+
+/* Animation for loading states */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-all duration-200;
+}
+
+.card-hover:hover {
+  @apply transform scale-[1.01] shadow-lg;
+}

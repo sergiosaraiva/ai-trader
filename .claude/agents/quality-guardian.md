@@ -151,8 +151,15 @@ The Quality Guardian runs three analysis streams in parallel:
 
 | Skill | Usage |
 |-------|-------|
+| `creating-fastapi-endpoints` | Verify API route patterns correct |
+| `creating-python-services` | Verify service singleton patterns correct |
+| `creating-pydantic-schemas` | Verify schema patterns correct |
+| `creating-sqlalchemy-models` | Verify database model patterns correct |
+| `creating-react-components` | Verify React component patterns correct |
+| `creating-api-clients` | Verify frontend API client patterns correct |
+| `writing-pytest-tests` | Verify backend test patterns correct |
+| `writing-vitest-tests` | Verify frontend test patterns correct |
 | `implementing-prediction-models` | Verify model patterns correct |
-| `creating-api-endpoints` | Verify API patterns correct |
 | `creating-technical-indicators` | Verify indicator patterns correct |
 | `creating-data-processors` | Verify processor patterns correct |
 | `creating-dataclasses` | Verify DTO patterns correct |
@@ -163,8 +170,15 @@ The Quality Guardian runs three analysis streams in parallel:
 ```
 For each changed file:
   Match file path to skill:
+    src/api/routes/ → creating-fastapi-endpoints
+    src/api/services/ → creating-python-services
+    src/api/schemas/ → creating-pydantic-schemas
+    src/api/database/ → creating-sqlalchemy-models
+    frontend/src/components/ → creating-react-components
+    frontend/src/api/ → creating-api-clients
+    tests/api/ → writing-pytest-tests
+    *.test.jsx → writing-vitest-tests
     src/models/ → implementing-prediction-models
-    src/api/ → creating-api-endpoints
     src/features/technical/ → creating-technical-indicators
     src/data/processors/ → creating-data-processors
     src/trading/risk → implementing-risk-management
@@ -526,19 +540,39 @@ train_X, test_X = X[:split], X[split:]
 
 ### Pattern Checklist by Layer
 
-**Model Layer (`src/models/`):**
-- [ ] Inherits from BaseModel
-- [ ] Has DEFAULT_CONFIG
-- [ ] Implements build(), train(), predict(), predict_batch()
-- [ ] Returns Prediction dataclass
-- [ ] Registered with ModelRegistry
-
-**API Layer (`src/api/`):**
+**API Routes (`src/api/routes/`):**
 - [ ] Uses APIRouter
-- [ ] Pydantic request/response models
+- [ ] response_model with Pydantic schema
+- [ ] Service availability check first
+- [ ] Re-raises HTTPException
+- [ ] Logs errors before raising
+- [ ] Descriptive docstrings
+
+**Services (`src/api/services/`):**
+- [ ] Thread-safe with Lock
+- [ ] is_loaded property
+- [ ] initialize() method with error handling
+- [ ] Cache with TTL
+- [ ] Singleton instance at module end
+
+**Schemas (`src/api/schemas/`):**
 - [ ] Field() with descriptions
-- [ ] Async handlers
-- [ ] Proper error handling
+- [ ] json_schema_extra with example
+- [ ] Proper Optional typing
+- [ ] Reasonable defaults
+
+**Database (`src/api/database/`):**
+- [ ] Explicit nullability
+- [ ] Indexes on queried columns
+- [ ] created_at/updated_at timestamps
+- [ ] Composite indexes for common queries
+
+**React Components (`frontend/src/components/`):**
+- [ ] Handles loading/error/empty/data states
+- [ ] Skeleton loader for loading state
+- [ ] Error message with icon
+- [ ] TailwindCSS for styling
+- [ ] Props destructured with defaults
 
 **Feature Layer (`src/features/technical/`):**
 - [ ] Has _feature_names list
@@ -546,12 +580,6 @@ train_X, test_X = X[:split], X[split:]
 - [ ] df.copy() at start
 - [ ] Returns df for chaining
 - [ ] Column naming: indicator_period
-
-**Data Layer (`src/data/`):**
-- [ ] BaseDataSource inheritance for sources
-- [ ] Factory registration
-- [ ] Context manager support
-- [ ] Standardized OHLCV columns
 
 ### Security Checklist
 
@@ -572,7 +600,7 @@ train_X, test_X = X[:split], X[split:]
 
 ### Static Analysis Commands
 ```bash
-# Run all checks
+# Backend checks
 black --check src/
 isort --check src/
 flake8 src/ --max-line-length=100
@@ -583,4 +611,10 @@ bandit -r src/ -ll
 
 # Dependency check
 pip-audit
+
+# Frontend checks
+cd frontend && npm run lint
+
+# Frontend tests
+cd frontend && npm test
 ```

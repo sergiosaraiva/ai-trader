@@ -314,5 +314,5 @@ json_str = json.dumps(asdict(result), default=json_serializer)
 ## Related Skills
 
 - [implementing-prediction-models](../backend/implementing-prediction-models.md) - Returns Prediction dataclass
-- [creating-api-endpoints](../backend/creating-api-endpoints.md) - Pydantic models for API
+- [creating-fastapi-endpoints](../backend/SKILL.md) - Pydantic models for API
 - [running-backtests](../trading-domain/running-backtests.md) - Returns BacktestResult dataclass

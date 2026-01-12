@@ -215,7 +215,11 @@ class MTFEnsemble:
         if timeframe == "5min":
             return df_5min.copy()
 
-        resampled = df_5min.resample(timeframe).agg({
+        # Map timeframe to pandas resample string (use lowercase 'h' for pandas 2.0+)
+        tf_map = {"1H": "1h", "4H": "4h", "D": "D"}
+        resample_tf = tf_map.get(timeframe, timeframe)
+
+        resampled = df_5min.resample(resample_tf).agg({
             "open": "first",
             "high": "max",
             "low": "min",
@@ -236,10 +240,13 @@ class MTFEnsemble:
         calc = TechnicalIndicatorCalculator(model_type="short_term")
         higher_tf_data = {}
 
-        if base_timeframe == "1H":
+        # Normalize timeframe for comparison (handle both "1H" and "1h")
+        tf_upper = base_timeframe.upper()
+
+        if tf_upper == "1H":
             higher_tf_data["4H"] = calc.calculate(self.resample_data(df_5min, "4H"))
             higher_tf_data["D"] = calc.calculate(self.resample_data(df_5min, "D"))
-        elif base_timeframe == "4H":
+        elif tf_upper == "4H":
             higher_tf_data["D"] = calc.calculate(self.resample_data(df_5min, "D"))
         # Daily doesn't need higher TF data
 
@@ -360,12 +367,19 @@ class MTFEnsemble:
 
             X = df_features[available_cols].iloc[-1:].values
 
-            if np.isnan(X).any():
-                logger.warning(f"{tf}: NaN in features, using neutral prediction")
-                predictions[tf] = 0
-                confidences[tf] = 0.5
-                probs_up[tf] = 0.5
-                continue
+            # Handle NaN values by filling with 0 (neutral for standardized features)
+            nan_count = np.isnan(X).sum()
+            if nan_count > 0:
+                nan_pct = nan_count / X.size * 100
+                if nan_pct > 20:  # More than 20% NaN - use neutral
+                    logger.warning(f"{tf}: {nan_pct:.1f}% NaN in features, using neutral prediction")
+                    predictions[tf] = 0
+                    confidences[tf] = 0.5
+                    probs_up[tf] = 0.5
+                    continue
+                else:
+                    logger.debug(f"{tf}: Filling {nan_count} NaN values with 0")
+                    X = np.nan_to_num(X, nan=0.0)
 
             pred, conf, prob_up, prob_down = model.predict(X[0])
             predictions[tf] = pred

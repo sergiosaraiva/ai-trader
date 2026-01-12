@@ -15,9 +15,25 @@ This directory contains Claude Code Skills extracted from the ai-trader codebase
 
 | Skill | Description |
 |-------|-------------|
+| [creating-fastapi-endpoints](backend/SKILL.md) | FastAPI REST endpoints with error handling, Pydantic schemas, and service integration |
+| [creating-python-services](backend/creating-python-services.md) | Thread-safe singleton services with lazy initialization and caching |
+| [creating-pydantic-schemas](backend/creating-pydantic-schemas.md) | Request/response schemas with Field descriptions and validation |
 | [implementing-prediction-models](backend/implementing-prediction-models.md) | BaseModel pattern with registry for ML models |
-| [creating-api-endpoints](backend/creating-api-endpoints.md) | FastAPI + Pydantic endpoint patterns |
+| ~~[creating-api-endpoints](backend/creating-api-endpoints.md)~~ | *DEPRECATED - Merged into creating-fastapi-endpoints* |
 | [creating-data-processors](backend/creating-data-processors.md) | Validate/Clean/Transform pipeline pattern |
+
+### Frontend Layer (`frontend/`)
+
+| Skill | Description |
+|-------|-------------|
+| [creating-react-components](frontend/SKILL.md) | React components with loading, error, and data states using TailwindCSS |
+| [creating-api-clients](frontend/creating-api-clients.md) | Centralized API client with error handling and typed endpoints |
+
+### Database Layer (`database/`)
+
+| Skill | Description |
+|-------|-------------|
+| [creating-sqlalchemy-models](database/SKILL.md) | SQLAlchemy ORM models with indexes and relationships for SQLite |
 
 ### Feature Engineering (`feature-engineering/`)
 
@@ -31,7 +47,7 @@ This directory contains Claude Code Skills extracted from the ai-trader codebase
 | Skill | Description |
 |-------|-------------|
 | [adding-data-sources](data-layer/adding-data-sources.md) | BaseDataSource + Factory pattern |
-| ~~[processing-ohlcv-data](data-layer/processing-ohlcv-data.md)~~ | *DEPRECATED - Merged into creating-data-processors* |
+| ~~processing-ohlcv-data~~ | *ARCHIVED - Was merged into creating-data-processors* |
 
 ### Trading Domain (`trading-domain/`)
 
@@ -41,6 +57,13 @@ This directory contains Claude Code Skills extracted from the ai-trader codebase
 | [analyzing-trading-performance](trading-domain/analyzing-trading-performance.md) | Performance metrics (Sharpe, Sortino, drawdown) |
 | [implementing-risk-management](trading-domain/implementing-risk-management.md) | RiskManager with circuit breakers |
 
+### Testing (`testing/`)
+
+| Skill | Description |
+|-------|-------------|
+| [writing-pytest-tests](testing/SKILL.md) | pytest tests with TestClient and mocked services |
+| [writing-vitest-tests](testing/writing-vitest-tests.md) | Vitest tests for React components with Testing Library |
+
 ### Quality & Testing (`quality-testing/`)
 
 | Skill | Description |
@@ -49,6 +72,12 @@ This directory contains Claude Code Skills extracted from the ai-trader codebase
 | [validating-time-series-data](quality-testing/validating-time-series-data.md) | Time series validation and leakage prevention |
 | [planning-test-scenarios](quality-testing/planning-test-scenarios.md) | Generate test plans from acceptance criteria |
 | [generating-test-data](quality-testing/generating-test-data.md) | Create test fixtures, mocks, and synthetic data |
+
+### Build & Deployment (`build-deployment/`)
+
+| Skill | Description |
+|-------|-------------|
+| [creating-cli-scripts](build-deployment/SKILL.md) | Python CLI scripts with argparse, logging, and progress output |
 
 ## Usage
 
@@ -180,5 +209,10 @@ cp .claude/improvement/error-template.md \
 
 - Date: 2026-01-07
 - Based on: `.claude/discovery/codebase-patterns.md`
-- Skills: 16 (14 domain + 2 meta-skills)
-- Last updated: 2026-01-07 (consolidated processing-ohlcv-data → creating-data-processors; skills: 15 active + 1 deprecated)
+- Skills: 23 total (21 domain + 2 meta-skills)
+- Last updated: 2026-01-12
+  - Added: creating-fastapi-endpoints, creating-python-services, creating-pydantic-schemas
+  - Added: creating-react-components, creating-api-clients
+  - Added: creating-sqlalchemy-models
+  - Added: writing-pytest-tests, writing-vitest-tests
+  - Added: creating-cli-scripts

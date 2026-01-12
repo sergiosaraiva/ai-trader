@@ -406,6 +406,6 @@ def validate_training_data(
 
 ## Related Skills
 
-- [processing-ohlcv-data](../data-layer/processing-ohlcv-data.md) - For data processing
+- [creating-data-processors](../backend/creating-data-processors.md) - For data processing
 - [creating-technical-indicators](../feature-engineering/creating-technical-indicators.md) - For indicator NaN handling
 - [implementing-prediction-models](../backend/implementing-prediction-models.md) - Consumes validated data

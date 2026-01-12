@@ -15,15 +15,17 @@ The user trusts Claude to make good decisions. Act decisively and complete tasks
 
 ## Project Overview
 
-AI Assets Trader is a **production-ready Multi-Timeframe (MTF) Ensemble trading system** for forex. The system uses XGBoost models across three timeframes (1H, 4H, Daily) combined with sentiment analysis to generate trading predictions.
+AI Assets Trader is a **production-ready Multi-Timeframe (MTF) Ensemble trading system** for forex. The system uses XGBoost models across three timeframes (1H, 4H, Daily) combined with sentiment analysis to generate trading predictions. It includes a **web showcase** with a React frontend and FastAPI backend for live demonstration.
 
-**Current Status: Production-Ready (WFO Validated, Threshold Optimized)**
+**Current Status: Production-Ready (WFO Validated, Threshold Optimized, Web Showcase)**
 - +8,693 pips profit with optimized 70% confidence threshold
 - +18,136 pips across 7 WFO windows (100% profitable)
 - 62.1% win rate, 2.69 profit factor (at 70% threshold)
 - VIX/EPU sentiment integration (Daily model only)
 - Walk-Forward Optimization: PASSED (100% consistency)
 - Confidence Threshold: OPTIMIZED (70% recommended)
+- Web Showcase: React dashboard + FastAPI backend
+- Docker deployment ready for Railway cloud
 
 ## Current Performance (Optimized)
 
@@ -56,8 +58,24 @@ ai-trader/
 │   │   └── gdelt_sentiment_*.csv  # GDELT hourly (available, not used)
 │   └── sample/                    # Sample data for development
 ├── docs/
-│   ├── 15-current-state-of-the-art.md  # Comprehensive current state
-│   └── ...                        # Architecture and design docs
+│   ├── 01-current-state-of-the-art.md  # Comprehensive current state
+│   └── ...                        # Analysis results and plans
+├── frontend/                      # React Web Showcase
+│   ├── src/
+│   │   ├── components/            # React components
+│   │   │   ├── Dashboard.jsx      # Main dashboard layout
+│   │   │   ├── PredictionCard.jsx # Current prediction display
+│   │   │   ├── AccountStatus.jsx  # Paper trading balance
+│   │   │   ├── PerformanceStats.jsx # Trading statistics
+│   │   │   ├── TradeHistory.jsx   # Recent trades list
+│   │   │   └── PriceChart.jsx     # EUR/USD price chart
+│   │   ├── api/
+│   │   │   └── client.js          # API client with fetch
+│   │   └── hooks/                 # Custom React hooks
+│   ├── Dockerfile                 # Multi-stage build (Node → nginx)
+│   ├── nginx.conf.template        # Nginx config with API proxy
+│   ├── docker-entrypoint.sh       # Runtime env substitution
+│   └── railway.json               # Railway deployment config
 ├── models/
 │   └── mtf_ensemble/              # Production models
 │       ├── 1H_model.pkl           # 1-hour XGBoost model
@@ -70,6 +88,22 @@ ai-trader/
 │   ├── download_sentiment_data.py # EPU + VIX download
 │   └── download_gdelt_sentiment.py # GDELT download (BigQuery)
 ├── src/
+│   ├── api/                       # FastAPI Backend Service
+│   │   ├── main.py                # Application entry point
+│   │   ├── scheduler.py           # APScheduler for data updates
+│   │   ├── routes/
+│   │   │   ├── health.py          # Health check endpoint
+│   │   │   ├── predictions.py     # Prediction endpoints
+│   │   │   ├── trading.py         # Paper trading endpoints
+│   │   │   ├── market.py          # Market data endpoints
+│   │   │   └── pipeline.py        # Data pipeline endpoints
+│   │   ├── services/
+│   │   │   ├── model_service.py   # MTF Ensemble predictions
+│   │   │   ├── trading_service.py # Paper trading logic
+│   │   │   ├── data_service.py    # Market data fetching
+│   │   │   └── pipeline_service.py # Data pipeline management
+│   │   ├── schemas/               # Pydantic schemas
+│   │   └── database/              # SQLAlchemy models
 │   ├── features/
 │   │   ├── technical/             # Technical indicators
 │   │   │   ├── calculator.py      # TechnicalIndicatorCalculator
@@ -84,7 +118,11 @@ ai-trader/
 │   │       └── enhanced_features.py # EnhancedFeatureEngine
 │   ├── simulation/                # Backtesting
 │   └── trading/                   # Risk management
-└── tests/
+├── tests/                         # Python tests (735+ tests)
+├── Dockerfile                     # Backend API container
+├── docker-compose.yml             # Local orchestration
+├── requirements-api.txt           # Production API dependencies
+└── railway.json                   # Railway backend config
 ```
 
 ## MTF Ensemble Architecture
@@ -170,7 +208,7 @@ The model has been validated using walk-forward optimization with 7 rolling wind
 
 **Summary:** 100% consistency (7/7 windows profitable), +18,136 total pips, CV=0.40 (stable)
 
-See `docs/17-walk-forward-optimization-results.md` for full analysis.
+See `docs/02-walk-forward-optimization-results.md` for full analysis.
 
 ## Confidence Threshold Optimization
 
@@ -186,7 +224,7 @@ Testing confidence thresholds from 55% to 75% reveals optimal trade filtering:
 
 **Recommendation:** 70% threshold maximizes total pips while maintaining excellent quality metrics.
 
-See `docs/19-confidence-threshold-optimization.md` for full analysis.
+See `docs/04-confidence-threshold-optimization.md` for full analysis.
 
 ## Market Regime Detection
 
@@ -203,7 +241,144 @@ The model is robust across all market conditions. Regime analysis shows:
 
 **Finding:** All regimes profitable - no regime filtering needed. Model adapts to all market conditions.
 
-See `docs/20-regime-detection-analysis.md` for full analysis.
+See `docs/05-regime-detection-analysis.md` for full analysis.
+
+## Web Showcase
+
+The web showcase provides a live demonstration of the MTF Ensemble trading system with paper trading capabilities.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    WEB SHOWCASE ARCHITECTURE                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   React Frontend (Port 3001)                                    │
+│   ├── Dashboard.jsx          Main layout with all components    │
+│   ├── PredictionCard.jsx     Current BUY/SELL/HOLD signal       │
+│   ├── AccountStatus.jsx      $100K paper trading balance        │
+│   ├── PerformanceStats.jsx   Win rate, profit factor, etc.      │
+│   ├── TradeHistory.jsx       Recent trades table                │
+│   └── PriceChart.jsx         EUR/USD price with Recharts        │
+│                                                                  │
+│   nginx (reverse proxy)                                          │
+│   └── /api/* → Backend (Port 8001)                              │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   FastAPI Backend (Port 8001)                                   │
+│   ├── /health               Health check                        │
+│   ├── /api/v1/predictions   Current and historical predictions  │
+│   ├── /api/v1/trading       Paper trading operations            │
+│   ├── /api/v1/market        EUR/USD market data (yfinance)      │
+│   └── /api/v1/pipeline      Data update management              │
+│                                                                  │
+│   Services:                                                      │
+│   ├── model_service         MTF Ensemble predictions            │
+│   ├── trading_service       Paper trading ($100K balance)       │
+│   ├── data_service          Market data from yfinance           │
+│   └── pipeline_service      Scheduled data updates              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check for container orchestration |
+| GET | `/api/v1/predictions/current` | Get current trading prediction |
+| GET | `/api/v1/predictions/history` | Get prediction history |
+| GET | `/api/v1/trading/account` | Get paper trading account status |
+| GET | `/api/v1/trading/positions` | Get open positions |
+| GET | `/api/v1/trading/history` | Get trade history |
+| POST | `/api/v1/trading/execute` | Execute a trade |
+| GET | `/api/v1/market/price` | Get current EUR/USD price |
+| GET | `/api/v1/market/history` | Get price history |
+| GET | `/api/v1/pipeline/status` | Get data pipeline status |
+| POST | `/api/v1/pipeline/refresh` | Trigger data refresh |
+
+### Frontend Components
+
+| Component | Description |
+|-----------|-------------|
+| `Dashboard.jsx` | Main layout, orchestrates all components |
+| `PredictionCard.jsx` | Displays current BUY/SELL/HOLD signal with confidence |
+| `AccountStatus.jsx` | Shows paper trading balance ($100K starting) |
+| `PerformanceStats.jsx` | Win rate, profit factor, total trades, total pips |
+| `TradeHistory.jsx` | Table of recent trades with outcomes |
+| `PriceChart.jsx` | EUR/USD price chart using Recharts |
+
+## Docker Deployment
+
+The application is containerized for Railway cloud deployment.
+
+### Container Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DOCKER ARCHITECTURE                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ai-trader-backend (Port 8001)                                 │
+│   ├── Base: python:3.12-slim                                    │
+│   ├── Dependencies: requirements-api.txt                        │
+│   ├── Models: /app/models (mounted read-only)                   │
+│   ├── Data: /app/data (mounted for persistence)                 │
+│   └── Entry: uvicorn src.api.main:app                           │
+│                                                                  │
+│   ai-trader-frontend (Port 3001 → 80 internal)                  │
+│   ├── Build: node:20-alpine (multi-stage)                       │
+│   ├── Serve: nginx:alpine                                       │
+│   ├── Proxy: /api/* → backend:8001                              │
+│   └── Entry: docker-entrypoint.sh (envsubst)                    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Local Development with Docker
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Run in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
+
+# Rebuild a specific service
+docker-compose build backend
+docker-compose build frontend
+```
+
+### Railway Deployment
+
+Both services have `railway.json` configuration files:
+
+**Backend (`railway.json`)**:
+- Dockerfile build
+- Start: `uvicorn src.api.main:app --host 0.0.0.0 --port $PORT`
+- Health: `/health` (60s timeout)
+
+**Frontend (`frontend/railway.json`)**:
+- Dockerfile build
+- Health: `/health` (30s timeout)
+- Environment: `BACKEND_URL` must point to backend service
+
+### Environment Variables
+
+| Variable | Service | Default | Description |
+|----------|---------|---------|-------------|
+| `PORT` | Backend | 8001 | API server port |
+| `DATABASE_URL` | Backend | sqlite:///./data/trading.db | Database connection |
+| `FRED_API_KEY` | Backend | - | FRED API key for sentiment |
+| `BACKEND_URL` | Frontend | http://backend:8001 | Backend API URL |
 
 ## Common Commands
 
@@ -274,6 +449,79 @@ export GOOGLE_APPLICATION_CREDENTIALS="credentials/gcloud.json"
 python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 ```
 
+### Docker Commands
+
+```bash
+# Build and run all services
+docker-compose up --build
+
+# Run in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# Stop all services
+docker-compose down
+
+# Build individual services
+docker build -t ai-trader-backend .
+docker build -t ai-trader-frontend ./frontend
+```
+
+### Frontend Development
+
+```bash
+# Install dependencies
+cd frontend && npm install
+
+# Development server (http://localhost:5173)
+npm run dev
+
+# Build for production
+npm run build
+
+# Run tests
+npm test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Backend API
+
+```bash
+# Run API locally (without Docker)
+uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8001
+
+# Access API documentation
+# Swagger UI: http://localhost:8001/docs
+# ReDoc: http://localhost:8001/redoc
+
+# Health check
+curl http://localhost:8001/health
+```
+
+### Testing
+
+```bash
+# Run all backend tests (735+ tests)
+pytest tests/ -v
+
+# Run frontend tests (35 tests)
+cd frontend && npm test
+
+# Run specific test file
+pytest tests/api/test_predictions.py -v
+
+# Run tests with coverage
+pytest tests/ --cov=src --cov-report=html
+```
+
 ## Feature Engineering
 
 ### Feature Categories (per model)
@@ -323,6 +571,45 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 | `src/features/sentiment/gdelt_loader.py` | GDELT hourly sentiment |
 | `src/features/technical/calculator.py` | Technical indicator calculation |
 
+### Web Showcase - Backend API
+| File | Purpose |
+|------|---------|
+| `src/api/main.py` | FastAPI application entry point |
+| `src/api/scheduler.py` | APScheduler for data pipeline updates |
+| `src/api/routes/predictions.py` | Prediction endpoints |
+| `src/api/routes/trading.py` | Paper trading endpoints |
+| `src/api/routes/market.py` | Market data endpoints |
+| `src/api/routes/pipeline.py` | Data pipeline endpoints |
+| `src/api/services/model_service.py` | MTF Ensemble prediction service |
+| `src/api/services/trading_service.py` | Paper trading logic |
+| `src/api/services/data_service.py` | Market data fetching (yfinance) |
+| `src/api/services/pipeline_service.py` | Data pipeline management |
+
+### Web Showcase - Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/components/Dashboard.jsx` | Main dashboard layout |
+| `frontend/src/components/PredictionCard.jsx` | Current prediction display |
+| `frontend/src/components/AccountStatus.jsx` | Paper trading balance |
+| `frontend/src/components/PerformanceStats.jsx` | Trading statistics |
+| `frontend/src/components/TradeHistory.jsx` | Recent trades table |
+| `frontend/src/components/PriceChart.jsx` | EUR/USD price chart |
+| `frontend/src/api/client.js` | API client (fetch wrapper) |
+
+### Docker & Deployment
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Backend API container |
+| `frontend/Dockerfile` | Frontend multi-stage build |
+| `docker-compose.yml` | Local orchestration |
+| `railway.json` | Railway backend config |
+| `frontend/railway.json` | Railway frontend config |
+| `frontend/nginx.conf.template` | Nginx reverse proxy config |
+| `frontend/docker-entrypoint.sh` | Runtime env substitution |
+| `requirements-api.txt` | Production API dependencies |
+| `.dockerignore` | Backend build exclusions |
+| `frontend/.dockerignore` | Frontend build exclusions |
+
 ### Scripts
 | File | Purpose |
 |------|---------|
@@ -338,23 +625,38 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 ### Documentation
 | File | Purpose |
 |------|---------|
-| `docs/15-current-state-of-the-art.md` | **Comprehensive current state** |
-| `docs/17-walk-forward-optimization-results.md` | **WFO validation results** |
-| `docs/18-kelly-criterion-position-sizing.md` | **Kelly position sizing** |
-| `docs/19-confidence-threshold-optimization.md` | **Confidence optimization results** |
-| `docs/20-regime-detection-analysis.md` | **Market regime analysis** |
-| `docs/13-sentiment-analysis-test-results.md` | Sentiment integration results |
-| `docs/08-multi-timeframe-ensemble-implementation.md` | MTF implementation details |
+| `docs/01-current-state-of-the-art.md` | **Comprehensive current state** |
+| `docs/02-walk-forward-optimization-results.md` | **WFO validation results** |
+| `docs/03-kelly-criterion-position-sizing.md` | **Kelly position sizing** |
+| `docs/04-confidence-threshold-optimization.md` | **Confidence optimization results** |
+| `docs/05-regime-detection-analysis.md` | **Market regime analysis** |
+| `docs/06-web-showcase-implementation-plan.md` | **Web showcase roadmap** |
 
 ## Technology Stack
 
 | Component | Technology |
 |-----------|------------|
-| Language | Python 3.11+ |
+| **Backend** | |
+| Language | Python 3.12 |
 | ML Models | XGBoost |
 | Indicators | pandas-ta |
 | Data | pandas, numpy |
+| API Framework | FastAPI, uvicorn |
+| Database | SQLAlchemy, SQLite |
+| Scheduler | APScheduler |
 | Sentiment | FRED API, Google BigQuery |
+| **Frontend** | |
+| Framework | React 19 |
+| Build Tool | Vite 7 |
+| Styling | TailwindCSS 4 |
+| Charts | Recharts |
+| Icons | lucide-react |
+| Testing | Vitest, Testing Library |
+| **Infrastructure** | |
+| Containers | Docker |
+| Orchestration | docker-compose |
+| Cloud | Railway |
+| Web Server | nginx |
 
 ## Performance Targets
 
@@ -391,5 +693,13 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 - **SENTIMENT**: EPU/VIX on Daily model only (resolution matching principle)
 - Always consider data leakage when working with time series
 - Use the 5-minute combined data in `data/forex/` for training
-- Reference `docs/15-current-state-of-the-art.md` for detailed system documentation
+- Reference `docs/01-current-state-of-the-art.md` for detailed system documentation
 - The optimal configuration is already saved in `models/mtf_ensemble/`
+
+### Web Showcase Notes
+- **API**: FastAPI backend in `src/api/` serves predictions and paper trading
+- **Frontend**: React dashboard in `frontend/` with Vite build
+- **Docker**: Use `docker-compose up --build` for local testing
+- **Railway**: Deploy backend and frontend as separate services
+- **Testing**: 735+ backend tests, 35 frontend tests (all passing)
+- **Ports**: Backend on 8001, Frontend on 3001 (local), 80 (Docker internal)

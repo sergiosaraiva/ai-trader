@@ -1,0 +1,138 @@
+import { TrendingUp, TrendingDown, Minus, AlertCircle, Clock } from 'lucide-react';
+
+/**
+ * PredictionCard - Displays the current trading prediction
+ */
+export function PredictionCard({ prediction, loading, error }) {
+  if (loading) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6 animate-pulse">
+        <div className="h-4 bg-gray-700 rounded w-1/3 mb-4"></div>
+        <div className="h-16 bg-gray-700 rounded mb-4"></div>
+        <div className="h-4 bg-gray-700 rounded w-2/3"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6 border border-red-500/30">
+        <div className="flex items-center gap-2 text-red-400">
+          <AlertCircle size={20} />
+          <span>Error loading prediction</span>
+        </div>
+        <p className="text-gray-500 text-sm mt-2">{error}</p>
+      </div>
+    );
+  }
+
+  if (!prediction) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6">
+        <p className="text-gray-500">No prediction available</p>
+      </div>
+    );
+  }
+
+  const { signal, confidence, current_price, symbol, timestamp, timeframe_signals } = prediction;
+
+  const getSignalColor = (sig) => {
+    if (sig === 'BUY' || sig === 1) return 'text-green-400';
+    if (sig === 'SELL' || sig === -1) return 'text-red-400';
+    return 'text-gray-400';
+  };
+
+  const getSignalIcon = (sig) => {
+    if (sig === 'BUY' || sig === 1) return <TrendingUp size={32} />;
+    if (sig === 'SELL' || sig === -1) return <TrendingDown size={32} />;
+    return <Minus size={32} />;
+  };
+
+  const getSignalText = (sig) => {
+    if (sig === 'BUY' || sig === 1) return 'BUY';
+    if (sig === 'SELL' || sig === -1) return 'SELL';
+    return 'HOLD';
+  };
+
+  const getConfidenceColor = (conf) => {
+    const value = conf * 100;
+    if (value >= 70) return 'bg-green-500';
+    if (value >= 60) return 'bg-yellow-500';
+    return 'bg-gray-500';
+  };
+
+  const formatTime = (ts) => {
+    if (!ts) return 'N/A';
+    return new Date(ts).toLocaleString();
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6 card-hover">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-300">Current Prediction</h2>
+          <p className="text-sm text-gray-500">{symbol || 'EUR/USD'}</p>
+        </div>
+        <div className="flex items-center gap-1 text-gray-500 text-sm">
+          <Clock size={14} />
+          <span>{formatTime(timestamp)}</span>
+        </div>
+      </div>
+
+      {/* Main Signal */}
+      <div className="flex items-center justify-center gap-4 py-6">
+        <div className={`${getSignalColor(signal)}`}>
+          {getSignalIcon(signal)}
+        </div>
+        <div className="text-center">
+          <span className={`text-4xl font-bold ${getSignalColor(signal)}`}>
+            {getSignalText(signal)}
+          </span>
+          <p className="text-gray-500 text-sm mt-1">
+            @ {current_price?.toFixed(5) || 'N/A'}
+          </p>
+        </div>
+      </div>
+
+      {/* Confidence Bar */}
+      <div className="mt-4">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-gray-400">Confidence</span>
+          <span className="text-sm font-medium text-gray-300">
+            {((confidence || 0) * 100).toFixed(1)}%
+          </span>
+        </div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full ${getConfidenceColor(confidence)} transition-all duration-500`}
+            style={{ width: `${(confidence || 0) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Timeframe Breakdown */}
+      {timeframe_signals && Object.keys(timeframe_signals).length > 0 && (
+        <div className="mt-6 pt-4 border-t border-gray-700">
+          <h3 className="text-sm text-gray-400 mb-3">Timeframe Breakdown</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {Object.entries(timeframe_signals).map(([tf, data]) => (
+              <div key={tf} className="bg-gray-700/50 rounded p-3 text-center">
+                <span className="text-xs text-gray-500 block mb-1">{tf}</span>
+                <span className={`text-sm font-medium ${getSignalColor(data.signal || data)}`}>
+                  {getSignalText(data.signal || data)}
+                </span>
+                {data.confidence && (
+                  <span className="text-xs text-gray-500 block mt-1">
+                    {(data.confidence * 100).toFixed(0)}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default PredictionCard;

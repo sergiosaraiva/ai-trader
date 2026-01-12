@@ -68,7 +68,7 @@ For each task in implementation_plan (in order):
 
 1. Read skill reference if specified:
    ├─ Model task → Read `implementing-prediction-models`
-   ├─ API task → Read `creating-api-endpoints`
+   ├─ API task → Read `creating-fastapi-endpoints`
    ├─ Indicator task → Read `creating-technical-indicators`
    ├─ Data processor task → Read `creating-data-processors`
    ├─ Data source task → Read `adding-data-sources`
@@ -126,14 +126,20 @@ For each task in implementation_plan (in order):
 
 | Skill | When Invoked | Purpose |
 |-------|--------------|---------|
-| `implementing-prediction-models` | Model layer changes | BaseModel pattern, registry, Prediction dataclass |
-| `creating-api-endpoints` | API layer changes | FastAPI router, Pydantic models |
+| `creating-fastapi-endpoints` | API route changes | FastAPI router, response_model, error handling |
+| `creating-python-services` | Service layer changes | Singleton pattern, thread-safe, caching |
+| `creating-pydantic-schemas` | Schema changes | Request/response models, Field descriptions |
+| `creating-sqlalchemy-models` | Database changes | ORM models, indexes, relationships |
+| `creating-react-components` | Frontend changes | Loading/error/data states, TailwindCSS |
+| `creating-api-clients` | Frontend API changes | Centralized client, error handling |
+| `writing-pytest-tests` | Backend tests | TestClient, mocked services, fixtures |
+| `writing-vitest-tests` | Frontend tests | Testing Library, component states |
+| `creating-cli-scripts` | CLI script changes | argparse, logging, progress output |
+| `implementing-prediction-models` | Model layer changes | MTFEnsemble pattern, config dataclass |
 | `creating-technical-indicators` | Feature layer changes | Indicator calculator pattern |
 | `creating-data-processors` | Data processing changes | Validate/clean/transform pipeline |
 | `adding-data-sources` | Data source changes | BaseDataSource pattern, factory |
 | `implementing-risk-management` | Trading layer changes | RiskManager, circuit breakers |
-| `configuring-indicator-yaml` | Config changes | YAML structure, priority levels |
-| `processing-ohlcv-data` | OHLCV handling | Data validation, sequence creation |
 
 ### Supporting Skills
 
@@ -145,10 +151,26 @@ For each task in implementation_plan (in order):
 ### Skill Selection Logic
 ```python
 def select_skill(file_path: str, task_type: str) -> str:
-    if "src/models/" in file_path:
+    if "src/api/routes/" in file_path:
+        return "creating-fastapi-endpoints"
+    elif "src/api/services/" in file_path:
+        return "creating-python-services"
+    elif "src/api/schemas/" in file_path:
+        return "creating-pydantic-schemas"
+    elif "src/api/database/" in file_path:
+        return "creating-sqlalchemy-models"
+    elif "frontend/src/components/" in file_path:
+        return "creating-react-components"
+    elif "frontend/src/api/" in file_path:
+        return "creating-api-clients"
+    elif "tests/api/" in file_path:
+        return "writing-pytest-tests"
+    elif ".test.jsx" in file_path:
+        return "writing-vitest-tests"
+    elif "scripts/" in file_path:
+        return "creating-cli-scripts"
+    elif "src/models/" in file_path:
         return "implementing-prediction-models"
-    elif "src/api/" in file_path:
-        return "creating-api-endpoints"
     elif "src/features/technical/" in file_path:
         return "creating-technical-indicators"
     elif "src/data/processors/" in file_path:
@@ -157,8 +179,6 @@ def select_skill(file_path: str, task_type: str) -> str:
         return "adding-data-sources"
     elif "src/trading/risk" in file_path:
         return "implementing-risk-management"
-    elif "configs/indicators/" in file_path:
-        return "configuring-indicator-yaml"
     elif task_type == "dataclass":
         return "creating-dataclasses"
     else:
@@ -571,93 +591,143 @@ Import OK
 
 ### File Templates
 
-**New Model File:**
+**New API Route File:**
 ```python
-"""[Model name] model."""
+"""[Resource] routes."""
 
-from typing import Dict, Any, Optional
-import numpy as np
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 
-from ..base import BaseModel, Prediction, ModelRegistry
+from ..schemas.[resource] import [Resource]Response
+from ..services.[resource]_service import [resource]_service
+from ..database.session import get_db
 
-
-class [Name]Model(BaseModel):
-    """[Description]."""
-
-    DEFAULT_CONFIG = {
-        "name": "[name]",
-        "version": "1.0.0",
-    }
-
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        merged_config = {**self.DEFAULT_CONFIG, **(config or {})}
-        super().__init__(merged_config)
-
-    def build(self) -> None: ...
-    def train(self, X_train, y_train, X_val=None, y_val=None): ...
-    def predict(self, X: np.ndarray) -> Prediction: ...
-    def predict_batch(self, X: np.ndarray): ...
+router = APIRouter()
 
 
-ModelRegistry.register("[name]", [Name]Model)
+@router.get("/[resource]", response_model=[Resource]Response)
+async def get_[resource]() -> [Resource]Response:
+    """Get [resource]."""
+    if not [resource]_service.is_loaded:
+        raise HTTPException(status_code=503, detail="Service not loaded")
+
+    try:
+        result = [resource]_service.get_data()
+        return [Resource]Response(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 ```
 
-**New Indicator File:**
+**New Service File:**
 ```python
-"""[Category] indicators."""
+"""[Resource] service."""
 
-from typing import List
-import pandas as pd
+from threading import Lock
+from typing import Optional, Dict
 
 
-class [Category]Indicators:
-    """Calculate [category] indicators."""
+class [Resource]Service:
+    """Singleton service for [resource]."""
 
     def __init__(self):
-        self._feature_names: List[str] = []
+        self._lock = Lock()
+        self._initialized = False
+        self._cache: Dict = {}
 
-    def get_feature_names(self) -> List[str]:
-        return self._feature_names.copy()
+    @property
+    def is_loaded(self) -> bool:
+        return self._initialized
 
-    def calculate_all(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-        self._feature_names = []
-        # Add indicator calculations
-        return df
+    def initialize(self) -> bool:
+        if self._initialized:
+            return True
+        with self._lock:
+            # Initialize resources
+            self._initialized = True
+        return True
+
+
+# Singleton instance
+[resource]_service = [Resource]Service()
+```
+
+**New React Component:**
+```jsx
+// [Component].jsx
+export function [Component]({ data, loading, error }) {
+  if (loading) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6 animate-pulse">
+        <div className="h-4 bg-gray-700 rounded w-1/3"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6 border border-red-500/30">
+        <span className="text-red-400">Error: {error}</span>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6">
+        <p className="text-gray-500">No data available</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6">
+      {/* Data rendering */}
+    </div>
+  );
+}
 ```
 
 ### Verification Commands
 ```bash
-# Syntax check
+# Backend syntax check
 python -m py_compile [file]
 
-# Format check
+# Backend format check
 black --check [file]
 
-# Import sort check
-isort --check [file]
-
-# Lint
-flake8 [file] --max-line-length=100
-
-# Type check
+# Backend type check
 mypy [file] --ignore-missing-imports
 
-# Quick test
-pytest tests/unit/[test_file] -v
+# Backend tests
+pytest tests/api/[test_file] -v
+
+# Frontend lint
+cd frontend && npm run lint
+
+# Frontend tests
+cd frontend && npm test
+
+# Frontend build
+cd frontend && npm run build
 ```
 
 ### Common Import Patterns
 ```python
-# Relative imports within package
-from ..base import BaseModel
-from .trend import TrendIndicators
+# FastAPI route imports
+from fastapi import APIRouter, HTTPException, Query, Depends
+from sqlalchemy.orm import Session
 
-# Absolute imports for utilities
-from src.config.settings import get_settings
+# Service imports
+from ..services.model_service import model_service
+from ..database.session import get_db
+
+# Pydantic imports
+from pydantic import BaseModel, Field
 
 # Type checking only imports
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from ..models.base import Prediction
+    from ..schemas.prediction import PredictionResponse
 ```

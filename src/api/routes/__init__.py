@@ -1,5 +1,5 @@
-"""API route modules."""
+"""API routes for AI-Trader."""
 
-from . import health, predictions, trading
+from . import health, predictions, trading, market, pipeline
 
-__all__ = ["health", "predictions", "trading"]
+__all__ = ["health", "predictions", "trading", "market", "pipeline"]

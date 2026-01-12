@@ -1,144 +1,262 @@
 """Trading endpoints."""
 
+import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query, Depends
+from sqlalchemy.orm import Session
+
+from ..database.session import get_db
+from ..database.models import Trade
+from ..services.data_service import data_service
+from ..services.trading_service import trading_service
+from ..schemas.trading import (
+    TradingStatusResponse,
+    TradeResponse,
+    TradeHistoryResponse,
+    PerformanceResponse,
+    EquityCurveResponse,
+    EquityPoint,
+    OpenPositionResponse,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-class OrderRequest(BaseModel):
-    """Request body for order submission."""
+@router.get("/trading/status", response_model=TradingStatusResponse)
+async def get_trading_status() -> TradingStatusResponse:
+    """Get current trading status.
 
-    symbol: str = Field(..., description="Trading symbol")
-    side: str = Field(..., description="Order side (buy/sell)")
-    quantity: float = Field(..., gt=0, description="Order quantity")
-    order_type: str = Field(default="market", description="Order type")
-    price: Optional[float] = Field(default=None, description="Limit price")
-    stop_loss: Optional[float] = Field(default=None, description="Stop loss price")
-    take_profit: Optional[float] = Field(default=None, description="Take profit price")
+    Returns account balance, equity, and open position details.
+    """
+    try:
+        status = trading_service.get_status()
+
+        # Get current price for unrealized P&L calculation
+        current_price = None
+        open_position = None
+
+        if status.get("open_position"):
+            pos = status["open_position"]
+            current_price = data_service.get_current_price()
+
+            # Calculate unrealized P&L
+            unrealized_pips = 0.0
+            unrealized_pnl = 0.0
+
+            if current_price:
+                pip_size = 0.0001
+                if pos["direction"] == "long":
+                    unrealized_pips = (current_price - pos["entry_price"]) / pip_size
+                else:
+                    unrealized_pips = (pos["entry_price"] - current_price) / pip_size
+                unrealized_pnl = unrealized_pips * 10.0  # $10 per pip for 0.1 lot
+
+            open_position = OpenPositionResponse(
+                id=pos["id"],
+                symbol=pos["symbol"],
+                direction=pos["direction"],
+                entry_price=pos["entry_price"],
+                entry_time=(
+                    pos["entry_time"].isoformat()
+                    if isinstance(pos["entry_time"], datetime)
+                    else str(pos["entry_time"])
+                ),
+                lot_size=pos["lot_size"],
+                take_profit=pos["take_profit"],
+                stop_loss=pos["stop_loss"],
+                confidence=pos.get("confidence"),
+                current_price=current_price,
+                unrealized_pips=unrealized_pips,
+                unrealized_pnl=unrealized_pnl,
+            )
+
+        return TradingStatusResponse(
+            mode="paper",
+            balance=status["balance"],
+            equity=status["equity"] + (open_position.unrealized_pnl if open_position else 0),
+            unrealized_pnl=open_position.unrealized_pnl if open_position else 0.0,
+            has_position=status["has_position"],
+            open_position=open_position,
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting trading status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-class OrderResponse(BaseModel):
-    """Response body for order."""
+@router.get("/trading/history", response_model=TradeHistoryResponse)
+async def get_trade_history(
+    limit: int = Query(default=50, le=500, description="Number of trades"),
+    status: Optional[str] = Query(
+        default=None, description="Filter by status: 'open' or 'closed'"
+    ),
+    db: Session = Depends(get_db),
+) -> TradeHistoryResponse:
+    """Get trade history.
 
-    order_id: str
-    symbol: str
-    side: str
-    quantity: float
-    order_type: str
-    status: str
-    created_at: datetime
+    Returns past trades with details including P&L.
+    """
+    try:
+        query = db.query(Trade)
+
+        if status:
+            query = query.filter(Trade.status == status)
+
+        trades = query.order_by(Trade.entry_time.desc()).limit(limit).all()
+
+        items = [
+            TradeResponse(
+                id=t.id,
+                symbol=t.symbol,
+                direction=t.direction,
+                entry_price=t.entry_price,
+                entry_time=t.entry_time.isoformat() if t.entry_time else "",
+                exit_price=t.exit_price,
+                exit_time=t.exit_time.isoformat() if t.exit_time else None,
+                exit_reason=t.exit_reason,
+                lot_size=t.lot_size,
+                take_profit=t.take_profit,
+                stop_loss=t.stop_loss,
+                pips=t.pips,
+                pnl_usd=t.pnl_usd,
+                is_winner=t.is_winner,
+                confidence=t.confidence,
+                status=t.status,
+            )
+            for t in trades
+        ]
+
+        return TradeHistoryResponse(trades=items, count=len(items))
+
+    except Exception as e:
+        logger.error(f"Error getting trade history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-class PositionResponse(BaseModel):
-    """Response body for position."""
+@router.get("/trading/performance", response_model=PerformanceResponse)
+async def get_trading_performance() -> PerformanceResponse:
+    """Get trading performance metrics.
 
-    id: str
-    symbol: str
-    side: str
-    quantity: float
-    entry_price: float
-    current_price: float
-    unrealized_pnl: float
-    unrealized_pnl_pct: float
+    Returns win rate, profit factor, total P&L, and other statistics.
+    """
+    try:
+        perf = trading_service.get_performance()
 
+        return PerformanceResponse(
+            total_trades=perf["total_trades"],
+            winning_trades=perf["winning_trades"],
+            losing_trades=perf["losing_trades"],
+            win_rate=perf["win_rate"],
+            total_pips=perf["total_pips"],
+            total_pnl_usd=perf["total_pnl_usd"],
+            avg_pips_per_trade=perf["avg_pips_per_trade"],
+            profit_factor=perf["profit_factor"],
+            initial_balance=perf["initial_balance"],
+            current_balance=perf["current_balance"],
+            return_pct=perf["return_pct"],
+        )
 
-@router.get("/trading/status")
-async def get_trading_status() -> Dict[str, Any]:
-    """Get current trading engine status."""
-    return {
-        "mode": "paper",
-        "is_running": False,
-        "symbols": [],
-        "positions": 0,
-        "daily_pnl": 0.0,
-        "is_halted": False,
-    }
-
-
-@router.post("/trading/start")
-async def start_trading() -> Dict[str, str]:
-    """Start the trading engine."""
-    return {"status": "Trading engine not implemented"}
+    except Exception as e:
+        logger.error(f"Error getting performance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/trading/stop")
-async def stop_trading() -> Dict[str, str]:
-    """Stop the trading engine."""
-    return {"status": "Trading engine not implemented"}
+@router.get("/trading/equity-curve", response_model=EquityCurveResponse)
+async def get_equity_curve(
+    db: Session = Depends(get_db),
+) -> EquityCurveResponse:
+    """Get equity curve data.
+
+    Returns balance/equity over time for charting.
+    """
+    try:
+        curve_data = trading_service.get_equity_curve(db)
+
+        points = [
+            EquityPoint(
+                timestamp=p["timestamp"],
+                balance=p["balance"],
+                equity=p["equity"],
+            )
+            for p in curve_data
+        ]
+
+        return EquityCurveResponse(data=points, count=len(points))
+
+    except Exception as e:
+        logger.error(f"Error getting equity curve: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/positions", response_model=List[PositionResponse])
-async def get_positions() -> List[PositionResponse]:
-    """Get all open positions."""
+@router.post("/trading/close-position")
+async def close_position_manually(
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Manually close the open position.
+
+    Closes at current market price with 'manual' exit reason.
+    """
+    try:
+        status = trading_service.get_status()
+
+        if not status.get("has_position"):
+            raise HTTPException(status_code=400, detail="No open position to close")
+
+        current_price = data_service.get_current_price()
+        if current_price is None:
+            raise HTTPException(status_code=503, detail="Cannot get current price")
+
+        result = trading_service.close_position(current_price, "manual", db)
+
+        if result is None:
+            raise HTTPException(status_code=500, detail="Failed to close position")
+
+        return {
+            "status": "success",
+            "message": f"Position closed at {current_price:.5f}",
+            "trade": result,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error closing position: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Legacy endpoints for backward compatibility
+
+
+@router.get("/positions")
+async def get_positions() -> List[Dict]:
+    """Get all open positions (legacy endpoint)."""
+    status = trading_service.get_status()
+    if status.get("open_position"):
+        return [status["open_position"]]
     return []
 
 
-@router.get("/positions/{symbol}", response_model=Optional[PositionResponse])
-async def get_position(symbol: str) -> Optional[PositionResponse]:
-    """Get position for a specific symbol."""
-    return None
-
-
-@router.post("/orders", response_model=OrderResponse)
-async def submit_order(request: OrderRequest) -> OrderResponse:
-    """Submit a new order."""
-    return OrderResponse(
-        order_id="not_implemented",
-        symbol=request.symbol,
-        side=request.side,
-        quantity=request.quantity,
-        order_type=request.order_type,
-        status="rejected",
-        created_at=datetime.now(),
-    )
-
-
-@router.get("/orders")
-async def get_orders(
-    status: Optional[str] = Query(default=None, description="Filter by status"),
-) -> Dict[str, Any]:
-    """Get all orders."""
-    return {"orders": [], "count": 0}
-
-
-@router.delete("/orders/{order_id}")
-async def cancel_order(order_id: str) -> Dict[str, str]:
-    """Cancel an order."""
-    return {"status": "Order not found"}
+@router.get("/performance")
+async def get_performance_legacy() -> Dict[str, Any]:
+    """Get trading performance (legacy endpoint)."""
+    return trading_service.get_performance()
 
 
 @router.get("/risk/metrics")
 async def get_risk_metrics() -> Dict[str, Any]:
     """Get current risk metrics."""
+    status = trading_service.get_status()
+    perf = trading_service.get_performance()
+
     return {
-        "account_balance": 0.0,
-        "daily_pnl": 0.0,
-        "weekly_pnl": 0.0,
-        "max_drawdown": 0.0,
-        "current_exposure": 0.0,
+        "account_balance": status["balance"],
+        "daily_pnl": 0.0,  # Would need daily tracking
+        "weekly_pnl": 0.0,  # Would need weekly tracking
+        "max_drawdown": 0.0,  # Would need peak tracking
+        "current_exposure": 1.0 if status["has_position"] else 0.0,
         "is_halted": False,
     }
-
-
-@router.get("/performance")
-async def get_performance() -> Dict[str, Any]:
-    """Get trading performance metrics."""
-    return {
-        "total_trades": 0,
-        "winning_trades": 0,
-        "losing_trades": 0,
-        "win_rate": 0.0,
-        "profit_factor": 0.0,
-        "sharpe_ratio": 0.0,
-        "total_return": 0.0,
-    }
-
-
-@router.get("/backtest/results")
-async def get_backtest_results() -> Dict[str, Any]:
-    """Get recent backtest results."""
-    return {"results": [], "count": 0}
