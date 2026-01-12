@@ -274,6 +274,7 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 | `scripts/train_mtf_ensemble.py` | Training with all options |
 | `scripts/backtest_mtf_ensemble.py` | Backtesting simulation |
 | `scripts/walk_forward_optimization.py` | WFO validation (robustness testing) |
+| `scripts/backtest_position_sizing.py` | Kelly criterion position sizing comparison |
 | `scripts/download_sentiment_data.py` | EPU + VIX download |
 | `scripts/download_gdelt_sentiment.py` | GDELT BigQuery download |
 
@@ -282,6 +283,7 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 |------|---------|
 | `docs/15-current-state-of-the-art.md` | **Comprehensive current state** |
 | `docs/17-walk-forward-optimization-results.md` | **WFO validation results** |
+| `docs/18-kelly-criterion-position-sizing.md` | **Kelly position sizing** |
 | `docs/13-sentiment-analysis-test-results.md` | Sentiment integration results |
 | `docs/08-multi-timeframe-ensemble-implementation.md` | MTF implementation details |
 
