@@ -17,10 +17,12 @@ The user trusts Claude to make good decisions. Act decisively and complete tasks
 
 AI Assets Trader is a **production-ready Multi-Timeframe (MTF) Ensemble trading system** for forex. The system uses XGBoost models across three timeframes (1H, 4H, Daily) combined with sentiment analysis to generate trading predictions.
 
-**Current Status: Production-Ready**
-- +7,987 pips profit on test period
+**Current Status: Production-Ready (WFO Validated)**
+- +7,987 pips profit on test period (single split)
+- +18,136 pips across 7 WFO windows (100% profitable)
 - 57.8% win rate, 2.22 profit factor
 - VIX/EPU sentiment integration (Daily model only)
+- Walk-Forward Optimization: PASSED (100% consistency)
 
 ## Current Performance
 
@@ -150,6 +152,24 @@ Daily EPU/VIX sentiment works for Daily model; adding it to 1H/4H models degrade
 | VIX | FRED | Daily | `data/sentiment/sentiment_scores_*.csv` |
 | GDELT | BigQuery | Hourly | `data/sentiment/gdelt_sentiment_*.csv` |
 
+## Walk-Forward Optimization (WFO)
+
+The model has been validated using walk-forward optimization with 7 rolling windows:
+
+| Window | Test Period | Trades | Win Rate | Pips | PF |
+|--------|-------------|--------|----------|------|-----|
+| 1 | 2022-H1 | 533 | 57.2% | +3,939 | 2.20 |
+| 2 | 2022-H2 | 662 | 54.7% | +4,358 | 1.98 |
+| 3 | 2023-H1 | 478 | 47.7% | +1,455 | 1.41 |
+| 4 | 2023-H2 | 425 | 48.7% | +1,635 | 1.56 |
+| 5 | 2024-H1 | 334 | 62.0% | +2,432 | 2.55 |
+| 6 | 2024-H2 | 380 | 56.6% | +2,238 | 2.08 |
+| 7 | 2025-H1 | 568 | 47.7% | +2,079 | 1.48 |
+
+**Summary:** 100% consistency (7/7 windows profitable), +18,136 total pips, CV=0.40 (stable)
+
+See `docs/17-walk-forward-optimization-results.md` for full analysis.
+
 ## Common Commands
 
 ### Training
@@ -176,6 +196,16 @@ python scripts/backtest_mtf_ensemble.py --model-dir models/mtf_ensemble
 
 # With comparison to individual models
 python scripts/backtest_mtf_ensemble.py --compare
+```
+
+### Walk-Forward Optimization
+
+```bash
+# Run WFO validation (24-month train, 6-month test windows)
+python scripts/walk_forward_optimization.py --sentiment
+
+# Custom window configuration
+python scripts/walk_forward_optimization.py --sentiment --train-months 24 --test-months 6 --step-months 6
 ```
 
 ### Data Download
@@ -243,6 +273,7 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 |------|---------|
 | `scripts/train_mtf_ensemble.py` | Training with all options |
 | `scripts/backtest_mtf_ensemble.py` | Backtesting simulation |
+| `scripts/walk_forward_optimization.py` | WFO validation (robustness testing) |
 | `scripts/download_sentiment_data.py` | EPU + VIX download |
 | `scripts/download_gdelt_sentiment.py` | GDELT BigQuery download |
 
@@ -250,6 +281,7 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 | File | Purpose |
 |------|---------|
 | `docs/15-current-state-of-the-art.md` | **Comprehensive current state** |
+| `docs/17-walk-forward-optimization-results.md` | **WFO validation results** |
 | `docs/13-sentiment-analysis-test-results.md` | Sentiment integration results |
 | `docs/08-multi-timeframe-ensemble-implementation.md` | MTF implementation details |
 
