@@ -188,6 +188,23 @@ Testing confidence thresholds from 55% to 75% reveals optimal trade filtering:
 
 See `docs/19-confidence-threshold-optimization.md` for full analysis.
 
+## Market Regime Detection
+
+The model is robust across all market conditions. Regime analysis shows:
+
+| Regime | Trades | Win Rate | Pips | PF | Status |
+|--------|--------|----------|------|-----|--------|
+| Ranging High Vol | 25 | **84.0%** | +443 | 8.38 | TRADE |
+| Ranging Low Vol | 67 | 74.6% | +939 | 5.01 | TRADE |
+| Ranging Normal | 84 | 73.8% | +1,142 | 4.89 | TRADE |
+| Trending High Vol | 96 | 71.9% | +1,241 | 4.15 | TRADE |
+| Trending Low Vol | 96 | 69.8% | +1,239 | 4.09 | TRADE |
+| Trending Normal | 211 | 65.9% | +2,303 | 3.31 | TRADE |
+
+**Finding:** All regimes profitable - no regime filtering needed. Model adapts to all market conditions.
+
+See `docs/20-regime-detection-analysis.md` for full analysis.
+
 ## Common Commands
 
 ### Training
@@ -227,6 +244,13 @@ python scripts/optimize_confidence_threshold.py
 
 # Custom thresholds
 python scripts/optimize_confidence_threshold.py --thresholds "0.55,0.60,0.65,0.70,0.75"
+```
+
+### Regime Analysis
+
+```bash
+# Run regime performance analysis
+python scripts/analyze_regime_performance.py --confidence 0.70
 ```
 
 ### Walk-Forward Optimization
@@ -306,6 +330,7 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 | `scripts/backtest_mtf_ensemble.py` | Backtesting simulation |
 | `scripts/walk_forward_optimization.py` | WFO validation (robustness testing) |
 | `scripts/optimize_confidence_threshold.py` | Confidence threshold optimization |
+| `scripts/analyze_regime_performance.py` | Market regime analysis |
 | `scripts/backtest_position_sizing.py` | Kelly criterion position sizing comparison |
 | `scripts/download_sentiment_data.py` | EPU + VIX download |
 | `scripts/download_gdelt_sentiment.py` | GDELT BigQuery download |
@@ -317,6 +342,7 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 | `docs/17-walk-forward-optimization-results.md` | **WFO validation results** |
 | `docs/18-kelly-criterion-position-sizing.md` | **Kelly position sizing** |
 | `docs/19-confidence-threshold-optimization.md` | **Confidence optimization results** |
+| `docs/20-regime-detection-analysis.md` | **Market regime analysis** |
 | `docs/13-sentiment-analysis-test-results.md` | Sentiment integration results |
 | `docs/08-multi-timeframe-ensemble-implementation.md` | MTF implementation details |
 

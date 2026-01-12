@@ -1,0 +1,137 @@
+{
+  "timestamp": "2026-01-12T15:00:29.584680",
+  "config": {
+    "confidence_threshold": 0.7,
+    "data_file": "data/forex/EURUSD_20200101_20251231_5min_combined.csv",
+    "model_dir": "models/mtf_ensemble"
+  },
+  "baseline_metrics": {
+    "total_trades": 579,
+    "winning_trades": 408,
+    "losing_trades": 171,
+    "win_rate": 70.46632124352331,
+    "total_pips": 7307.100000000002,
+    "avg_pips": 12.620207253886013,
+    "profit_factor": 4.067889831220084
+  },
+  "regime_stats": {
+    "trending_high_vol": {
+      "trades": 96,
+      "win_rate": 71.875,
+      "total_pips": 1240.6000000000006,
+      "avg_pips": 12.922916666666673,
+      "profit_factor": 4.15113030226059,
+      "recommendation": "TRADE"
+    },
+    "trending_normal": {
+      "trades": 211,
+      "win_rate": 65.87677725118483,
+      "total_pips": 2303.400000000008,
+      "avg_pips": 10.916587677725156,
+      "profit_factor": 3.3060519597537343,
+      "recommendation": "TRADE"
+    },
+    "trending_low_vol": {
+      "trades": 96,
+      "win_rate": 69.79166666666666,
+      "total_pips": 1239.4499999999975,
+      "avg_pips": 12.910937499999974,
+      "profit_factor": 4.0897419917736455,
+      "recommendation": "TRADE"
+    },
+    "ranging_high_vol": {
+      "trades": 25,
+      "win_rate": 84.0,
+      "total_pips": 442.9499999999988,
+      "avg_pips": 17.71799999999995,
+      "profit_factor": 8.38249999999998,
+      "recommendation": "TRADE"
+    },
+    "ranging_normal": {
+      "trades": 84,
+      "win_rate": 73.80952380952381,
+      "total_pips": 1141.9999999999986,
+      "avg_pips": 13.595238095238079,
+      "profit_factor": 4.886997957794386,
+      "recommendation": "TRADE"
+    },
+    "ranging_low_vol": {
+      "trades": 67,
+      "win_rate": 74.6268656716418,
+      "total_pips": 938.6999999999987,
+      "avg_pips": 14.01044776119401,
+      "profit_factor": 5.006402048655547,
+      "recommendation": "TRADE"
+    }
+  },
+  "trend_stats": {
+    "strong_uptrend": {
+      "trades": 141,
+      "win_rate": 69.50354609929079,
+      "total_pips": 1747.650000000008,
+      "avg_pips": 12.394680851063887
+    },
+    "strong_downtrend": {
+      "trades": 164,
+      "win_rate": 69.51219512195121,
+      "total_pips": 2062.699999999999,
+      "avg_pips": 12.577439024390237
+    },
+    "weak_uptrend": {
+      "trades": 47,
+      "win_rate": 63.829787234042556,
+      "total_pips": 466.5499999999991,
+      "avg_pips": 9.926595744680832
+    },
+    "weak_downtrend": {
+      "trades": 51,
+      "win_rate": 64.70588235294117,
+      "total_pips": 506.5499999999996,
+      "avg_pips": 9.932352941176463
+    },
+    "ranging": {
+      "trades": 176,
+      "win_rate": 75.56818181818183,
+      "total_pips": 2523.6499999999965,
+      "avg_pips": 14.338920454545434
+    }
+  },
+  "volatility_stats": {
+    "high": {
+      "trades": 121,
+      "win_rate": 74.3801652892562,
+      "total_pips": 1683.5499999999995,
+      "avg_pips": 13.913636363636359
+    },
+    "normal": {
+      "trades": 295,
+      "win_rate": 68.13559322033899,
+      "total_pips": 3445.400000000006,
+      "avg_pips": 11.679322033898325
+    },
+    "low": {
+      "trades": 163,
+      "win_rate": 71.77914110429448,
+      "total_pips": 2178.149999999996,
+      "avg_pips": 13.362883435582798
+    }
+  },
+  "optimal_regimes": [
+    "trending_high_vol",
+    "trending_normal",
+    "trending_low_vol",
+    "ranging_high_vol",
+    "ranging_normal",
+    "ranging_low_vol"
+  ],
+  "avoid_regimes": [],
+  "filtered_metrics": {
+    "total_trades": 579,
+    "winning_trades": 408,
+    "losing_trades": 171,
+    "win_rate": 70.46632124352331,
+    "total_pips": 7307.100000000002,
+    "avg_pips": 12.620207253886013,
+    "profit_factor": 4.067889831220084
+  }
+}
