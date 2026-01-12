@@ -22,7 +22,7 @@ function formatTimeDiff(ts, now) {
  */
 export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
   // State for current time, updated periodically for relative time display
-  const [now, setNow] = useState(Date.now);
+  const [now, setNow] = useState(Date.now());
 
   // Update the current time every minute for the relative time display
   useEffect(() => {
@@ -69,10 +69,10 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
   const model = modelStatus || {};
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover">
+    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="System Status">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-gray-300">System Status</h2>
-        <Activity size={20} className={error ? 'text-red-400' : 'text-green-400'} />
+        <Activity size={20} className={error ? 'text-red-400' : 'text-green-400'} aria-hidden="true" />
       </div>
 
       {error && (
@@ -83,9 +83,9 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
 
       <div className="space-y-4">
         {/* Pipeline Status */}
-        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded">
+        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded" role="status" aria-label="Data Pipeline Status">
           <div className="flex items-center gap-3">
-            <Database size={18} className="text-gray-400" />
+            <Database size={18} className="text-gray-400" aria-hidden="true" />
             <div>
               <span className="text-sm text-gray-300">Data Pipeline</span>
               <p className="text-xs text-gray-500">
@@ -93,13 +93,15 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
               </p>
             </div>
           </div>
-          {getStatusIcon(pipeline.status || 'unknown')}
+          <span aria-label={`Pipeline status: ${pipeline.status || 'unknown'}`}>
+            {getStatusIcon(pipeline.status || 'unknown')}
+          </span>
         </div>
 
         {/* Model Status */}
-        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded">
+        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded" role="status" aria-label="ML Models Status">
           <div className="flex items-center gap-3">
-            <Server size={18} className="text-gray-400" />
+            <Server size={18} className="text-gray-400" aria-hidden="true" />
             <div>
               <span className="text-sm text-gray-300">ML Models</span>
               <p className="text-xs text-gray-500">
@@ -107,7 +109,9 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
               </p>
             </div>
           </div>
-          {getStatusIcon(model.models_loaded ? 'loaded' : 'error')}
+          <span aria-label={`Model status: ${model.models_loaded ? 'loaded' : 'not loaded'}`}>
+            {getStatusIcon(model.models_loaded ? 'loaded' : 'error')}
+          </span>
         </div>
 
         {/* Data Quality */}

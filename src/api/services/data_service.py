@@ -68,6 +68,11 @@ class DataService:
         # Initialized flag
         self._initialized = False
 
+    @property
+    def is_loaded(self) -> bool:
+        """Check if service is initialized and ready."""
+        return self._initialized
+
     def initialize(self) -> None:
         """Initialize service by loading historical data and fetching live data."""
         if self._initialized:

@@ -83,22 +83,24 @@ export function PerformanceStats({ performance, loading, error }) {
   ];
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover">
+    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="Performance Metrics">
       <h2 className="text-lg font-semibold text-gray-300 mb-4">Performance Metrics</h2>
       <p className="text-xs text-gray-500 mb-4">
         Based on backtested results with 70% confidence threshold
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4" role="list">
         {metrics.map((metric) => {
           const Icon = metric.icon;
           return (
             <div
               key={metric.label}
               className={`${metric.bgColor} rounded-lg p-4 transition-transform hover:scale-105`}
+              role="listitem"
+              aria-label={`${metric.label}: ${metric.prefix || ''}${metric.value}`}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Icon size={16} className={metric.color} />
+                <Icon size={16} className={metric.color} aria-hidden="true" />
                 <span className="text-xs text-gray-400">{metric.label}</span>
               </div>
               <span className={`text-xl font-bold ${metric.color}`}>

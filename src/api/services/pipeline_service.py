@@ -89,9 +89,14 @@ class PipelineService:
         self.last_price_update: Optional[datetime] = None
         self.last_sentiment_update: Optional[datetime] = None
 
-        # Lazy-loaded components
+        # Lazy-loaded components (protected by lock)
         self._technical_calculator = None
         self._feature_engine = None
+
+    @property
+    def is_loaded(self) -> bool:
+        """Check if service is initialized and ready."""
+        return self._initialized
 
     def initialize(self) -> bool:
         """Initialize the pipeline by loading historical data.

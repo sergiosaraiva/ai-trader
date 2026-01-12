@@ -164,7 +164,14 @@ async def get_prediction_stats(
 
 @router.get("/models/status", response_model=ModelStatusResponse)
 async def get_model_status() -> ModelStatusResponse:
-    """Get status of loaded models."""
+    """Get status of loaded models.
+
+    Returns information about the MTF Ensemble models including
+    training status, accuracy, and configuration.
+    """
+    if not model_service.is_loaded:
+        logger.warning("Model status requested but model not loaded")
+
     info = model_service.get_model_info()
 
     # Convert nested dicts for models

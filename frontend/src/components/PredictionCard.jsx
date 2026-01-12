@@ -80,12 +80,12 @@ export function PredictionCard({ prediction, loading, error }) {
       </div>
 
       {/* Main Signal */}
-      <div className="flex items-center justify-center gap-4 py-6">
-        <div className={`${getSignalColor(signal)}`}>
+      <div className="flex items-center justify-center gap-4 py-6" role="status" aria-live="polite">
+        <div className={`${getSignalColor(signal)}`} aria-hidden="true">
           {getSignalIcon(signal)}
         </div>
         <div className="text-center">
-          <span className={`text-4xl font-bold ${getSignalColor(signal)}`}>
+          <span className={`text-4xl font-bold ${getSignalColor(signal)}`} aria-label={`Signal: ${getSignalText(signal)}`}>
             {getSignalText(signal)}
           </span>
           <p className="text-gray-500 text-sm mt-1">
@@ -95,14 +95,21 @@ export function PredictionCard({ prediction, loading, error }) {
       </div>
 
       {/* Confidence Bar */}
-      <div className="mt-4">
+      <div className="mt-4" aria-label="Prediction confidence">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-400">Confidence</span>
+          <span className="text-sm text-gray-400" id="confidence-label">Confidence</span>
           <span className="text-sm font-medium text-gray-300">
             {((confidence || 0) * 100).toFixed(1)}%
           </span>
         </div>
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+        <div
+          className="h-2 bg-gray-700 rounded-full overflow-hidden"
+          role="progressbar"
+          aria-labelledby="confidence-label"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round((confidence || 0) * 100)}
+        >
           <div
             className={`h-full ${getConfidenceColor(confidence)} transition-all duration-500`}
             style={{ width: `${(confidence || 0) * 100}%` }}

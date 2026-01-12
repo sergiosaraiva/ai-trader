@@ -56,10 +56,15 @@ class TradingService:
         # Initialized flag
         self._initialized = False
 
-    def initialize(self, db: Optional[Session] = None) -> None:
+    @property
+    def is_loaded(self) -> bool:
+        """Check if service is initialized and ready."""
+        return self._initialized
+
+    def initialize(self, db: Optional[Session] = None) -> bool:
         """Initialize trading service from database state."""
         if self._initialized:
-            return
+            return True
 
         logger.info("Initializing TradingService...")
 
@@ -105,6 +110,7 @@ class TradingService:
             self._initialized = True
 
             logger.info(f"TradingService initialized: Balance=${self._balance:,.2f}, Trades={self._total_trades}")
+            return True
 
         finally:
             if should_close:

@@ -1,6 +1,5 @@
 """Pydantic schemas for prediction endpoints."""
 
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -10,7 +9,16 @@ class ComponentPrediction(BaseModel):
     """Prediction from a single timeframe model."""
 
     direction: int = Field(..., description="Direction: 0=down, 1=up")
-    confidence: float = Field(..., description="Model confidence (0-1)")
+    confidence: float = Field(..., ge=0, le=1, description="Model confidence (0-1)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "direction": 1,
+                "confidence": 0.72,
+            }
+        }
+    }
 
 
 class PredictionResponse(BaseModel):
@@ -19,20 +27,20 @@ class PredictionResponse(BaseModel):
     timestamp: str = Field(..., description="Prediction timestamp (ISO format)")
     symbol: str = Field(default="EURUSD", description="Trading symbol")
     direction: str = Field(..., description="Predicted direction: 'long' or 'short'")
-    confidence: float = Field(..., description="Ensemble confidence (0-1)")
-    prob_up: float = Field(..., description="Probability of upward move")
-    prob_down: float = Field(..., description="Probability of downward move")
+    confidence: float = Field(..., ge=0, le=1, description="Ensemble confidence (0-1)")
+    prob_up: float = Field(..., ge=0, le=1, description="Probability of upward move")
+    prob_down: float = Field(..., ge=0, le=1, description="Probability of downward move")
     should_trade: bool = Field(..., description="Whether confidence >= 70% threshold")
 
     # Agreement info
-    agreement_count: int = Field(..., description="Number of models agreeing (0-3)")
-    agreement_score: float = Field(..., description="Agreement score (0-1)")
+    agreement_count: int = Field(..., ge=0, le=3, description="Number of models agreeing (0-3)")
+    agreement_score: float = Field(..., ge=0, le=1, description="Agreement score (0-1)")
     all_agree: bool = Field(..., description="Whether all 3 models agree")
 
     # Market context
     market_regime: str = Field(..., description="Detected market regime")
-    market_price: Optional[float] = Field(None, description="Current market price")
-    vix_value: Optional[float] = Field(None, description="Current VIX value")
+    market_price: Optional[float] = Field(None, gt=0, description="Current market price")
+    vix_value: Optional[float] = Field(None, ge=0, description="Current VIX value")
 
     # Component predictions
     component_directions: Dict[str, int] = Field(
@@ -45,8 +53,8 @@ class PredictionResponse(BaseModel):
         ..., description="Weights by timeframe"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "timestamp": "2024-01-15T14:00:00",
                 "symbol": "EURUSD",
@@ -66,33 +74,81 @@ class PredictionResponse(BaseModel):
                 "component_weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
             }
         }
+    }
 
 
 class PredictionHistoryItem(BaseModel):
     """Single prediction in history."""
 
-    id: int
-    timestamp: str
-    symbol: str
-    direction: str
-    confidence: float
-    market_price: Optional[float]
-    trade_executed: bool
+    id: int = Field(..., description="Unique prediction ID")
+    timestamp: str = Field(..., description="Prediction timestamp (ISO format)")
+    symbol: str = Field(..., description="Trading symbol")
+    direction: str = Field(..., description="Predicted direction: 'long' or 'short'")
+    confidence: float = Field(..., ge=0, le=1, description="Model confidence (0-1)")
+    market_price: Optional[float] = Field(None, gt=0, description="Market price at prediction")
+    trade_executed: bool = Field(..., description="Whether a trade was executed")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": 42,
+                "timestamp": "2024-01-15T14:00:00",
+                "symbol": "EURUSD",
+                "direction": "long",
+                "confidence": 0.72,
+                "market_price": 1.08523,
+                "trade_executed": True,
+            }
+        }
+    }
 
 
 class PredictionHistoryResponse(BaseModel):
     """Response for prediction history endpoint."""
 
-    predictions: List[PredictionHistoryItem]
-    count: int
-    total: int
+    predictions: List[PredictionHistoryItem] = Field(
+        ..., description="List of historical predictions"
+    )
+    count: int = Field(..., ge=0, description="Number of predictions in response")
+    total: int = Field(..., ge=0, description="Total predictions available")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "predictions": [
+                    {
+                        "id": 42,
+                        "timestamp": "2024-01-15T14:00:00",
+                        "symbol": "EURUSD",
+                        "direction": "long",
+                        "confidence": 0.72,
+                        "market_price": 1.08523,
+                        "trade_executed": True,
+                    }
+                ],
+                "count": 1,
+                "total": 100,
+            }
+        }
+    }
 
 
 class ModelInfo(BaseModel):
     """Information about a single model."""
 
-    trained: bool
-    val_accuracy: Optional[float]
+    trained: bool = Field(..., description="Whether model is trained")
+    val_accuracy: Optional[float] = Field(
+        None, ge=0, le=1, description="Validation accuracy (0-1)"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "trained": True,
+                "val_accuracy": 0.67,
+            }
+        }
+    }
 
 
 class ModelStatusResponse(BaseModel):
@@ -111,3 +167,23 @@ class ModelStatusResponse(BaseModel):
     )
     initialized_at: Optional[str] = Field(None, description="Initialization timestamp")
     error: Optional[str] = Field(None, description="Error message if not loaded")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "loaded": True,
+                "model_dir": "models/mtf_ensemble",
+                "weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
+                "agreement_bonus": 0.05,
+                "sentiment_enabled": True,
+                "sentiment_by_timeframe": {"1H": False, "4H": False, "D": True},
+                "models": {
+                    "1H": {"trained": True, "val_accuracy": 0.67},
+                    "4H": {"trained": True, "val_accuracy": 0.65},
+                    "D": {"trained": True, "val_accuracy": 0.62},
+                },
+                "initialized_at": "2024-01-15T10:00:00",
+                "error": None,
+            }
+        }
+    }

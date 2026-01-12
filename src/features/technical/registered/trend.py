@@ -290,8 +290,10 @@ def calculate_ichimoku(
     # Senkou Span B (Leading Span B)
     senkou_span_b = ((high.rolling(senkou_b).max() + low.rolling(senkou_b).min()) / 2).shift(kijun)
 
-    # Chikou Span (Lagging Span)
-    chikou_span = close.shift(-kijun)
+    # Chikou Span (Lagging Span) - shifted BACKWARD to avoid future data leakage
+    # Note: Traditional Ichimoku uses shift(-26) which looks into the future.
+    # We use shift(+kijun) to compare current close to past price level instead.
+    chikou_span = close.shift(kijun)
 
     df["ichimoku_tenkan"] = tenkan_sen
     df["ichimoku_kijun"] = kijun_sen

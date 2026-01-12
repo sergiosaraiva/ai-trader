@@ -46,7 +46,7 @@ export function TradeHistory({ signals, loading, error }) {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover">
+    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="Signal History">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-gray-300">Signal History</h2>
         <span className="text-xs text-gray-500">{signalList.length} signals</span>
@@ -54,23 +54,27 @@ export function TradeHistory({ signals, loading, error }) {
 
       {signalList.length === 0 ? (
         <div className="text-center py-8">
-          <Clock size={32} className="mx-auto text-gray-600 mb-2" />
+          <Clock size={32} className="mx-auto text-gray-600 mb-2" aria-hidden="true" />
           <p className="text-gray-500">No signals recorded yet</p>
           <p className="text-xs text-gray-600 mt-1">
             Signals will appear here as they are generated
           </p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto" role="list" aria-label="Trading signals list">
           {signalList.map((signal, idx) => {
             const signalType = getSignalType(signal.signal);
             const isBuy = signalType === 'BUY';
             const isSell = signalType === 'SELL';
+            const price = signal.price?.toFixed(5) || signal.current_price?.toFixed(5) || 'N/A';
+            const confidence = signal.confidence ? `${(signal.confidence * 100).toFixed(0)}%` : 'N/A';
 
             return (
               <div
                 key={signal.id || idx}
                 className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
+                role="listitem"
+                aria-label={`${signalType} signal at ${price}, confidence ${confidence}, ${formatTime(signal.timestamp)}`}
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -81,6 +85,7 @@ export function TradeHistory({ signals, loading, error }) {
                           ? 'bg-red-500/20'
                           : 'bg-gray-500/20'
                     }`}
+                    aria-hidden="true"
                   >
                     {isBuy ? (
                       <ArrowUpRight size={18} className="text-green-400" />
@@ -104,7 +109,7 @@ export function TradeHistory({ signals, loading, error }) {
                         {signalType}
                       </span>
                       <span className="text-gray-400 text-sm">
-                        @ {signal.price?.toFixed(5) || signal.current_price?.toFixed(5) || 'N/A'}
+                        @ {price}
                       </span>
                     </div>
                     <span className="text-xs text-gray-500">
@@ -115,9 +120,7 @@ export function TradeHistory({ signals, loading, error }) {
 
                 <div className="text-right">
                   <div className="text-sm text-gray-300">
-                    {signal.confidence
-                      ? `${(signal.confidence * 100).toFixed(0)}%`
-                      : 'N/A'}
+                    {confidence}
                   </div>
                   <span className="text-xs text-gray-500">confidence</span>
                 </div>

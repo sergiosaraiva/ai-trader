@@ -231,32 +231,59 @@ async def close_position_manually(
 # Legacy endpoints for backward compatibility
 
 
-@router.get("/positions")
-async def get_positions() -> List[Dict]:
+@router.get("/positions", response_model=List[Dict[str, Any]])
+async def get_positions() -> List[Dict[str, Any]]:
     """Get all open positions (legacy endpoint)."""
-    status = trading_service.get_status()
-    if status.get("open_position"):
-        return [status["open_position"]]
-    return []
+    try:
+        if not trading_service.is_loaded:
+            logger.warning("Positions requested but trading service not loaded")
+            return []
+
+        status = trading_service.get_status()
+        if status.get("open_position"):
+            return [status["open_position"]]
+        return []
+
+    except Exception as e:
+        logger.error(f"Error getting positions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/performance")
+@router.get("/performance", response_model=Dict[str, Any])
 async def get_performance_legacy() -> Dict[str, Any]:
     """Get trading performance (legacy endpoint)."""
-    return trading_service.get_performance()
+    try:
+        if not trading_service.is_loaded:
+            logger.warning("Performance requested but trading service not loaded")
+            return {"error": "Service not initialized"}
+
+        return trading_service.get_performance()
+
+    except Exception as e:
+        logger.error(f"Error getting performance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/risk/metrics")
+@router.get("/risk/metrics", response_model=Dict[str, Any])
 async def get_risk_metrics() -> Dict[str, Any]:
     """Get current risk metrics."""
-    status = trading_service.get_status()
-    perf = trading_service.get_performance()
+    try:
+        if not trading_service.is_loaded:
+            logger.warning("Risk metrics requested but trading service not loaded")
+            return {"error": "Service not initialized"}
 
-    return {
-        "account_balance": status["balance"],
-        "daily_pnl": 0.0,  # Would need daily tracking
-        "weekly_pnl": 0.0,  # Would need weekly tracking
-        "max_drawdown": 0.0,  # Would need peak tracking
-        "current_exposure": 1.0 if status["has_position"] else 0.0,
-        "is_halted": False,
-    }
+        status = trading_service.get_status()
+        perf = trading_service.get_performance()
+
+        return {
+            "account_balance": status["balance"],
+            "daily_pnl": 0.0,  # Would need daily tracking
+            "weekly_pnl": 0.0,  # Would need weekly tracking
+            "max_drawdown": 0.0,  # Would need peak tracking
+            "current_exposure": 1.0 if status["has_position"] else 0.0,
+            "is_halted": False,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting risk metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
