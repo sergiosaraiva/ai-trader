@@ -25,14 +25,17 @@ import requests
 FRED_BASE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 
 # FRED Series IDs
+# NOTE: US Daily EPU is primary - do NOT include monthly backup to avoid overwrite bug
 FRED_SERIES = {
-    "US_daily": "USEPUINDXD",      # US Daily EPU
-    "US_monthly": "USEPUINDXM",    # US Monthly EPU (backup)
+    "US": "USEPUINDXD",            # US Daily EPU (primary - has true daily data!)
     "UK": "UKEPUINDXM",            # UK Monthly EPU
     "Europe": "EUEPUINDXM",        # Europe Monthly EPU
     "Germany": "DEEPUINDXM",       # Germany Monthly EPU
     "China": "CHIEPUINDXM",        # China Monthly EPU
 }
+
+# VIX (Volatility Index) - Daily market fear indicator
+FRED_VIX_SERIES = "VIXCLS"  # CBOE VIX Daily Close
 
 # PolicyUncertainty.com direct download URLs
 POLICY_UNCERTAINTY_URLS = {
@@ -177,19 +180,29 @@ def create_daily_sentiment_dataset(
         df = download_fred_series(series_id, start_date, end_date)
 
         if df is not None and len(df) > 0:
-            col_name = f"EPU_{name.replace('_daily', '').replace('_monthly', '')}"
+            col_name = f"EPU_{name}"
 
-            if "daily" in name:
-                # Daily data - just merge
+            # US EPU from USEPUINDXD is daily, others are monthly
+            if name == "US" and series_id == "USEPUINDXD":
+                # True daily data - merge directly
                 daily_df[col_name] = df["Value"]
+                print(f"  ✓ {col_name}: {len(df)} daily records")
             else:
                 # Monthly data - resample to daily and forward-fill
                 monthly_resampled = df["Value"].resample("D").ffill()
                 daily_df[col_name] = monthly_resampled
-
-            print(f"  ✓ {col_name}: {len(df)} records")
+                print(f"  ✓ {col_name}: {len(df)} monthly records (forward-filled)")
         else:
             print(f"  ✗ Failed to download {name}")
+
+    # Download VIX (daily market fear indicator)
+    print(f"Downloading VIX ({FRED_VIX_SERIES})...")
+    vix_df = download_fred_series(FRED_VIX_SERIES, start_date, end_date)
+    if vix_df is not None and len(vix_df) > 0:
+        daily_df["VIX"] = vix_df["Value"]
+        print(f"  ✓ VIX: {len(vix_df)} daily records")
+    else:
+        print(f"  ✗ Failed to download VIX")
 
     # Download from policyuncertainty.com
     for country in ["Japan", "Australia", "Global"]:
@@ -236,6 +249,25 @@ def create_daily_sentiment_dataset(
                 # Scale to -0.2 to +0.2 for a 20% max adjustment
                 normalized = (daily_df[col] - min_val) / (max_val - min_val)
                 daily_df[f"Sentiment_{country}"] = (0.5 - normalized) * 0.4  # Range: -0.2 to +0.2
+
+    # VIX Sentiment: High VIX = Fear = Negative sentiment, Low VIX = Calm = Positive sentiment
+    # VIX typically ranges from 10 (very calm) to 80+ (extreme fear, e.g., COVID crash)
+    if "VIX" in daily_df.columns:
+        vix_min = daily_df["VIX"].min()
+        vix_max = daily_df["VIX"].max()
+        if vix_max > vix_min:
+            # Normalize and invert: high VIX -> negative, low VIX -> positive
+            vix_normalized = (daily_df["VIX"] - vix_min) / (vix_max - vix_min)
+            daily_df["Sentiment_VIX"] = (0.5 - vix_normalized) * 0.4  # Range: -0.2 to +0.2
+            print(f"  ✓ VIX Sentiment calculated (range: {vix_min:.1f} to {vix_max:.1f})")
+
+    # Combined US sentiment: average of EPU_US and VIX sentiment
+    # This provides a richer signal by combining policy uncertainty + market fear
+    if "Sentiment_US" in daily_df.columns and "Sentiment_VIX" in daily_df.columns:
+        daily_df["Sentiment_US_Combined"] = (
+            daily_df["Sentiment_US"] + daily_df["Sentiment_VIX"]
+        ) / 2
+        print("  ✓ Combined US Sentiment (EPU + VIX) calculated")
 
     # Currency pair specific sentiment (average of relevant countries)
     print("Creating currency pair sentiment scores...")

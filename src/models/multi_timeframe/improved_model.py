@@ -57,6 +57,10 @@ class ImprovedModelConfig:
     include_roc_features: bool = True
     include_normalized_features: bool = True
     include_pattern_features: bool = True
+    include_sentiment_features: bool = False
+    us_only_sentiment: bool = True  # Use US-only sentiment (EPU + VIX) - recommended
+    trading_pair: str = "EURUSD"
+    sentiment_source: str = "epu"  # 'epu' (daily VIX/EPU), 'gdelt' (hourly), or 'both'
 
     @classmethod
     def hourly_model(cls) -> "ImprovedModelConfig":
@@ -124,6 +128,10 @@ class ImprovedTimeframeModel:
             include_roc_features=config.include_roc_features,
             include_normalized_features=config.include_normalized_features,
             include_pattern_features=config.include_pattern_features,
+            include_sentiment_features=config.include_sentiment_features,
+            trading_pair=config.trading_pair,
+            us_only_sentiment=config.us_only_sentiment,
+            sentiment_source=config.sentiment_source,
         )
 
         # Metrics

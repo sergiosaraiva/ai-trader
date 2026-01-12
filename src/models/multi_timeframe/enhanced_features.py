@@ -6,15 +6,21 @@ This module adds sophisticated features that capture:
 - Rate of change / momentum of indicators
 - Normalized/relative features
 - Pattern recognition
+- Sentiment features (optional) - supports EPU/VIX (daily) or GDELT (hourly)
 """
 
 import logging
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# Default sentiment data paths
+DEFAULT_SENTIMENT_PATH = Path(__file__).parent.parent.parent.parent / 'data' / 'sentiment' / 'sentiment_scores_20200101_20251231_daily.csv'
+DEFAULT_GDELT_PATH = Path(__file__).parent.parent.parent.parent / 'data' / 'sentiment' / 'gdelt_sentiment_20200101_20251231_hourly.csv'
 
 
 class EnhancedFeatureEngine:
@@ -28,7 +34,13 @@ class EnhancedFeatureEngine:
         include_normalized_features: bool = True,
         include_pattern_features: bool = True,
         include_lag_features: bool = True,
+        include_sentiment_features: bool = False,
+        sentiment_path: Optional[Path] = None,
+        trading_pair: str = "EURUSD",
         lag_periods: List[int] = None,
+        us_only_sentiment: bool = True,  # Use US-only sentiment (for EPU/VIX)
+        sentiment_source: str = "epu",  # 'epu' (daily VIX/EPU), 'gdelt' (hourly), or 'both'
+        gdelt_path: Optional[Path] = None,
     ):
         self.base_timeframe = base_timeframe
         self.include_time_features = include_time_features
@@ -36,7 +48,18 @@ class EnhancedFeatureEngine:
         self.include_normalized_features = include_normalized_features
         self.include_pattern_features = include_pattern_features
         self.include_lag_features = include_lag_features
+        self.include_sentiment_features = include_sentiment_features
+        self.sentiment_path = sentiment_path or DEFAULT_SENTIMENT_PATH
+        self.trading_pair = trading_pair
         self.lag_periods = lag_periods or [1, 2, 3, 6, 12]
+        self.us_only_sentiment = us_only_sentiment  # US-only is recommended for EPU
+        self.sentiment_source = sentiment_source.lower()  # 'epu', 'gdelt', or 'both'
+        self.gdelt_path = gdelt_path or DEFAULT_GDELT_PATH
+
+        # Sentiment components (lazy loaded)
+        self._sentiment_loader = None
+        self._sentiment_calculator = None
+        self._gdelt_loader = None
 
     def add_all_features(
         self,
@@ -71,6 +94,15 @@ class EnhancedFeatureEngine:
 
         if higher_tf_data:
             result = self._add_cross_tf_features(result, higher_tf_data)
+
+        if self.include_sentiment_features:
+            if self.sentiment_source == 'gdelt':
+                result = self._add_gdelt_sentiment_features(result)
+            elif self.sentiment_source == 'both':
+                result = self._add_sentiment_features(result)
+                result = self._add_gdelt_sentiment_features(result)
+            else:  # 'epu' (default)
+                result = self._add_sentiment_features(result)
 
         logger.info(f"Added enhanced features: {len(result.columns)} total columns")
 
@@ -343,6 +375,165 @@ class EnhancedFeatureEngine:
             df["trend_alignment"] = df["trend_alignment"] / (len(trend_cols) + 1)
 
         return df
+
+    def _add_sentiment_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add sentiment-based features.
+
+        When us_only_sentiment=True (recommended):
+        - Uses only US sentiment (EPU + VIX) which has daily resolution
+        - VIX captures market fear, EPU captures policy uncertainty
+        - Both are daily (unlike European EPU which is monthly)
+
+        When us_only_sentiment=False (legacy):
+        - Uses pair-specific sentiment
+        - Includes country sentiments which may be monthly resolution
+        """
+        if not isinstance(df.index, pd.DatetimeIndex):
+            logger.warning("DataFrame index is not DatetimeIndex, skipping sentiment features")
+            return df
+
+        # Check if sentiment file exists
+        if not self.sentiment_path.exists():
+            logger.warning(f"Sentiment file not found: {self.sentiment_path}, skipping sentiment features")
+            return df
+
+        try:
+            # Lazy load sentiment components
+            if self._sentiment_loader is None:
+                from src.features.sentiment.sentiment_loader import SentimentLoader
+                from src.features.sentiment.sentiment_features import SentimentFeatureCalculator
+
+                self._sentiment_loader = SentimentLoader(self.sentiment_path)
+                self._sentiment_calculator = SentimentFeatureCalculator()
+                self._sentiment_loader.load()
+
+            # Align sentiment to price data
+            # us_only=True uses daily US sentiment (EPU + VIX) - RECOMMENDED
+            df_with_sent = self._sentiment_loader.align_to_price_data(
+                df,
+                pair=self.trading_pair,
+                shift_days=1,  # Avoid look-ahead bias
+                include_country_sentiments=not self.us_only_sentiment,
+                include_epu=False,
+                us_only=self.us_only_sentiment,
+            )
+
+            # Find the raw sentiment column
+            sent_col = 'sentiment_raw'
+            if sent_col not in df_with_sent.columns:
+                sent_cols = [c for c in df_with_sent.columns if 'sentiment' in c.lower()]
+                if sent_cols:
+                    sent_col = sent_cols[0]
+                else:
+                    logger.warning("No sentiment column found after alignment")
+                    return df
+
+            # Calculate derived sentiment features
+            df_with_sent = self._sentiment_calculator.calculate_all(
+                df_with_sent,
+                sentiment_col=sent_col,
+                prefix='sentiment'
+            )
+
+            if self.us_only_sentiment:
+                # US-only mode: Add VIX-specific features if available
+                if 'vix_raw' in df_with_sent.columns:
+                    # VIX momentum features
+                    df_with_sent['vix_roc_3'] = df_with_sent['vix_raw'].pct_change(3)
+                    df_with_sent['vix_roc_5'] = df_with_sent['vix_raw'].pct_change(5)
+                    df_with_sent['vix_ma_5'] = df_with_sent['vix_raw'].rolling(5).mean()
+                    df_with_sent['vix_ma_20'] = df_with_sent['vix_raw'].rolling(20).mean()
+                    # VIX regime (high vs low volatility)
+                    df_with_sent['vix_regime'] = (df_with_sent['vix_raw'] > df_with_sent['vix_ma_20']).astype(int)
+                    # VIX z-score
+                    vix_std = df_with_sent['vix_raw'].rolling(50).std()
+                    df_with_sent['vix_zscore'] = (df_with_sent['vix_raw'] - df_with_sent['vix_ma_20']) / (vix_std + 1e-10)
+
+                # Cross-sentiment features for US indicators
+                us_sent_cols = [c for c in df_with_sent.columns if c.startswith('sent_us') or c.startswith('sent_vix')]
+                if len(us_sent_cols) >= 2:
+                    df_with_sent = self._sentiment_calculator.calculate_cross_sentiment_features(
+                        df_with_sent,
+                        sentiment_cols=us_sent_cols,
+                        prefix='cross_sent'
+                    )
+            else:
+                # Legacy mode: Add cross-country sentiment features
+                country_cols = [c for c in df_with_sent.columns if c.startswith('sent_country_')]
+                if len(country_cols) >= 2:
+                    df_with_sent = self._sentiment_calculator.calculate_cross_sentiment_features(
+                        df_with_sent,
+                        sentiment_cols=country_cols,
+                        prefix='cross_sent'
+                    )
+
+            # Count sentiment features added
+            sent_feature_cols = [c for c in df_with_sent.columns
+                               if 'sentiment' in c.lower()
+                               or 'sent_' in c.lower()
+                               or 'cross_sent' in c.lower()
+                               or 'vix' in c.lower()]
+            n_sent_features = len(sent_feature_cols)
+
+            mode_str = "US-only (EPU+VIX)" if self.us_only_sentiment else "legacy (pair-specific)"
+            logger.info(f"Added {n_sent_features} sentiment features ({mode_str})")
+
+            return df_with_sent
+
+        except Exception as e:
+            logger.warning(f"Error adding sentiment features: {e}")
+            import traceback
+            traceback.print_exc()
+            return df
+
+    def _add_gdelt_sentiment_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add GDELT hourly news sentiment features.
+
+        GDELT provides hourly sentiment data which is properly aggregated based on timeframe:
+        - 1H model: Raw hourly values (perfect match)
+        - 4H model: Aggregated with avg, std, trend (4 hours → 3 features per region)
+        - Daily model: Aggregated with avg, std, trend (24 hours → 3 features per region)
+
+        This solves the resolution mismatch problem that daily VIX/EPU had with intraday models.
+        """
+        if not isinstance(df.index, pd.DatetimeIndex):
+            logger.warning("DataFrame index is not DatetimeIndex, skipping GDELT features")
+            return df
+
+        # Check if GDELT file exists
+        if not self.gdelt_path.exists():
+            logger.warning(f"GDELT file not found: {self.gdelt_path}, skipping GDELT features")
+            return df
+
+        try:
+            # Lazy load GDELT loader
+            if self._gdelt_loader is None:
+                from src.features.sentiment.gdelt_loader import GDELTSentimentLoader
+                self._gdelt_loader = GDELTSentimentLoader(self.gdelt_path)
+                self._gdelt_loader.load()
+
+            # Align GDELT sentiment to price data with proper aggregation
+            df_with_gdelt = self._gdelt_loader.align_to_price_data(
+                df,
+                timeframe=self.base_timeframe,
+                shift_periods=1,  # Avoid look-ahead bias
+                include_std=True,
+                include_trend=True,
+            )
+
+            # Count GDELT features added
+            gdelt_cols = [c for c in df_with_gdelt.columns if c.startswith('gdelt_')]
+            n_gdelt_features = len(gdelt_cols)
+
+            logger.info(f"Added {n_gdelt_features} GDELT sentiment features (hourly, {self.base_timeframe} aggregation)")
+
+            return df_with_gdelt
+
+        except Exception as e:
+            logger.warning(f"Error adding GDELT sentiment features: {e}")
+            import traceback
+            traceback.print_exc()
+            return df
 
 
 def add_enhanced_features(

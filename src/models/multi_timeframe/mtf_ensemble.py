@@ -50,6 +50,24 @@ class MTFEnsembleConfig:
     min_confidence: float = 0.55
     min_agreement: float = 0.5  # At least 2 of 3 must agree (>50%)
 
+    # Sentiment features - NOW TIMEFRAME-SPECIFIC
+    # Based on research: monthly EPU data only useful for Daily model
+    include_sentiment: bool = False
+    trading_pair: str = "EURUSD"
+
+    # Sentiment source: 'epu' (daily VIX/EPU), 'gdelt' (hourly), or 'both'
+    # GDELT is recommended for intraday (1H, 4H) since it has hourly resolution
+    # EPU/VIX is appropriate for Daily model (daily resolution matches)
+    sentiment_source: str = "epu"
+
+    # Per-timeframe sentiment settings (key finding from investigation)
+    # Monthly EPU data is useless for intraday, marginal for swing, useful for position
+    sentiment_by_timeframe: Dict[str, bool] = field(default_factory=lambda: {
+        "1H": False,  # DISABLED - monthly data adds noise to intraday
+        "4H": False,  # DISABLED - monthly data marginal for swing
+        "D": True,    # ENABLED - monthly EPU appropriate for position trading
+    })
+
     @classmethod
     def default(cls) -> "MTFEnsembleConfig":
         """Default configuration with 60/30/10 weights."""
@@ -59,6 +77,46 @@ class MTFEnsembleConfig:
     def equal_weights(cls) -> "MTFEnsembleConfig":
         """Equal weight configuration for comparison."""
         return cls(weights={"1H": 0.33, "4H": 0.34, "D": 0.33})
+
+    @classmethod
+    def with_sentiment(cls, trading_pair: str = "EURUSD") -> "MTFEnsembleConfig":
+        """Config with sentiment for Daily model only (research-based).
+
+        Based on investigation findings:
+        - Monthly EPU data is useless for 1H (adds noise)
+        - Monthly EPU data is marginal for 4H
+        - Monthly EPU data is useful for Daily position trading
+        """
+        return cls(
+            include_sentiment=True,
+            trading_pair=trading_pair,
+            sentiment_by_timeframe={"1H": False, "4H": False, "D": True}
+        )
+
+    @classmethod
+    def with_full_sentiment(cls, trading_pair: str = "EURUSD") -> "MTFEnsembleConfig":
+        """Config with sentiment enabled for ALL timeframes (for testing)."""
+        return cls(
+            include_sentiment=True,
+            trading_pair=trading_pair,
+            sentiment_by_timeframe={"1H": True, "4H": True, "D": True}
+        )
+
+    @classmethod
+    def with_gdelt_sentiment(cls, trading_pair: str = "EURUSD") -> "MTFEnsembleConfig":
+        """Config with GDELT hourly sentiment for ALL timeframes (recommended for intraday).
+
+        GDELT provides hourly news sentiment which is properly aggregated:
+        - 1H: Raw hourly values (perfect match)
+        - 4H: Aggregated avg, std, trend (4 hours → 3 features per region)
+        - Daily: Aggregated avg, std, trend (24 hours → 3 features per region)
+        """
+        return cls(
+            include_sentiment=True,
+            trading_pair=trading_pair,
+            sentiment_source="gdelt",
+            sentiment_by_timeframe={"1H": True, "4H": True, "D": True}
+        )
 
 
 @dataclass
@@ -111,13 +169,28 @@ class MTFEnsemble:
         self.config = config or MTFEnsembleConfig.default()
         self.model_dir = Path(model_dir) if model_dir else Path("models/mtf_ensemble")
 
-        # Initialize models
+        # Initialize models with sentiment support if enabled
         self.models: Dict[str, ImprovedTimeframeModel] = {}
         self.model_configs = {
             "1H": ImprovedModelConfig.hourly_model(),
             "4H": ImprovedModelConfig.four_hour_model(),
             "D": ImprovedModelConfig.daily_model(),
         }
+
+        # Apply TIMEFRAME-SPECIFIC sentiment settings (research-based)
+        # Key finding: Monthly EPU data only useful for Daily model
+        if self.config.include_sentiment:
+            for tf, cfg in self.model_configs.items():
+                # Check per-timeframe sentiment setting
+                tf_sentiment_enabled = self.config.sentiment_by_timeframe.get(tf, False)
+                cfg.include_sentiment_features = tf_sentiment_enabled
+                cfg.trading_pair = self.config.trading_pair
+                cfg.sentiment_source = self.config.sentiment_source  # Pass sentiment source
+                if tf_sentiment_enabled:
+                    source_info = f"({self.config.sentiment_source})"
+                    logger.info(f"{tf} model: Sentiment ENABLED {source_info}")
+                else:
+                    logger.info(f"{tf} model: Sentiment DISABLED (research-based)")
 
         # Create model instances
         for tf, cfg in self.model_configs.items():

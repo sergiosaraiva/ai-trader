@@ -1,28 +1,37 @@
 # AI Trader
 
-A Multi-Timeframe Ensemble Trading System using machine learning for technical analysis-based trading predictions.
+A Multi-Timeframe Ensemble Trading System using XGBoost for technical analysis-based forex trading predictions with sentiment analysis integration.
 
-## Performance
+## Performance (Current Production Model)
 
-| Model | Win Rate | Profit Factor | Total Pips |
-|-------|----------|---------------|------------|
-| **1H alone** | 60.0% | 2.42 | +9,529 |
-| **Ensemble (filter mode)** | 58.5% | 2.33 | +8,263 |
-| **Ensemble (strict filter, ≥65% conf)** | 63.3% | - | - |
+| Metric | Value |
+|--------|-------|
+| **Total Profit** | **+7,987 pips** |
+| **Win Rate** | 57.8% |
+| **Profit Factor** | 2.22 |
+| **Total Trades** | 1,103 |
+| **Avg Pips/Trade** | +7.2 |
+
+### Model Accuracy
+
+| Model | Val Accuracy | High-Conf (≥60%) |
+|-------|--------------|------------------|
+| 1H (60% weight) | 67.07% | 72.14% |
+| 4H (30% weight) | 65.43% | 71.12% |
+| Daily (10% weight) | 61.54% | 64.21% |
 
 ## Features
 
-- **Multi-Timeframe Analysis**: Combines 1H, 4H, and Daily timeframes
-- **Multiple Trading Modes**:
-  - Weighted averaging (configurable weights)
-  - Filter mode (1H primary, 4H/D as confirmation)
-  - Strict filter (requires 4H agreement)
-- **Confidence-Based Filtering**: Trade only on high-confidence signals
-- **XGBoost Models**: Fast training and inference
-- **Triple Barrier Labeling**: TP/SL/Timeout trade outcomes
-- **Comprehensive Backtesting**: Full historical simulation with metrics
+- **Multi-Timeframe Ensemble**: Combines 1H, 4H, and Daily XGBoost models
+- **Sentiment Integration**: VIX + EPU sentiment on Daily model (research-optimized)
+- **115+ Technical Features**: Trend, momentum, volatility, patterns, cross-TF alignment
+- **Triple Barrier Labeling**: Realistic TP/SL/Timeout trade outcomes
+- **Confidence-Based Trading**: Higher accuracy on high-confidence signals
+- **6 Years of Data**: Trained on EUR/USD 2020-2025 (448K 5-minute bars)
 
-## Installation
+## Quick Start
+
+### Installation
 
 ```bash
 # Clone the repository
@@ -32,33 +41,60 @@ cd ai-trader
 # Create virtual environment
 python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
-# or: .venv\Scripts\activate  # Windows
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-## Quick Start
-
-### 1. Train the MTF Ensemble
+### Train the Model
 
 ```bash
-python scripts/train_mtf_ensemble.py \
-    --timeframes "1H,4H,D" \
-    --weights "0.8,0.15,0.05"
+# Train with optimal configuration (sentiment on Daily only)
+python scripts/train_mtf_ensemble.py --sentiment
+
+# Train without sentiment
+python scripts/train_mtf_ensemble.py
 ```
 
-### 2. Run Backtest
+### Run Backtest
 
 ```bash
-# Standard weighted mode
-python scripts/backtest_mtf_ensemble.py --compare
+# Backtest the trained model
+python scripts/backtest_mtf_ensemble.py --model-dir models/mtf_ensemble
+```
 
-# Filter mode (recommended)
-python scripts/backtest_mtf_ensemble.py --filter-mode --compare
+### Make Predictions
 
-# Strict filter (highest quality trades)
-python scripts/backtest_mtf_ensemble.py --strict-filter --compare
+```python
+from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig
+
+# Load trained ensemble
+config = MTFEnsembleConfig.with_sentiment("EURUSD")
+ensemble = MTFEnsemble(config=config, model_dir="models/mtf_ensemble")
+ensemble.load()
+
+# Predict on recent 5-minute data
+prediction = ensemble.predict(df_5min_recent)
+
+print(f"Direction: {'LONG' if prediction.direction == 1 else 'SHORT'}")
+print(f"Confidence: {prediction.confidence:.1%}")
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    MTF ENSEMBLE ARCHITECTURE                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   5-min Data ──┬──► 1H Model (60% weight) ───────┐              │
+│                │                                  │              │
+│                ├──► 4H Model (30% weight) ───────┼──► Ensemble  │
+│                │                                  │   Prediction │
+│                └──► Daily Model (10% weight) ────┘              │
+│                     + VIX/EPU Sentiment                         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Project Structure
@@ -67,54 +103,80 @@ python scripts/backtest_mtf_ensemble.py --strict-filter --compare
 ai-trader/
 ├── configs/                 # Model and indicator configurations
 │   ├── profiles/           # Trading profiles (scalper, trader, investor)
-│   └── indicators/         # Technical indicator settings per timeframe
+│   └── indicators/         # Technical indicator settings
 ├── data/
-│   └── sample/             # Sample forex data for development
+│   ├── forex/              # EUR/USD 5-minute data (2020-2025)
+│   ├── sentiment/          # VIX, EPU, GDELT sentiment data
+│   └── sample/             # Sample data for development
 ├── docs/                   # Documentation
-├── scripts/                # Training and backtesting scripts
+├── models/
+│   └── mtf_ensemble/       # Trained production models
+├── scripts/
+│   ├── train_mtf_ensemble.py    # Training script
+│   ├── backtest_mtf_ensemble.py # Backtesting script
+│   └── download_*.py            # Data download scripts
 ├── src/
-│   ├── config/            # Configuration management
-│   ├── data/              # Data loading and processing
-│   ├── features/          # Technical indicators
-│   ├── models/            # ML models
-│   │   ├── confidence/    # Uncertainty estimation
-│   │   ├── ensemble/      # Model combination
-│   │   ├── multi_timeframe/  # MTF ensemble implementation
-│   │   └── technical/     # Time-horizon models
-│   ├── simulation/        # Backtesting engine
-│   └── trading/           # Trading logic and risk management
-└── tests/                 # Unit tests
+│   ├── features/
+│   │   ├── technical/      # Technical indicators
+│   │   └── sentiment/      # Sentiment feature engineering
+│   ├── models/
+│   │   └── multi_timeframe/ # MTF ensemble implementation
+│   ├── simulation/         # Backtesting engine
+│   └── trading/            # Trading logic and risk management
+└── tests/                  # Unit tests
 ```
 
-## Trading Modes
+## Data
 
-### Weighted Mode (Default)
-Combines predictions using configurable weights:
-```python
-weights = {"1H": 0.8, "4H": 0.15, "D": 0.05}
-```
+### Price Data
+- **Source**: MetaTrader 5
+- **Pair**: EUR/USD
+- **Resolution**: 5-minute (resampled to 1H, 4H, Daily)
+- **Period**: 2020-01-01 to 2025-12-31
+- **Records**: 448,586 bars
 
-### Filter Mode
-Uses 1H as primary signal, 4H/D adjust confidence:
-- 4H agreement: +5% confidence boost
-- 4H strong disagreement: -15% penalty
-- Daily has smaller effect
+### Sentiment Data
+- **VIX**: CBOE Volatility Index (daily) from FRED
+- **EPU**: Economic Policy Uncertainty Index (daily) from FRED
+- **GDELT**: Hourly news sentiment (available but not used in production)
 
-### Strict Filter Mode
-Only trades when 1H AND 4H agree:
-- Fewer trades, higher quality
-- Best for risk-averse strategies
-- 63.3% win rate on high-confidence trades
+## Key Findings
+
+### Sentiment Integration Research
+
+| Configuration | Total Pips | Profit Factor |
+|---------------|------------|---------------|
+| Baseline (No Sentiment) | +7,596 | 2.12 |
+| **EPU Daily-Only (Optimal)** | **+7,987** | **2.22** |
+| GDELT All Timeframes | +7,273 | 2.09 |
+
+**Resolution Matching Rule**: Sentiment data resolution must match or be finer than the trading timeframe. Daily EPU/VIX works for Daily model; adding it to 1H/4H models degrades performance.
+
+### What Works
+- Multi-timeframe ensemble (60/30/10 weights)
+- VIX + EPU sentiment on Daily model only
+- Cross-timeframe trend alignment features
+- Triple barrier labeling for realistic simulation
+
+### What Doesn't Work
+- Sentiment on intraday models (resolution mismatch)
+- GDELT hourly sentiment (too noisy despite proper resolution)
+- Equal timeframe weights
 
 ## Configuration
 
-### Trading Profiles
+### Training Options
 
-| Profile | Short-Term | Medium-Term | Long-Term |
-|---------|------------|-------------|-----------|
-| Scalper | 15m | 1H | 4H |
-| Trader | 1H | 4H | 1D |
-| Investor | 1D | 1W | 1M |
+```bash
+# With sentiment (recommended)
+python scripts/train_mtf_ensemble.py --sentiment
+
+# Custom sentiment configuration
+python scripts/train_mtf_ensemble.py --sentiment-tf "D" --sentiment-source epu
+
+# Custom weights
+python scripts/train_mtf_ensemble.py --weights "0.6,0.3,0.1"
+```
 
 ### Triple Barrier Parameters
 
@@ -126,29 +188,32 @@ Only trades when 1H AND 4H agree:
 
 ## Documentation
 
+- [Current State of the Art](docs/15-current-state-of-the-art.md) - Comprehensive system documentation
 - [Architecture Overview](docs/01-architecture-overview.md)
 - [Technical Analysis Model Design](docs/02-technical-analysis-model-design.md)
 - [Technical Indicators Configuration](docs/03-technical-indicators-configuration.md)
 - [Confidence & Uncertainty System](docs/04-confidence-uncertainty-system.md)
 - [Trading Robot Design](docs/05-trading-robot-design.md)
 - [MTF Ensemble Implementation](docs/08-multi-timeframe-ensemble-implementation.md)
+- [Sentiment Analysis Results](docs/13-sentiment-analysis-test-results.md)
 
 ## Technology Stack
 
 | Component | Technology |
 |-----------|------------|
 | Language | Python 3.11+ |
-| ML Models | XGBoost, PyTorch |
+| ML Models | XGBoost |
 | Indicators | pandas-ta |
 | Data | pandas, numpy |
-| Tracking | MLflow |
+| Sentiment | FRED API, Google BigQuery |
 
-## Sample Data
+## Performance Targets
 
-Sample forex data is included in `data/sample/`:
-- `EURUSD_daily.csv` - EUR/USD (1286 rows, 2020-2024)
-- `GBPUSD_daily.csv` - GBP/USD (1286 rows, 2020-2024)
-- `USDJPY_daily.csv` - USD/JPY (1286 rows, 2020-2024)
+| Metric | Target | Achieved |
+|--------|--------|----------|
+| Win Rate | > 55% | 57.8% |
+| Profit Factor | > 2.0 | 2.22 |
+| High-Conf Accuracy | > 65% | 72.14% (1H @ ≥60%) |
 
 ## License
 

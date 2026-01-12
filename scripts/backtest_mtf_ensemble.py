@@ -587,9 +587,41 @@ def main():
     df = df.sort_index()
     logger.info(f"Loaded {len(df)} bars")
 
-    # Load ensemble
+    # Load ensemble - first check for training metadata to get sentiment settings
     model_dir = project_root / args.model_dir
-    ensemble = MTFEnsemble(model_dir=model_dir)
+    metadata_path = model_dir / "training_metadata.json"
+
+    # Check if model was trained with sentiment
+    include_sentiment = False
+    trading_pair = "EURUSD"
+    weights = {"1H": 0.6, "4H": 0.3, "D": 0.1}
+    sentiment_by_timeframe = {"1H": False, "4H": False, "D": False}
+    sentiment_source = "epu"  # Default to EPU
+
+    if metadata_path.exists():
+        with open(metadata_path) as f:
+            metadata = json.load(f)
+            include_sentiment = metadata.get("include_sentiment", False)
+            trading_pair = metadata.get("trading_pair", "EURUSD")
+            weights = metadata.get("weights", weights)
+            # Get per-timeframe sentiment settings
+            sentiment_by_timeframe = metadata.get("sentiment_by_timeframe", sentiment_by_timeframe)
+            sentiment_mode = metadata.get("sentiment_mode", "disabled")
+            sentiment_source = metadata.get("sentiment_source", "epu")
+            if include_sentiment:
+                logger.info(f"Model was trained with sentiment ({sentiment_mode}, source={sentiment_source}) for {trading_pair}")
+                logger.info(f"Sentiment by TF: {sentiment_by_timeframe}")
+
+    # Create config with correct settings
+    config = MTFEnsembleConfig(
+        weights=weights,
+        include_sentiment=include_sentiment,
+        trading_pair=trading_pair,
+        sentiment_source=sentiment_source,
+        sentiment_by_timeframe=sentiment_by_timeframe,
+    )
+
+    ensemble = MTFEnsemble(config=config, model_dir=model_dir)
     ensemble.load()
 
     print(ensemble.summary())

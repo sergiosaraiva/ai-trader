@@ -38,6 +38,19 @@ class SentimentLoader:
         'Sentiment_Global',
     ]
 
+    # US-only sentiment columns (daily resolution, recommended for all pairs)
+    US_SENTIMENT_COLUMNS = [
+        'Sentiment_US',           # From US Daily EPU
+        'Sentiment_VIX',          # From VIX (market fear)
+        'Sentiment_US_Combined',  # Combined EPU + VIX
+    ]
+
+    # VIX and raw data columns
+    VIX_COLUMNS = [
+        'VIX',                    # Raw VIX value
+        'Sentiment_VIX',          # VIX normalized to sentiment scale
+    ]
+
     # EPU columns for raw uncertainty values
     EPU_COLUMNS = [
         'EPU_US',
@@ -192,6 +205,44 @@ class SentimentLoader:
         existing_cols = [c for c in self.EPU_COLUMNS if c in self.sentiment_data.columns]
         return self.sentiment_data[existing_cols]
 
+    def get_us_sentiment(self) -> pd.DataFrame:
+        """
+        Get US-only sentiment (EPU + VIX combined).
+
+        This is the recommended approach for forex trading as:
+        - US sentiment is daily resolution (not monthly like Europe)
+        - VIX captures market fear which impacts USD (safe haven)
+        - Combined signal provides richer information
+
+        Returns:
+            DataFrame with US sentiment columns
+        """
+        if not self._loaded:
+            self.load()
+
+        existing_cols = [c for c in self.US_SENTIMENT_COLUMNS if c in self.sentiment_data.columns]
+
+        if not existing_cols:
+            # Fallback to just Sentiment_US if VIX columns not available
+            if 'Sentiment_US' in self.sentiment_data.columns:
+                return self.sentiment_data[['Sentiment_US']]
+            raise ValueError("No US sentiment columns found in data")
+
+        return self.sentiment_data[existing_cols]
+
+    def get_vix_data(self) -> pd.DataFrame:
+        """
+        Get VIX and VIX-derived sentiment.
+
+        Returns:
+            DataFrame with VIX columns
+        """
+        if not self._loaded:
+            self.load()
+
+        existing_cols = [c for c in self.VIX_COLUMNS if c in self.sentiment_data.columns]
+        return self.sentiment_data[existing_cols] if existing_cols else pd.DataFrame()
+
     def align_to_price_data(
         self,
         price_df: pd.DataFrame,
@@ -199,6 +250,7 @@ class SentimentLoader:
         shift_days: int = 1,
         include_country_sentiments: bool = True,
         include_epu: bool = False,
+        us_only: bool = False,
     ) -> pd.DataFrame:
         """
         Align daily sentiment to price data (any timeframe).
@@ -212,6 +264,7 @@ class SentimentLoader:
             shift_days: Days to shift sentiment (default 1 for no look-ahead)
             include_country_sentiments: Include relevant country sentiments
             include_epu: Include raw EPU values
+            us_only: Use only US sentiment (EPU + VIX) - RECOMMENDED for best results
 
         Returns:
             Price DataFrame with sentiment columns added
@@ -230,24 +283,47 @@ class SentimentLoader:
         # Prepare sentiment data
         sentiment_to_merge = pd.DataFrame(index=self.sentiment_data.index)
 
-        # Add pair-specific sentiment
-        pair_sentiment = self.get_pair_sentiment(pair)
-        sentiment_to_merge['sentiment_raw'] = pair_sentiment
+        if us_only:
+            # US-ONLY MODE: Use only US sentiment (daily EPU + VIX)
+            # This is recommended because:
+            # 1. US EPU is daily (European is monthly)
+            # 2. VIX is daily and captures market fear
+            # 3. USD is involved in most forex pairs
+            us_sent = self.get_us_sentiment()
+            for col in us_sent.columns:
+                new_name = col.lower().replace('sentiment_', 'sent_')
+                sentiment_to_merge[new_name] = us_sent[col]
 
-        # Add country sentiments if requested
-        if include_country_sentiments:
-            country_sent = self.get_country_sentiments(pair)
-            for col in country_sent.columns:
-                # Rename to lowercase with prefix
-                new_name = col.lower().replace('sentiment_', 'sent_country_')
-                sentiment_to_merge[new_name] = country_sent[col]
+            # Use US Combined as the primary sentiment signal
+            if 'Sentiment_US_Combined' in us_sent.columns:
+                sentiment_to_merge['sentiment_raw'] = us_sent['Sentiment_US_Combined']
+            elif 'Sentiment_US' in us_sent.columns:
+                sentiment_to_merge['sentiment_raw'] = us_sent['Sentiment_US']
 
-        # Add EPU values if requested
-        if include_epu:
-            epu_df = self.get_epu_values()
-            for col in epu_df.columns:
-                new_name = col.lower()
-                sentiment_to_merge[new_name] = epu_df[col]
+            # Add raw VIX value if available (useful for volatility-based features)
+            if 'VIX' in self.sentiment_data.columns:
+                sentiment_to_merge['vix_raw'] = self.sentiment_data['VIX']
+
+        else:
+            # LEGACY MODE: Pair-specific sentiment (includes monthly European data)
+            # Add pair-specific sentiment
+            pair_sentiment = self.get_pair_sentiment(pair)
+            sentiment_to_merge['sentiment_raw'] = pair_sentiment
+
+            # Add country sentiments if requested
+            if include_country_sentiments:
+                country_sent = self.get_country_sentiments(pair)
+                for col in country_sent.columns:
+                    # Rename to lowercase with prefix
+                    new_name = col.lower().replace('sentiment_', 'sent_country_')
+                    sentiment_to_merge[new_name] = country_sent[col]
+
+            # Add EPU values if requested
+            if include_epu:
+                epu_df = self.get_epu_values()
+                for col in epu_df.columns:
+                    new_name = col.lower()
+                    sentiment_to_merge[new_name] = epu_df[col]
 
         # Shift sentiment to avoid look-ahead bias
         # shift_days=1 means we use yesterday's sentiment for today
@@ -272,7 +348,7 @@ class SentimentLoader:
         result = result.drop('_merge_date', axis=1)
 
         # Forward fill missing values (weekends, holidays)
-        sentiment_cols = [c for c in result.columns if 'sentiment' in c.lower() or 'sent_' in c.lower() or 'epu_' in c.lower()]
+        sentiment_cols = [c for c in result.columns if 'sentiment' in c.lower() or 'sent_' in c.lower() or 'epu_' in c.lower() or 'vix' in c.lower()]
         for col in sentiment_cols:
             result[col] = result[col].ffill().bfill()
 

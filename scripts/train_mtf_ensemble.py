@@ -186,21 +186,38 @@ def main():
         default="0.6,0.3,0.1",
         help="Comma-separated weights for 1H,4H,D",
     )
+    parser.add_argument(
+        "--sentiment",
+        action="store_true",
+        help="Include sentiment features (Daily model only, research-based)",
+    )
+    parser.add_argument(
+        "--sentiment-all",
+        action="store_true",
+        help="Include sentiment for ALL timeframes (not recommended for monthly EPU data)",
+    )
+    parser.add_argument(
+        "--sentiment-tf",
+        type=str,
+        default=None,
+        help="Custom sentiment timeframes (e.g., '4H,D' or '1H,4H,D'). Overrides --sentiment/--sentiment-all",
+    )
+    parser.add_argument(
+        "--pair",
+        type=str,
+        default="EURUSD",
+        help="Trading pair for sentiment data",
+    )
+    parser.add_argument(
+        "--sentiment-source",
+        type=str,
+        default="epu",
+        choices=["epu", "gdelt", "both"],
+        help="Sentiment data source: 'epu' (daily VIX/EPU), 'gdelt' (hourly news), or 'both'",
+    )
     args = parser.parse_args()
 
-    print("\n" + "=" * 70)
-    print("MTF ENSEMBLE TRAINING")
-    print("(3-Timeframe Weighted Ensemble)")
-    print("=" * 70)
-    print(f"Data:        {args.data}")
-    print(f"Output:      {args.output}")
-    print(f"Timeframes:  {args.timeframes}")
-    print(f"Weights:     {args.weights}")
-    print(f"Train ratio: {args.train_ratio:.0%}")
-    print(f"Val ratio:   {args.val_ratio:.0%}")
-    print("=" * 70)
-
-    # Parse weights
+    # Parse weights and timeframes first
     weight_values = [float(w) for w in args.weights.split(",")]
     timeframe_list = [tf.strip() for tf in args.timeframes.split(",")]
 
@@ -210,11 +227,71 @@ def main():
 
     weights = dict(zip(timeframe_list, weight_values))
 
-    # Create config
+    # Determine sentiment configuration (priority: --sentiment-tf > --sentiment-all > --sentiment)
+    if args.sentiment_tf:
+        # Custom sentiment timeframes specified
+        sentiment_tfs = [tf.strip().upper() for tf in args.sentiment_tf.split(",")]
+        sentiment_by_tf = {tf: (tf in sentiment_tfs) for tf in timeframe_list}
+        sentiment_mode = f"custom ({args.sentiment_tf})"
+        include_sentiment = any(sentiment_by_tf.values())
+    elif args.sentiment_all:
+        # Full sentiment for all timeframes (for testing)
+        sentiment_by_tf = {tf: True for tf in timeframe_list}
+        sentiment_mode = "ALL timeframes"
+        include_sentiment = True
+    elif args.sentiment:
+        # Research-based: sentiment only for Daily model
+        sentiment_by_tf = {tf: (tf == "D") for tf in timeframe_list}
+        sentiment_mode = "Daily only (research-based)"
+        include_sentiment = True
+    else:
+        sentiment_by_tf = {tf: False for tf in timeframe_list}
+        sentiment_mode = "disabled"
+        include_sentiment = False
+
+    # Determine sentiment source description
+    sentiment_source = args.sentiment_source
+    source_desc = {
+        "epu": "EPU/VIX (daily)",
+        "gdelt": "GDELT (hourly news)",
+        "both": "EPU/VIX + GDELT (combined)",
+    }.get(sentiment_source, sentiment_source)
+
+    print("\n" + "=" * 70)
+    print("MTF ENSEMBLE TRAINING")
+    if args.sentiment_tf:
+        print(f"(3-Timeframe Ensemble + CUSTOM SENTIMENT: {args.sentiment_tf})")
+    elif args.sentiment_all:
+        print("(3-Timeframe Ensemble + FULL SENTIMENT - all timeframes)")
+    elif args.sentiment:
+        print("(3-Timeframe Ensemble + SENTIMENT - Daily only, research-based)")
+    else:
+        print("(3-Timeframe Weighted Ensemble)")
+    print("=" * 70)
+    print(f"Data:        {args.data}")
+    print(f"Output:      {args.output}")
+    print(f"Timeframes:  {args.timeframes}")
+    print(f"Weights:     {args.weights}")
+    print(f"Train ratio: {args.train_ratio:.0%}")
+    print(f"Val ratio:   {args.val_ratio:.0%}")
+    print(f"Sentiment:   {sentiment_mode}")
+    if include_sentiment:
+        print(f"  Source:    {source_desc}")
+    for tf in timeframe_list:
+        status = "ON" if sentiment_by_tf.get(tf, False) else "OFF"
+        print(f"  - {tf}: {status}")
+    if include_sentiment:
+        print(f"Pair:        {args.pair}")
+    print("=" * 70)
+
     config = MTFEnsembleConfig(
         weights=weights,
         agreement_bonus=0.05,
         use_regime_adjustment=True,
+        include_sentiment=include_sentiment,
+        trading_pair=args.pair,
+        sentiment_source=sentiment_source,
+        sentiment_by_timeframe=sentiment_by_tf,
     )
 
     # Load data
@@ -299,6 +376,11 @@ def main():
         "val_ratio": args.val_ratio,
         "timeframes": timeframe_list,
         "weights": weights,
+        "include_sentiment": include_sentiment,
+        "sentiment_mode": sentiment_mode,
+        "sentiment_source": sentiment_source if include_sentiment else None,
+        "sentiment_by_timeframe": sentiment_by_tf,
+        "trading_pair": args.pair if include_sentiment else None,
         "individual_results": {
             k: {kk: float(vv) if isinstance(vv, (np.integer, np.floating)) else vv
                 for kk, vv in v.items()}
