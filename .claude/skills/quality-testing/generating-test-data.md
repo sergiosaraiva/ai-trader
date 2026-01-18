@@ -1,6 +1,7 @@
 ---
 name: generating-test-data
 description: Creates test fixtures, mock data builders, and synthetic datasets for testing. Generates realistic OHLCV data, edge cases, and scenario-specific test inputs. Use when planning-test-scenarios identifies data requirements, or when tests need consistent reproducible data.
+version: 1.0.0
 ---
 
 # Generating Test Data

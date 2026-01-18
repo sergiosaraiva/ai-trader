@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown, Minus, AlertCircle, Clock } from 'lucide-react';
+import { formatPrice, getFormattedSymbol } from '../utils/assetFormatting';
 
 /**
  * PredictionCard - Displays the current trading prediction
@@ -34,25 +35,44 @@ export function PredictionCard({ prediction, loading, error }) {
     );
   }
 
-  const { signal, confidence, current_price, symbol, timestamp, timeframe_signals } = prediction;
+  // Handle both old format (signal) and new format (direction)
+  const {
+    signal,
+    direction,
+    confidence,
+    current_price,
+    market_price,
+    symbol,
+    timestamp,
+    timeframe_signals,
+    component_directions,
+    component_confidences,
+    should_trade,
+  } = prediction;
+
+  // Normalize signal: API returns "long"/"short" in direction field
+  const normalizedSignal = signal || direction;
 
   const getSignalColor = (sig) => {
-    if (sig === 'BUY' || sig === 1) return 'text-green-400';
-    if (sig === 'SELL' || sig === -1) return 'text-red-400';
+    if (sig === 'BUY' || sig === 'long' || sig === 1) return 'text-green-400';
+    if (sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0) return 'text-red-400';
     return 'text-gray-400';
   };
 
   const getSignalIcon = (sig) => {
-    if (sig === 'BUY' || sig === 1) return <TrendingUp size={32} />;
-    if (sig === 'SELL' || sig === -1) return <TrendingDown size={32} />;
+    if (sig === 'BUY' || sig === 'long' || sig === 1) return <TrendingUp size={32} />;
+    if (sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0) return <TrendingDown size={32} />;
     return <Minus size={32} />;
   };
 
   const getSignalText = (sig) => {
-    if (sig === 'BUY' || sig === 1) return 'BUY';
-    if (sig === 'SELL' || sig === -1) return 'SELL';
+    if (sig === 'BUY' || sig === 'long' || sig === 1) return 'BUY';
+    if (sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0) return 'SELL';
     return 'HOLD';
   };
+
+  // Use market_price if current_price not available
+  const displayPrice = current_price || market_price;
 
   const getConfidenceColor = (conf) => {
     const value = conf * 100;
@@ -71,7 +91,7 @@ export function PredictionCard({ prediction, loading, error }) {
       <div className="flex justify-between items-start mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-300">Current Prediction</h2>
-          <p className="text-sm text-gray-500">{symbol || 'EUR/USD'}</p>
+          <p className="text-sm text-gray-500">{getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
         </div>
         <div className="flex items-center gap-1 text-gray-500 text-sm">
           <Clock size={14} />
@@ -81,15 +101,15 @@ export function PredictionCard({ prediction, loading, error }) {
 
       {/* Main Signal */}
       <div className="flex items-center justify-center gap-4 py-6" role="status" aria-live="polite">
-        <div className={`${getSignalColor(signal)}`} aria-hidden="true">
-          {getSignalIcon(signal)}
+        <div className={`${getSignalColor(normalizedSignal)}`} aria-hidden="true">
+          {getSignalIcon(normalizedSignal)}
         </div>
         <div className="text-center">
-          <span className={`text-4xl font-bold ${getSignalColor(signal)}`} aria-label={`Signal: ${getSignalText(signal)}`}>
-            {getSignalText(signal)}
+          <span className={`text-4xl font-bold ${getSignalColor(normalizedSignal)}`} aria-label={`Signal: ${getSignalText(normalizedSignal)}`}>
+            {getSignalText(normalizedSignal)}
           </span>
           <p className="text-gray-500 text-sm mt-1">
-            @ {current_price?.toFixed(5) || 'N/A'}
+            @ {formatPrice(displayPrice, prediction?.asset_metadata)}
           </p>
         </div>
       </div>
@@ -118,11 +138,26 @@ export function PredictionCard({ prediction, loading, error }) {
       </div>
 
       {/* Timeframe Breakdown */}
-      {timeframe_signals && Object.keys(timeframe_signals).length > 0 && (
+      {(timeframe_signals || component_directions) && (
         <div className="mt-6 pt-4 border-t border-gray-700">
           <h3 className="text-sm text-gray-400 mb-3">Timeframe Breakdown</h3>
           <div className="grid grid-cols-3 gap-3">
-            {Object.entries(timeframe_signals).map(([tf, data]) => (
+            {/* Handle new API format with component_directions */}
+            {component_directions && Object.entries(component_directions).map(([tf, dir]) => (
+              <div key={tf} className="bg-gray-700/50 rounded p-3 text-center">
+                <span className="text-xs text-gray-500 block mb-1">{tf === 'D' ? '1D' : tf}</span>
+                <span className={`text-sm font-medium ${getSignalColor(dir)}`}>
+                  {getSignalText(dir)}
+                </span>
+                {component_confidences?.[tf] && (
+                  <span className="text-xs text-gray-500 block mt-1">
+                    {(component_confidences[tf] * 100).toFixed(0)}%
+                  </span>
+                )}
+              </div>
+            ))}
+            {/* Handle old API format with timeframe_signals */}
+            {!component_directions && timeframe_signals && Object.entries(timeframe_signals).map(([tf, data]) => (
               <div key={tf} className="bg-gray-700/50 rounded p-3 text-center">
                 <span className="text-xs text-gray-500 block mb-1">{tf}</span>
                 <span className={`text-sm font-medium ${getSignalColor(data.signal || data)}`}>

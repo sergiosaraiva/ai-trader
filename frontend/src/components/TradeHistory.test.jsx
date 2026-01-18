@@ -95,4 +95,130 @@ describe('TradeHistory', () => {
     expect(screen.getByText('BUY')).toBeInTheDocument();
     expect(screen.getByText('@ 1.08500')).toBeInTheDocument();
   });
+
+  // Dynamic Asset Metadata Tests
+  it('formats forex prices with 5 decimals', () => {
+    const signals = [
+      {
+        id: '1',
+        signal: 'BUY',
+        price: 1.08543,
+        confidence: 0.72,
+        timestamp: new Date().toISOString(),
+        asset_metadata: {
+          price_precision: 5,
+          asset_type: 'forex',
+        },
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('@ 1.08543')).toBeInTheDocument();
+  });
+
+  it('formats crypto prices with 8 decimals', () => {
+    const signals = [
+      {
+        id: '1',
+        signal: 'BUY',
+        price: 50123.12345678,
+        confidence: 0.68,
+        timestamp: new Date().toISOString(),
+        asset_metadata: {
+          price_precision: 8,
+          asset_type: 'crypto',
+        },
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('@ 50123.12345678')).toBeInTheDocument();
+  });
+
+  it('formats stock prices with 2 decimals', () => {
+    const signals = [
+      {
+        id: '1',
+        signal: 'BUY',
+        price: 150.5,
+        confidence: 0.75,
+        timestamp: new Date().toISOString(),
+        asset_metadata: {
+          price_precision: 2,
+          asset_type: 'stock',
+        },
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('@ 150.50')).toBeInTheDocument();
+  });
+
+  it('uses global assetMetadata when signal metadata missing', () => {
+    const signals = [
+      {
+        id: '1',
+        signal: 'BUY',
+        price: 1.08543,
+        confidence: 0.72,
+        timestamp: new Date().toISOString(),
+        // No asset_metadata on signal
+      },
+    ];
+    const assetMetadata = {
+      price_precision: 5,
+      asset_type: 'forex',
+    };
+    render(<TradeHistory signals={signals} assetMetadata={assetMetadata} />);
+
+    expect(screen.getByText('@ 1.08543')).toBeInTheDocument();
+  });
+
+  it('falls back to default formatting without metadata', () => {
+    const signals = [
+      {
+        id: '1',
+        signal: 'BUY',
+        price: 1.08543,
+        confidence: 0.72,
+        timestamp: new Date().toISOString(),
+        // No metadata
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    // Should use default precision (5)
+    expect(screen.getByText('@ 1.08543')).toBeInTheDocument();
+  });
+
+  it('handles mixed asset types in signal list', () => {
+    const signals = [
+      {
+        id: '1',
+        signal: 'BUY',
+        price: 1.08543,
+        confidence: 0.72,
+        timestamp: new Date().toISOString(),
+        asset_metadata: {
+          price_precision: 5,
+          asset_type: 'forex',
+        },
+      },
+      {
+        id: '2',
+        signal: 'BUY',
+        price: 50123.12,
+        confidence: 0.68,
+        timestamp: new Date().toISOString(),
+        asset_metadata: {
+          price_precision: 2,
+          asset_type: 'crypto',
+        },
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('@ 1.08543')).toBeInTheDocument();
+    expect(screen.getByText('@ 50123.12')).toBeInTheDocument();
+  });
 });

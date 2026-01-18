@@ -1,6 +1,7 @@
 ---
 name: running-backtests
 description: Runs historical backtests using the Backtester class with realistic commission, slippage, and risk management. Use when evaluating trading strategies, comparing model performance, or validating signal generation. Python simulation framework.
+version: 1.0.0
 ---
 
 # Running Backtests

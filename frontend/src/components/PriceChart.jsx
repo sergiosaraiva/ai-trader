@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import {
   ComposedChart,
   Line,
-  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -10,11 +9,12 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { formatPrice, getFormattedSymbol } from '../utils/assetFormatting';
 
 /**
  * Custom tooltip component for the price chart
  */
-function CustomTooltip({ active, payload }) {
+function CustomTooltip({ active, payload, assetMetadata }) {
   if (!active || !payload || payload.length === 0) return null;
 
   const data = payload[0]?.payload;
@@ -25,14 +25,14 @@ function CustomTooltip({ active, payload }) {
       <p className="text-gray-400 text-xs mb-2">{data.time}</p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
         <span className="text-gray-500">Open:</span>
-        <span className="text-gray-300">{data.open?.toFixed(5)}</span>
+        <span className="text-gray-300">{formatPrice(data.open, assetMetadata)}</span>
         <span className="text-gray-500">High:</span>
-        <span className="text-green-400">{data.high?.toFixed(5)}</span>
+        <span className="text-green-400">{formatPrice(data.high, assetMetadata)}</span>
         <span className="text-gray-500">Low:</span>
-        <span className="text-red-400">{data.low?.toFixed(5)}</span>
+        <span className="text-red-400">{formatPrice(data.low, assetMetadata)}</span>
         <span className="text-gray-500">Close:</span>
         <span className={data.isBullish ? 'text-green-400' : 'text-red-400'}>
-          {data.close?.toFixed(5)}
+          {formatPrice(data.close, assetMetadata)}
         </span>
       </div>
     </div>
@@ -78,24 +78,40 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
     });
   }, [candles]);
 
-  const { minPrice, maxPrice, currentPrice, priceChange } = useMemo(() => {
+  const { minPrice, maxPrice, currentPrice, priceChange, tickPrecision } = useMemo(() => {
     if (chartData.length === 0) {
-      return { minPrice: 0, maxPrice: 1, currentPrice: null, priceChange: null };
+      return { minPrice: 0, maxPrice: 1, currentPrice: null, priceChange: null, tickPrecision: 4 };
     }
 
     const prices = chartData.flatMap(d => [d.high, d.low]);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
-    const padding = (max - min) * 0.1;
+    const range = max - min;
+
+    // Add padding (at least 10% of range, but ensure minimum visible range)
+    const padding = Math.max(range * 0.1, min * 0.0001);
+
     const current = chartData[chartData.length - 1]?.close;
     const first = chartData[0]?.open;
     const change = current && first ? ((current - first) / first) * 100 : null;
+
+    // Determine tick precision based on price magnitude and range
+    // For forex (prices ~1.0), use 5 decimals; for crypto/stocks, use fewer
+    let precision = 4;
+    if (min > 0 && min < 10) {
+      precision = 5; // Forex-like prices
+    } else if (min >= 10 && min < 1000) {
+      precision = 2; // Stock-like prices
+    } else if (min >= 1000) {
+      precision = 0; // Large prices (crypto in USD)
+    }
 
     return {
       minPrice: min - padding,
       maxPrice: max + padding,
       currentPrice: current,
       priceChange: change,
+      tickPrecision: precision,
     };
   }, [chartData]);
 
@@ -133,15 +149,19 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
     );
   }
 
+  // Get asset metadata from prediction or infer from candles
+  const assetMetadata = prediction?.asset_metadata;
+  const symbol = prediction?.symbol || candles[0]?.symbol || '';
+
   return (
     <div className="bg-gray-800 rounded-lg p-6 card-hover">
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-300">EUR/USD Price</h2>
+          <h2 className="text-lg font-semibold text-gray-300">{getFormattedSymbol(symbol, assetMetadata)} Price</h2>
           <div className="flex items-center gap-3 mt-1">
             <span className="text-2xl font-bold text-gray-100">
-              {currentPrice?.toFixed(5) || 'N/A'}
+              {formatPrice(currentPrice, assetMetadata)}
             </span>
             {priceChange !== null && (
               <span className={`flex items-center gap-1 text-sm ${
@@ -176,14 +196,16 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
               interval="preserveStartEnd"
             />
             <YAxis
+              type="number"
               domain={[minPrice, maxPrice]}
               tick={{ fill: '#6b7280', fontSize: 11 }}
               axisLine={{ stroke: '#374151' }}
               tickLine={{ stroke: '#374151' }}
-              tickFormatter={(value) => value.toFixed(4)}
-              width={70}
+              tickFormatter={(value) => value.toFixed(tickPrecision)}
+              width={80}
+              tickCount={6}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip assetMetadata={assetMetadata} />} />
 
             {/* Current price reference line */}
             {currentPrice && (
@@ -203,14 +225,7 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 4, fill: '#3b82f6' }}
-            />
-
-            {/* High-Low range */}
-            <Bar
-              dataKey={(d) => d.high - d.low}
-              fill="transparent"
-              stroke="#4b5563"
-              barSize={1}
+              isAnimationActive={false}
             />
           </ComposedChart>
         </ResponsiveContainer>

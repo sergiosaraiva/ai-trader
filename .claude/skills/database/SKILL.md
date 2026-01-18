@@ -1,6 +1,7 @@
 ---
-name: creating-sqlalchemy-models
-description: Creates SQLAlchemy ORM models with proper column types, indexes, and relationships for SQLite persistence. Use when adding new database entities, defining table schemas, or setting up data persistence.
+name: database
+description: This skill should be used when the user asks to "add a database table", "create a model", "define a schema", "add database persistence". Creates SQLAlchemy ORM models with proper column types, indexes, and relationships for SQLite persistence.
+version: 1.1.0
 ---
 
 # Creating SQLAlchemy Models
@@ -283,3 +284,7 @@ Base = declarative_base()
 - `creating-pydantic-schemas` - API schemas that map to models
 - `creating-fastapi-endpoints` - Endpoints that query models
 - `writing-pytest-tests` - Test database operations
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: src/api/database/models.py*

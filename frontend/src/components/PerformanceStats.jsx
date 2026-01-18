@@ -1,9 +1,10 @@
 import { TrendingUp, Target, Percent, BarChart3, Zap, Award } from 'lucide-react';
+import { getProfitUnitLabel } from '../utils/assetFormatting';
 
 /**
  * PerformanceStats - Displays trading performance metrics
  */
-export function PerformanceStats({ performance, loading, error }) {
+export function PerformanceStats({ performance, loading, error, assetMetadata }) {
   if (loading) {
     return (
       <div className="bg-gray-800 rounded-lg p-6 animate-pulse">
@@ -35,9 +36,12 @@ export function PerformanceStats({ performance, loading, error }) {
     avg_pips_per_trade: 9.0,
   };
 
+  // Get profit unit label
+  const profitUnit = getProfitUnitLabel(assetMetadata);
+
   const metrics = [
     {
-      label: 'Total Pips',
+      label: `Total ${profitUnit.charAt(0).toUpperCase() + profitUnit.slice(1)}`,
       value: stats.total_pips?.toLocaleString() || 'N/A',
       prefix: '+',
       icon: TrendingUp,
@@ -73,7 +77,7 @@ export function PerformanceStats({ performance, loading, error }) {
       bgColor: 'bg-cyan-500/10',
     },
     {
-      label: 'Avg Pips/Trade',
+      label: `Avg ${profitUnit.charAt(0).toUpperCase() + profitUnit.slice(1)}/Trade`,
       value: stats.avg_pips_per_trade?.toFixed(1) || 'N/A',
       prefix: '+',
       icon: Percent,

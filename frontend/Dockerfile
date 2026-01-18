@@ -1,5 +1,6 @@
 # AI Trader Frontend - Production Dockerfile
 # Multi-stage build for optimized production image
+# Optimized for Railway deployment
 
 # Stage 1: Build
 FROM node:20-alpine AS builder
@@ -34,10 +35,12 @@ RUN chmod +x /docker-entrypoint.sh
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose port
+# Expose port (Railway uses PORT env variable)
 EXPOSE 80
 
-# Environment variable for backend URL
+# Default backend URL - override with BACKEND_URL env var in Railway
+# For Railway: Set BACKEND_URL to your backend service's public URL
+# Example: https://ai-trader-backend-production.up.railway.app
 ENV BACKEND_URL=http://backend:8001
 
 # Health check

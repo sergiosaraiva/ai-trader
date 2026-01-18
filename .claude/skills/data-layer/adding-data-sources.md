@@ -1,6 +1,7 @@
 ---
 name: adding-data-sources
 description: Adds new data source connectors following the BaseDataSource abstract class pattern with factory registration. Use when integrating new brokers (Alpaca, IBKR), data providers (Yahoo, Polygon), or exchange APIs. Python async pattern.
+version: 1.0.0
 ---
 
 # Adding Data Sources

@@ -1,6 +1,7 @@
 ---
 name: writing-vitest-tests
-description: Writes Vitest tests with Testing Library for React components, testing loading, error, and data states. Use when testing frontend components, hooks, or UI interactions.
+description: This skill should be used when the user asks to "test a React component", "add frontend tests", "write Vitest tests", "test UI interactions". Writes Vitest tests with Testing Library for React components, testing loading, error, and data states.
+version: 1.1.0
 ---
 
 # Writing Vitest Tests
@@ -215,3 +216,7 @@ describe('PredictionCard', () => {
 
 - `creating-react-components` - Components being tested
 - `writing-pytest-tests` - Backend API tests
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: frontend/src/components/*.test.jsx*

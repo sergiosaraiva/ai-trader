@@ -1,6 +1,7 @@
 ---
 name: creating-api-clients
-description: Creates centralized API client modules with custom error handling, typed endpoints, and consistent request patterns. Use when adding new API integrations or extending the frontend API layer.
+description: This skill should be used when the user asks to "add an API call", "create an API client", "fetch data from backend", "handle API errors". Creates centralized API client modules with custom error handling, typed endpoints, and consistent request patterns.
+version: 1.1.0
 ---
 
 # Creating API Clients

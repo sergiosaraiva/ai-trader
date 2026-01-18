@@ -39,7 +39,7 @@ describe('API Client', () => {
 
       const result = await api.getPrediction();
       expect(result).toEqual(mockPrediction);
-      expect(fetch).toHaveBeenCalledWith('/api/predict', expect.any(Object));
+      expect(fetch).toHaveBeenCalledWith('/api/v1/predictions/latest', expect.any(Object));
     });
 
     it('throws APIError on failure', async () => {
@@ -61,10 +61,10 @@ describe('API Client', () => {
         json: () => Promise.resolve(mockCandles),
       });
 
-      const result = await api.getCandles();
+      const result = await api.getCandles('EURUSD');
       expect(result).toEqual(mockCandles);
       expect(fetch).toHaveBeenCalledWith(
-        '/api/candles?symbol=EURUSD&timeframe=1H&count=24',
+        '/api/v1/market/candles?symbol=EURUSD&timeframe=1H&count=24',
         expect.any(Object)
       );
     });
@@ -78,7 +78,7 @@ describe('API Client', () => {
 
       await api.getCandles('GBPUSD', '4H', 48);
       expect(fetch).toHaveBeenCalledWith(
-        '/api/candles?symbol=GBPUSD&timeframe=4H&count=48',
+        '/api/v1/market/candles?symbol=GBPUSD&timeframe=4H&count=48',
         expect.any(Object)
       );
     });
@@ -95,7 +95,7 @@ describe('API Client', () => {
       const result = await api.getSignals();
       expect(result).toEqual(mockSignals);
       expect(fetch).toHaveBeenCalledWith(
-        '/api/signals?limit=20',
+        '/api/v1/predictions/history?limit=20',
         expect.any(Object)
       );
     });
@@ -111,7 +111,7 @@ describe('API Client', () => {
 
       const result = await api.getPipelineStatus();
       expect(result).toEqual(mockStatus);
-      expect(fetch).toHaveBeenCalledWith('/api/pipeline/status', expect.any(Object));
+      expect(fetch).toHaveBeenCalledWith('/api/v1/pipeline/status', expect.any(Object));
     });
   });
 

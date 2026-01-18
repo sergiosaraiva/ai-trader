@@ -51,4 +51,75 @@ describe('PerformanceStats', () => {
     expect(screen.getByText('Walk-Forward Optimization (7 windows)')).toBeInTheDocument();
     expect(screen.getByText('100% (7/7 profitable)')).toBeInTheDocument();
   });
+
+  // Dynamic Asset Metadata Tests
+  it('displays pips unit for forex by default', () => {
+    const performance = {
+      total_pips: 5000,
+      avg_pips_per_trade: 10.0,
+    };
+    render(<PerformanceStats performance={performance} />);
+
+    // Should show "Total Pips" and "Avg Pips/Trade"
+    expect(screen.getByText('Total Pips')).toBeInTheDocument();
+    expect(screen.getByText('Avg Pips/Trade')).toBeInTheDocument();
+  });
+
+  it('displays dollars unit for crypto', () => {
+    const performance = {
+      total_pips: 5000,
+      avg_pips_per_trade: 10.0,
+    };
+    const assetMetadata = {
+      profit_unit: 'dollars',
+      asset_type: 'crypto',
+    };
+    render(<PerformanceStats performance={performance} assetMetadata={assetMetadata} />);
+
+    // Should show "Total Dollars" and "Avg Dollars/Trade"
+    expect(screen.getByText('Total Dollars')).toBeInTheDocument();
+    expect(screen.getByText('Avg Dollars/Trade')).toBeInTheDocument();
+  });
+
+  it('displays points unit for stocks', () => {
+    const performance = {
+      total_pips: 5000,
+      avg_pips_per_trade: 10.0,
+    };
+    const assetMetadata = {
+      profit_unit: 'points',
+      asset_type: 'stock',
+    };
+    render(<PerformanceStats performance={performance} assetMetadata={assetMetadata} />);
+
+    // Should show "Total Points" and "Avg Points/Trade"
+    expect(screen.getByText('Total Points')).toBeInTheDocument();
+    expect(screen.getByText('Avg Points/Trade')).toBeInTheDocument();
+  });
+
+  it('capitalizes profit unit in labels', () => {
+    const performance = {
+      total_pips: 5000,
+      avg_pips_per_trade: 10.0,
+    };
+    const assetMetadata = {
+      profit_unit: 'ticks',
+    };
+    render(<PerformanceStats performance={performance} assetMetadata={assetMetadata} />);
+
+    // Should capitalize first letter: "Ticks"
+    expect(screen.getByText('Total Ticks')).toBeInTheDocument();
+    expect(screen.getByText('Avg Ticks/Trade')).toBeInTheDocument();
+  });
+
+  it('handles missing assetMetadata gracefully', () => {
+    const performance = {
+      total_pips: 5000,
+      avg_pips_per_trade: 10.0,
+    };
+    render(<PerformanceStats performance={performance} />);
+
+    // Should default to pips
+    expect(screen.getByText('Total Pips')).toBeInTheDocument();
+  });
 });

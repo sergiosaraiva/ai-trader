@@ -1,6 +1,7 @@
 ---
-name: creating-fastapi-endpoints
-description: Creates FastAPI REST endpoints with proper error handling, Pydantic schemas, and service integration. Use when adding new API routes, implementing CRUD operations, or extending the /api/v1 namespace.
+name: backend
+description: This skill should be used when the user asks to "add an API endpoint", "create a REST route", "implement CRUD operations", "add a new route to the API". Creates FastAPI REST endpoints with proper error handling, Pydantic schemas, and service integration for the /api/v1 namespace.
+version: 1.1.0
 ---
 
 # Creating FastAPI Endpoints
@@ -246,3 +247,7 @@ router = APIRouter()
 - `creating-pydantic-schemas` - Define request/response schemas
 - `creating-python-services` - Implement business logic services
 - `writing-pytest-tests` - Test API endpoints
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: src/api/routes/*

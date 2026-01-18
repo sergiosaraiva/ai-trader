@@ -1,6 +1,7 @@
 ---
 name: creating-pydantic-schemas
-description: Creates Pydantic request/response schemas with Field descriptions, validation, and examples for FastAPI integration. Use when defining API contracts, validating request data, or documenting response structures.
+description: This skill should be used when the user asks to "define a schema", "create a request model", "add response validation", "document API contracts". Creates Pydantic request/response schemas with Field descriptions, validation, and examples for FastAPI integration.
+version: 1.1.0
 ---
 
 # Creating Pydantic Schemas
@@ -221,3 +222,7 @@ from pydantic import BaseModel, Field
 - `creating-fastapi-endpoints` - Use schemas as response_model
 - `creating-sqlalchemy-models` - Database models that map to schemas
 - `writing-pytest-tests` - Create test data matching schemas
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: src/api/schemas/*

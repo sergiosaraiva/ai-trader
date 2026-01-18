@@ -4,6 +4,7 @@
 # Core data processing
 numpy>=1.24.0
 pandas>=2.0.0
+pyarrow>=14.0.0  # For parquet support
 
 # ML Models (XGBoost for MTF Ensemble)
 xgboost>=2.0.0

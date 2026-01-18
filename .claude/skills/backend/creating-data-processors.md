@@ -1,6 +1,7 @@
 ---
 name: creating-data-processors
 description: Creates data processor classes following the validate/clean/transform pipeline pattern. Use when building ETL pipelines, OHLCV data processing, or feature preparation for ML models. pandas/numpy stack.
+version: 1.0.0
 ---
 
 # Creating Data Processors

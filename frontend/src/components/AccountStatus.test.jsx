@@ -19,10 +19,14 @@ describe('AccountStatus', () => {
     expect(screen.getByText('System Status')).toBeInTheDocument();
   });
 
-  it('renders pipeline status', () => {
+  it('renders pipeline status with nested structure', () => {
+    // API returns { status: 'ok', pipeline: { initialized: true, last_update: '...' } }
     const pipelineStatus = {
-      status: 'healthy',
-      last_run: new Date().toISOString(),
+      status: 'ok',
+      pipeline: {
+        initialized: true,
+        last_update: new Date().toISOString(),
+      },
     };
     render(<AccountStatus pipelineStatus={pipelineStatus} />);
 
@@ -30,40 +34,59 @@ describe('AccountStatus', () => {
     expect(screen.getByText('Just now')).toBeInTheDocument();
   });
 
-  it('renders model status', () => {
+  it('renders model status with loaded models', () => {
+    // API returns { loaded: true, models: { '1H': {...}, '4H': {...}, 'D': {...} } }
     const modelStatus = {
-      models_loaded: true,
+      loaded: true,
+      models: {
+        '1H': { trained: true, val_accuracy: 0.67 },
+        '4H': { trained: true, val_accuracy: 0.65 },
+        'D': { trained: true, val_accuracy: 0.61 },
+      },
     };
     render(<AccountStatus modelStatus={modelStatus} />);
 
-    expect(screen.getByText('ML Models')).toBeInTheDocument();
-    expect(screen.getByText('All models loaded')).toBeInTheDocument();
+    expect(screen.getByText('AI Models')).toBeInTheDocument();
+    expect(screen.getByText('3 models loaded')).toBeInTheDocument();
   });
 
-  it('renders data quality when available', () => {
+  it('renders model accuracy when models are loaded', () => {
+    const modelStatus = {
+      loaded: true,
+      models: {
+        '1H': { trained: true, val_accuracy: 0.67 },
+        '4H': { trained: true, val_accuracy: 0.65 },
+        'D': { trained: true, val_accuracy: 0.61 },
+      },
+    };
+    render(<AccountStatus modelStatus={modelStatus} />);
+
+    expect(screen.getByText('Model Accuracy')).toBeInTheDocument();
+    expect(screen.getByText('1H')).toBeInTheDocument();
+    expect(screen.getByText('4H')).toBeInTheDocument();
+    expect(screen.getByText('1D')).toBeInTheDocument();
+    expect(screen.getByText('67.0%')).toBeInTheDocument();
+  });
+
+  it('displays not initialized when pipeline not initialized', () => {
     const pipelineStatus = {
-      status: 'healthy',
-      last_run: new Date().toISOString(),
-      data_quality: {
-        '1H': { status: 'healthy', rows: 1000 },
-        '4H': { status: 'healthy', rows: 250 },
-        'D': { status: 'healthy', rows: 40 },
+      status: 'error',
+      pipeline: {
+        initialized: false,
       },
     };
     render(<AccountStatus pipelineStatus={pipelineStatus} />);
 
-    expect(screen.getByText('Data Quality')).toBeInTheDocument();
-    expect(screen.getByText('1H')).toBeInTheDocument();
-    expect(screen.getByText('4H')).toBeInTheDocument();
-    expect(screen.getByText('D')).toBeInTheDocument();
+    expect(screen.getByText('Not initialized')).toBeInTheDocument();
   });
 
-  it('displays not initialized when no last_run', () => {
-    const pipelineStatus = {
-      status: 'unknown',
+  it('displays not loaded when models not loaded', () => {
+    const modelStatus = {
+      loaded: false,
+      models: {},
     };
-    render(<AccountStatus pipelineStatus={pipelineStatus} />);
+    render(<AccountStatus modelStatus={modelStatus} />);
 
-    expect(screen.getByText('Not initialized')).toBeInTheDocument();
+    expect(screen.getByText('Not loaded')).toBeInTheDocument();
   });
 });

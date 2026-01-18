@@ -13,6 +13,7 @@ from .services.data_service import data_service
 from .services.model_service import model_service
 from .services.trading_service import trading_service
 from .services.pipeline_service import pipeline_service
+from .utils.logging import log_exception
 
 # Configure logging
 logging.basicConfig(
@@ -39,34 +40,54 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Initializing data service...")
     try:
         data_service.initialize()
+    except FileNotFoundError as e:
+        log_exception(logger, "Data service initialization failed: data files not found", e)
+    except PermissionError as e:
+        log_exception(logger, "Data service initialization failed: permission denied", e)
     except Exception as e:
-        logger.warning(f"Data service initialization failed: {e}")
+        log_exception(logger, "Data service initialization failed with unexpected error", e)
 
     logger.info("Initializing pipeline service...")
     try:
         pipeline_service.initialize()
+    except FileNotFoundError as e:
+        log_exception(logger, "Pipeline service initialization failed: cache files not found", e)
+    except PermissionError as e:
+        log_exception(logger, "Pipeline service initialization failed: permission denied", e)
     except Exception as e:
-        logger.warning(f"Pipeline service initialization failed: {e}")
+        log_exception(logger, "Pipeline service initialization failed with unexpected error", e)
 
     logger.info("Initializing model service...")
     try:
         model_service.initialize(warm_up=True)
+    except FileNotFoundError as e:
+        log_exception(logger, "Model service initialization failed: model files not found", e)
+    except ImportError as e:
+        log_exception(logger, "Model service initialization failed: missing dependencies", e)
+    except ValueError as e:
+        log_exception(logger, "Model service initialization failed: invalid model configuration", e)
     except Exception as e:
-        logger.warning(f"Model service initialization failed: {e}")
+        log_exception(logger, "Model service initialization failed with unexpected error", e)
 
     logger.info("Initializing trading service...")
     try:
         trading_service.initialize()
+    except ConnectionError as e:
+        log_exception(logger, "Trading service initialization failed: database connection error", e)
     except Exception as e:
-        logger.warning(f"Trading service initialization failed: {e}")
+        log_exception(logger, "Trading service initialization failed with unexpected error", e)
 
     # Start scheduler
     logger.info("Starting scheduler...")
     try:
         from .scheduler import start_scheduler
         start_scheduler()
+    except ImportError as e:
+        log_exception(logger, "Scheduler start failed: missing APScheduler", e)
+    except RuntimeError as e:
+        log_exception(logger, "Scheduler start failed: scheduler already running", e)
     except Exception as e:
-        logger.warning(f"Scheduler start failed: {e}")
+        log_exception(logger, "Scheduler start failed with unexpected error", e)
 
     logger.info("AI-Trader API started successfully!")
 

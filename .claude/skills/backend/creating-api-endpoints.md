@@ -1,6 +1,7 @@
 ---
 name: creating-api-endpoints
 description: DEPRECATED - Merged into creating-fastapi-endpoints skill
+version: 1.0.0
 deprecated: true
 redirect_to: ./SKILL.md
 ---

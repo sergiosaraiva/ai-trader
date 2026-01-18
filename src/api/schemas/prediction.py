@@ -4,6 +4,8 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from .asset import AssetMetadata
+
 
 class ComponentPrediction(BaseModel):
     """Prediction from a single timeframe model."""
@@ -51,6 +53,11 @@ class PredictionResponse(BaseModel):
     )
     component_weights: Dict[str, float] = Field(
         ..., description="Weights by timeframe"
+    )
+
+    # Asset metadata (optional for backward compatibility)
+    asset_metadata: Optional[AssetMetadata] = Field(
+        None, description="Asset-specific metadata (precision, units, formatting)"
     )
 
     model_config = {

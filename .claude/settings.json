@@ -1,5 +1,12 @@
 {
   "permissions": {
-    "allow": []
+    "allow": [
+      "Task(requirements-analyst)",
+      "Task(solution-architect)",
+      "Task(code-engineer)",
+      "Task(quality-guardian)",
+      "Task(test-automator)",
+      "Task(documentation-curator)"
+    ]
   }
 }

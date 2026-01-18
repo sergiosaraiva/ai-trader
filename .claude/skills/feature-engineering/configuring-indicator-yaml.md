@@ -1,6 +1,7 @@
 ---
 name: configuring-indicator-yaml
 description: Configures technical indicator YAML files for model-specific feature sets with priority levels. Use when customizing which indicators to include for short/medium/long-term models. YAML configuration format.
+version: 1.0.0
 ---
 
 # Configuring Indicator YAML

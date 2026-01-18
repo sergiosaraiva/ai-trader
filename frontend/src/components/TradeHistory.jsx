@@ -1,9 +1,10 @@
 import { ArrowUpRight, ArrowDownRight, Clock, ChevronRight } from 'lucide-react';
+import { formatPrice } from '../utils/assetFormatting';
 
 /**
  * TradeHistory - Displays recent trading signals
  */
-export function TradeHistory({ signals, loading, error }) {
+export function TradeHistory({ signals, loading, error, assetMetadata }) {
   if (loading) {
     return (
       <div className="bg-gray-800 rounded-lg p-6 animate-pulse">
@@ -40,8 +41,9 @@ export function TradeHistory({ signals, loading, error }) {
   };
 
   const getSignalType = (signal) => {
-    if (signal === 'BUY' || signal === 1) return 'BUY';
-    if (signal === 'SELL' || signal === -1) return 'SELL';
+    // Handle both 'signal' and 'direction' field names from API
+    if (signal === 'BUY' || signal === 'long' || signal === 1) return 'BUY';
+    if (signal === 'SELL' || signal === 'short' || signal === -1) return 'SELL';
     return 'HOLD';
   };
 
@@ -63,10 +65,15 @@ export function TradeHistory({ signals, loading, error }) {
       ) : (
         <div className="space-y-2 max-h-[400px] overflow-y-auto" role="list" aria-label="Trading signals list">
           {signalList.map((signal, idx) => {
-            const signalType = getSignalType(signal.signal);
+            // Handle both 'signal' and 'direction' field names from API
+            const signalType = getSignalType(signal.signal || signal.direction);
             const isBuy = signalType === 'BUY';
             const isSell = signalType === 'SELL';
-            const price = signal.price?.toFixed(5) || signal.current_price?.toFixed(5) || 'N/A';
+            // Handle both 'price', 'current_price', and 'market_price' field names
+            const price = formatPrice(
+              signal.price || signal.current_price || signal.market_price,
+              signal.asset_metadata || assetMetadata
+            );
             const confidence = signal.confidence ? `${(signal.confidence * 100).toFixed(0)}%` : 'N/A';
 
             return (

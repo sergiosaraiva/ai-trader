@@ -1,6 +1,7 @@
 ---
 name: implementing-risk-management
 description: Implements risk management with position sizing, loss limits, and circuit breakers using the RiskManager class. Use when adding trading safeguards, calculating position sizes, or implementing risk controls. Python trading framework.
+version: 1.0.0
 ---
 
 # Implementing Risk Management

@@ -81,4 +81,110 @@ describe('PredictionCard', () => {
     expect(screen.getByText('4H')).toBeInTheDocument();
     expect(screen.getByText('D')).toBeInTheDocument();
   });
+
+  // Dynamic Asset Metadata Tests
+  it('displays formatted forex symbol with metadata', () => {
+    const prediction = {
+      signal: 'BUY',
+      confidence: 0.72,
+      current_price: 1.08543,
+      symbol: 'EURUSD',
+      timestamp: new Date().toISOString(),
+      asset_metadata: {
+        formatted_symbol: 'EUR/USD',
+        price_precision: 5,
+        asset_type: 'forex',
+      },
+    };
+    render(<PredictionCard prediction={prediction} />);
+
+    expect(screen.getByText('EUR/USD')).toBeInTheDocument();
+    expect(screen.getByText('@ 1.08543')).toBeInTheDocument();
+  });
+
+  it('displays formatted crypto symbol with metadata', () => {
+    const prediction = {
+      signal: 'BUY',
+      confidence: 0.68,
+      current_price: 50123.12345678,
+      symbol: 'BTC-USD',
+      timestamp: new Date().toISOString(),
+      asset_metadata: {
+        formatted_symbol: 'BTC/USD',
+        price_precision: 8,
+        asset_type: 'crypto',
+      },
+    };
+    render(<PredictionCard prediction={prediction} />);
+
+    expect(screen.getByText('BTC/USD')).toBeInTheDocument();
+    expect(screen.getByText('@ 50123.12345678')).toBeInTheDocument();
+  });
+
+  it('displays formatted stock symbol with metadata', () => {
+    const prediction = {
+      signal: 'BUY',
+      confidence: 0.75,
+      current_price: 150.5,
+      symbol: 'AAPL',
+      timestamp: new Date().toISOString(),
+      asset_metadata: {
+        formatted_symbol: 'AAPL',
+        price_precision: 2,
+        asset_type: 'stock',
+      },
+    };
+    render(<PredictionCard prediction={prediction} />);
+
+    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByText('@ 150.50')).toBeInTheDocument();
+  });
+
+  it('uses formatPrice with asset metadata precision', () => {
+    const prediction = {
+      signal: 'BUY',
+      confidence: 0.72,
+      current_price: 1.08543789,
+      symbol: 'EURUSD',
+      timestamp: new Date().toISOString(),
+      asset_metadata: {
+        formatted_symbol: 'EUR/USD',
+        price_precision: 5,
+      },
+    };
+    render(<PredictionCard prediction={prediction} />);
+
+    // Should be formatted to 5 decimals
+    expect(screen.getByText('@ 1.08544')).toBeInTheDocument();
+  });
+
+  it('falls back to default formatting without metadata', () => {
+    const prediction = {
+      signal: 'BUY',
+      confidence: 0.72,
+      current_price: 1.08543,
+      symbol: 'EURUSD',
+      timestamp: new Date().toISOString(),
+      // No asset_metadata
+    };
+    render(<PredictionCard prediction={prediction} />);
+
+    // Should still work with defaults
+    expect(screen.getByText('EUR/USD')).toBeInTheDocument(); // 6-char fallback
+    expect(screen.getByText('@ 1.08543')).toBeInTheDocument(); // Default precision
+  });
+
+  it('handles missing symbol gracefully', () => {
+    const prediction = {
+      signal: 'BUY',
+      confidence: 0.72,
+      current_price: 1.08543,
+      timestamp: new Date().toISOString(),
+      // No symbol
+    };
+    render(<PredictionCard prediction={prediction} />);
+
+    // Should show N/A or handle gracefully
+    expect(screen.getByText('Current Prediction')).toBeInTheDocument();
+  });
 });

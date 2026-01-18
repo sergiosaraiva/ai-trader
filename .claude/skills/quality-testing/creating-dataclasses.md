@@ -1,6 +1,7 @@
 ---
 name: creating-dataclasses
 description: Creates Python dataclasses for structured data transfer objects (DTOs) with type hints, defaults, and serialization. Use when defining model outputs, API responses, configuration objects, or domain entities. Python 3.11+ dataclasses.
+version: 1.0.0
 ---
 
 # Creating Dataclasses

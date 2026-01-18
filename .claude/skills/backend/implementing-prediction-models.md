@@ -1,6 +1,7 @@
 ---
 name: implementing-prediction-models
 description: Implements new ML prediction models following the BaseModel abstract class pattern with registry registration. Use when creating CNN, LSTM, Transformer, or ensemble models for time series prediction. Python/PyTorch stack.
+version: 1.0.0
 ---
 
 # Implementing Prediction Models

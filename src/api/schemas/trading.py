@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .asset import AssetMetadata
+
 
 class TradeResponse(BaseModel):
     """Response for a single trade."""
@@ -21,11 +23,15 @@ class TradeResponse(BaseModel):
     lot_size: float = Field(..., gt=0, description="Position size in lots")
     take_profit: Optional[float] = Field(None, gt=0, description="Take profit price")
     stop_loss: Optional[float] = Field(None, gt=0, description="Stop loss price")
-    pips: Optional[float] = Field(None, description="Profit/loss in pips")
+    pips: Optional[float] = Field(None, description="Profit/loss in pips (DEPRECATED - use profit_points)")
+    profit_points: Optional[float] = Field(None, description="Profit/loss in asset-specific units (pips/points/ticks/dollars)")
     pnl_usd: Optional[float] = Field(None, description="Profit/loss in USD")
     is_winner: Optional[bool] = Field(None, description="Whether trade was profitable")
     confidence: Optional[float] = Field(None, ge=0, le=1, description="Model confidence")
     status: str = Field(..., description="Trade status: 'open' or 'closed'")
+    asset_metadata: Optional[AssetMetadata] = Field(
+        None, description="Asset-specific metadata (precision, units, formatting)"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -64,8 +70,12 @@ class OpenPositionResponse(BaseModel):
     stop_loss: float = Field(..., gt=0, description="Stop loss price")
     confidence: Optional[float] = Field(None, ge=0, le=1, description="Model confidence")
     current_price: Optional[float] = Field(None, gt=0, description="Current market price")
-    unrealized_pips: Optional[float] = Field(None, description="Unrealized P&L in pips")
+    unrealized_pips: Optional[float] = Field(None, description="Unrealized P&L in pips (DEPRECATED - use unrealized_profit_points)")
+    unrealized_profit_points: Optional[float] = Field(None, description="Unrealized P&L in asset-specific units")
     unrealized_pnl: Optional[float] = Field(None, description="Unrealized P&L in USD")
+    asset_metadata: Optional[AssetMetadata] = Field(
+        None, description="Asset-specific metadata (precision, units, formatting)"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -165,13 +175,18 @@ class PerformanceResponse(BaseModel):
     winning_trades: int = Field(..., ge=0, description="Number of winning trades")
     losing_trades: int = Field(..., ge=0, description="Number of losing trades")
     win_rate: float = Field(..., ge=0, le=1, description="Win rate (0-1)")
-    total_pips: float = Field(..., description="Total profit/loss in pips")
+    total_pips: float = Field(..., description="Total profit/loss in pips (DEPRECATED - use total_profit_points)")
+    total_profit_points: Optional[float] = Field(None, description="Total profit/loss in asset-specific units")
     total_pnl_usd: float = Field(..., description="Total profit/loss in USD")
-    avg_pips_per_trade: float = Field(..., description="Average pips per trade")
+    avg_pips_per_trade: float = Field(..., description="Average pips per trade (DEPRECATED - use avg_profit_points_per_trade)")
+    avg_profit_points_per_trade: Optional[float] = Field(None, description="Average profit/loss per trade in asset-specific units")
     profit_factor: float = Field(..., ge=0, description="Profit factor (gross profit / gross loss)")
     initial_balance: float = Field(..., ge=0, description="Starting balance in USD")
     current_balance: float = Field(..., ge=0, description="Current balance in USD")
     return_pct: float = Field(..., description="Return percentage")
+    asset_metadata: Optional[AssetMetadata] = Field(
+        None, description="Asset-specific metadata (precision, units, formatting)"
+    )
 
     model_config = {
         "json_schema_extra": {

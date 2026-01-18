@@ -11,12 +11,14 @@ from ..database.session import get_db
 from ..database.models import Prediction
 from ..services.data_service import data_service
 from ..services.model_service import model_service
+from ..services.asset_service import asset_service
 from ..schemas.prediction import (
     PredictionResponse,
     PredictionHistoryResponse,
     PredictionHistoryItem,
     ModelStatusResponse,
 )
+from ..utils.logging import log_exception
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,14 @@ router = APIRouter()
 
 
 @router.get("/predictions/latest", response_model=PredictionResponse)
-async def get_latest_prediction() -> PredictionResponse:
+async def get_latest_prediction(
+    symbol: str = Query(
+        default="EURUSD",
+        pattern="^[A-Za-z0-9\\-]{1,20}$",
+        max_length=20,
+        description="Trading symbol (alphanumeric with dash, max 20 chars)"
+    )
+) -> PredictionResponse:
     """Get the most recent prediction.
 
     Returns the latest prediction from the MTF Ensemble model.
@@ -46,15 +55,18 @@ async def get_latest_prediction() -> PredictionResponse:
             )
 
         # Get current price and VIX
-        current_price = data_service.get_current_price()
+        current_price = data_service.get_current_price(symbol)
         vix_value = data_service.get_latest_vix()
 
         # Make prediction
-        prediction = model_service.predict(df)
+        prediction = model_service.predict(df, symbol=symbol)
+
+        # Get asset metadata
+        asset_metadata = asset_service.get_asset_metadata(symbol)
 
         return PredictionResponse(
             timestamp=prediction["timestamp"],
-            symbol="EURUSD",
+            symbol=prediction["symbol"],
             direction=prediction["direction"],
             confidence=prediction["confidence"],
             prob_up=prediction["prob_up"],
@@ -69,6 +81,7 @@ async def get_latest_prediction() -> PredictionResponse:
             component_directions=prediction["component_directions"],
             component_confidences=prediction["component_confidences"],
             component_weights=prediction["component_weights"],
+            asset_metadata=asset_metadata,
         )
 
     except HTTPException:
@@ -101,18 +114,35 @@ async def get_prediction_history(
             .all()
         )
 
-        items = [
-            PredictionHistoryItem(
-                id=p.id,
-                timestamp=p.timestamp.isoformat() if p.timestamp else "",
-                symbol=p.symbol,
-                direction=p.direction,
-                confidence=p.confidence,
-                market_price=p.market_price,
-                trade_executed=p.trade_executed,
-            )
-            for p in predictions
-        ]
+        items = []
+        for p in predictions:
+            try:
+                # Defensive field extraction with None checks
+                timestamp = p.timestamp.isoformat() if p.timestamp else ""
+                symbol = p.symbol if p.symbol else "EURUSD"
+                direction = p.direction if p.direction else "hold"
+                confidence = max(0.0, min(1.0, p.confidence)) if p.confidence is not None else 0.0
+                market_price = p.market_price if p.market_price is not None else 0.0
+                trade_executed = p.trade_executed if p.trade_executed is not None else False
+
+                items.append(PredictionHistoryItem(
+                    id=p.id,
+                    timestamp=timestamp,
+                    symbol=symbol,
+                    direction=direction,
+                    confidence=confidence,
+                    market_price=market_price,
+                    trade_executed=trade_executed,
+                ))
+            except Exception as e:
+                # Log but don't fail entire request for single bad record
+                log_exception(
+                    logger,
+                    f"Failed to serialize prediction {p.id}",
+                    e,
+                    prediction_id=p.id
+                )
+                continue
 
         return PredictionHistoryResponse(
             predictions=items,
@@ -121,7 +151,7 @@ async def get_prediction_history(
         )
 
     except Exception as e:
-        logger.error(f"Error getting prediction history: {e}")
+        log_exception(logger, "Error getting prediction history", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

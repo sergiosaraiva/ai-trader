@@ -18,6 +18,9 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from ..utils.validation import safe_iloc
+from ..utils.logging import log_exception
+
 logger = logging.getLogger(__name__)
 
 # Project paths
@@ -105,12 +108,13 @@ class DataService:
         try:
             df = pd.read_csv(
                 self.HISTORICAL_DATA_FILE,
-                parse_dates=["timestamp"],
-                index_col="timestamp",
+                index_col=0,  # First column is the datetime index
+                parse_dates=True,
             )
 
             # Standardize column names (already lowercase in CSV)
-            df = df[["open", "high", "low", "close", "volume"]].copy()
+            cols_to_keep = [c for c in ["open", "high", "low", "close", "volume"] if c in df.columns]
+            df = df[cols_to_keep].copy()
 
             # Ensure proper datetime index
             df.index = pd.to_datetime(df.index)
@@ -494,13 +498,18 @@ class DataService:
             today = ticker.history(period="1d", interval="1m")
             yesterday = ticker.history(period="2d", interval="1d")
 
-            current_price = float(today["Close"].iloc[-1]) if not today.empty else None
+            # Use safe_iloc for bounds-checked DataFrame access
+            current_price = safe_iloc(today, -1, "Close")
+            if current_price is not None:
+                current_price = float(current_price)
+
             day_high = float(today["High"].max()) if not today.empty else None
             day_low = float(today["Low"].min()) if not today.empty else None
 
-            prev_close = None
-            if len(yesterday) >= 2:
-                prev_close = float(yesterday["Close"].iloc[-2])
+            # Safe access to previous close with bounds checking
+            prev_close = safe_iloc(yesterday, -2, "Close")
+            if prev_close is not None:
+                prev_close = float(prev_close)
 
             change = None
             change_pct = None

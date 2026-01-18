@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .asset import AssetMetadata
+
 
 class MarketInfoResponse(BaseModel):
     """Response for current market info endpoint."""
@@ -19,6 +21,9 @@ class MarketInfoResponse(BaseModel):
     data_source: str = Field(default="yfinance", description="Data source provider")
     delay_minutes: int = Field(default=15, ge=0, description="Approximate data delay in minutes")
     error: Optional[str] = Field(None, description="Error message if data unavailable")
+    asset_metadata: Optional[AssetMetadata] = Field(
+        None, description="Asset-specific metadata (precision, units, formatting)"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -70,6 +75,9 @@ class CandlesResponse(BaseModel):
     timeframe: str = Field(..., description="Candle timeframe (e.g., '1H', '4H', '1D')")
     candles: List[CandleResponse] = Field(..., description="List of OHLCV candles")
     count: int = Field(..., ge=0, description="Number of candles returned")
+    asset_metadata: Optional[AssetMetadata] = Field(
+        None, description="Asset-specific metadata (precision, units, formatting)"
+    )
 
     model_config = {
         "json_schema_extra": {

@@ -1,6 +1,7 @@
 ---
 name: planning-test-scenarios
 description: Generates comprehensive test plans from acceptance criteria and technical designs. Creates unit, integration, and edge case scenarios with data requirements. Use after Solution Architect completes technical design, or when Test Automator needs test coverage planning.
+version: 1.0.0
 ---
 
 # Planning Test Scenarios

@@ -22,7 +22,12 @@ import threading
 import numpy as np
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import yfinance as yf
+
+from ..utils.validation import validate_dataframe
+from ..utils.logging import log_exception
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +97,34 @@ class PipelineService:
         # Lazy-loaded components (protected by lock)
         self._technical_calculator = None
         self._feature_engine = None
+        self._requests_session = None
+
+    def _get_requests_session(self) -> requests.Session:
+        """Get a requests session with retry configuration.
+
+        Implements exponential backoff retry for network resilience.
+
+        Returns:
+            Configured requests.Session with retry adapter
+        """
+        if self._requests_session is None:
+            # Configure retry strategy
+            retry_strategy = Retry(
+                total=3,  # Total retry attempts
+                backoff_factor=1,  # Wait 1, 2, 4 seconds between retries
+                status_forcelist=[429, 500, 502, 503, 504],  # Retry on these HTTP status codes
+                allowed_methods=["HEAD", "GET", "OPTIONS"],  # Only retry safe methods
+            )
+
+            # Create session with retry adapter
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            session = requests.Session()
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+
+            self._requests_session = session
+
+        return self._requests_session
 
     @property
     def is_loaded(self) -> bool:
@@ -536,23 +569,51 @@ class PipelineService:
         start_date: str,
         end_date: str,
     ) -> Optional[pd.DataFrame]:
-        """Fetch a time series from FRED API."""
+        """Fetch a time series from FRED API with retry mechanism."""
         try:
             url = f"{self.FRED_BASE_URL}?id={series_id}&cosd={start_date}&coed={end_date}"
-            response = requests.get(url, timeout=30)
+
+            # Use retry-enabled session
+            session = self._get_requests_session()
+            response = session.get(url, timeout=30)
             response.raise_for_status()
 
+            # Parse CSV from response
             df = pd.read_csv(io.StringIO(response.text))
+
+            # Validate expected structure before processing
+            try:
+                validate_dataframe(
+                    df,
+                    required_columns=["DATE", "VALUE"] if "DATE" in df.columns else list(df.columns)[:2],
+                    min_rows=1,
+                    name=f"FRED {series_id} response"
+                )
+            except ValueError as ve:
+                logger.error(f"FRED API returned unexpected structure for {series_id}: {ve}")
+                return None
+
+            # Rename columns to standard format
             df.columns = ["Date", "Value"]
-            df["Date"] = pd.to_datetime(df["Date"])
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
             df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
+
+            # Drop rows with invalid dates or values
             df = df.dropna()
+
+            if len(df) == 0:
+                logger.warning(f"No valid data after cleaning for {series_id}")
+                return None
+
             df = df.set_index("Date")
 
             return df
 
+        except requests.exceptions.RequestException as e:
+            log_exception(logger, f"Network error fetching {series_id}", e, series_id=series_id)
+            return None
         except Exception as e:
-            logger.warning(f"  Failed to fetch {series_id}: {e}")
+            log_exception(logger, f"Failed to fetch {series_id}", e, series_id=series_id)
             return None
 
     def _calculate_sentiment_scores(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -669,7 +730,13 @@ class PipelineService:
         df_5min: pd.DataFrame,
         base_timeframe: str,
     ) -> Dict[str, pd.DataFrame]:
-        """Prepare higher timeframe data for cross-TF features."""
+        """Prepare higher timeframe data for cross-TF features.
+
+        This method calculates both technical indicators AND enhanced features
+        for higher timeframes, ensuring feature parity between training and
+        prediction. Enhanced features include time, ROC, normalized, pattern,
+        and lag features - but NOT cross-TF features (to avoid recursion).
+        """
         higher_tf_data = {}
 
         # Define higher timeframes for each base
@@ -681,6 +748,21 @@ class PipelineService:
 
         higher_tfs = tf_hierarchy.get(base_timeframe, [])
 
+        # Create feature engine for HTF data - NO cross-TF features to avoid recursion
+        try:
+            from src.models.multi_timeframe.enhanced_features import EnhancedFeatureEngine
+            htf_feature_engine = EnhancedFeatureEngine(
+                include_time_features=True,
+                include_roc_features=True,
+                include_normalized_features=True,
+                include_pattern_features=True,
+                include_lag_features=True,
+                include_sentiment_features=False,  # Sentiment handled at target TF level
+            )
+        except Exception as e:
+            logger.warning(f"    Failed to create HTF feature engine: {e}")
+            htf_feature_engine = None
+
         for htf in higher_tfs:
             try:
                 df_htf = df_5min.resample(htf).agg({
@@ -691,8 +773,16 @@ class PipelineService:
                     "volume": "sum",
                 }).dropna()
 
-                # Calculate basic indicators for HTF
+                # Calculate technical indicators for HTF
                 df_htf = self._calculate_technical_indicators(df_htf, htf)
+
+                # Add enhanced features (time, ROC, normalized, pattern, lag)
+                # but NOT cross-TF features (to avoid recursion)
+                if htf_feature_engine is not None:
+                    df_htf = htf_feature_engine.add_all_features(
+                        df_htf, higher_tf_data=None  # No cross-TF for HTF
+                    )
+
                 higher_tf_data[htf] = df_htf
 
             except Exception as e:

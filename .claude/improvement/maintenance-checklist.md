@@ -8,6 +8,19 @@ Run this checklist every 3 months to keep the agent-skill framework aligned with
 
 ## Pre-Maintenance
 
+### Validation First
+
+**CRITICAL: Run validation before ANY maintenance work.**
+
+```bash
+.claude/scripts/validate-framework.sh
+```
+
+- [ ] Validation passes with 0 errors
+- [ ] Fix any YAML format issues FIRST
+- [ ] All skills load correctly
+- [ ] All agents load correctly
+
 ### Preparation
 
 - [ ] Block 4-8 hours for maintenance
@@ -304,7 +317,8 @@ For each skill in `.claude/skills/` (23 total):
 #### Meta-Skills (2 skills)
 
 ##### routing-to-skills
-- [ ] Skill registry up to date (all 23 skills)
+- [ ] YAML frontmatter valid (name matches folder)
+- [ ] Skill registry up to date (all skills)
 - [ ] Scoring algorithm accurate
 - [ ] Path triggers current
 - [ ] Keyword triggers current
@@ -313,10 +327,13 @@ For each skill in `.claude/skills/` (23 total):
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
 ##### improving-framework-continuously
+- [ ] YAML frontmatter valid (name matches folder)
 - [ ] Workflow still applicable
 - [ ] Metrics tracking working
 - [ ] Error template up to date
 - [ ] Maintenance checklist current
+- [ ] Validation script working
+- [ ] Pre-commit hook documented
 - [ ] Error reports against it: ___
 - [ ] **Health Score**: [ ] Good / [ ] Needs Update / [ ] Archive
 
@@ -402,6 +419,7 @@ Collected feedback:
 | Recurrence rate | ___% | ___% | |
 | Avg resolution time | ___ days | ___ days | |
 | Critical errors | ___ | ___ | |
+| YAML validation pass rate | ___% | ___% | (Target: 100%) |
 
 ### Error Type Distribution
 
@@ -494,6 +512,20 @@ Trend: [ ] Improving / [ ] Stable / [ ] Degrading
 
 ## Post-Maintenance
 
+### Final Validation
+
+**CRITICAL: Run validation after ALL maintenance work.**
+
+```bash
+.claude/scripts/validate-framework.sh
+```
+
+- [ ] Validation passes with 0 errors
+- [ ] All skills have valid YAML frontmatter
+- [ ] All agents have valid YAML frontmatter
+- [ ] name fields match folder/file names
+- [ ] All required fields present
+
 ### Documentation
 
 - [ ] Save this checklist as `.claude/improvement/YYYY-QN-maintenance-report.md`
@@ -502,14 +534,17 @@ Trend: [ ] Improving / [ ] Stable / [ ] Degrading
 
 ### Commit
 
+- [ ] Run validation one final time
 - [ ] Review all changes
 - [ ] Commit with message: `maintenance(framework): YYYY-QN quarterly review`
+- [ ] Pre-commit hook should pass automatically
 - [ ] Create PR for team review
 
 ### Communication
 
 - [ ] Share summary with team
 - [ ] Highlight breaking changes
+- [ ] Share YAML validation pass rate
 - [ ] Schedule training if significant updates
 
 ---

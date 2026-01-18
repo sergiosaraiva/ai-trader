@@ -1,5 +1,6 @@
 """Pydantic schemas for API request/response models."""
 
+from .asset import AssetMetadata
 from .prediction import (
     PredictionResponse,
     PredictionHistoryResponse,
@@ -19,6 +20,7 @@ from .market import (
 )
 
 __all__ = [
+    "AssetMetadata",
     "PredictionResponse",
     "PredictionHistoryResponse",
     "ModelStatusResponse",

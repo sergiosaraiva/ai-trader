@@ -234,20 +234,52 @@ class MTFEnsemble:
         df_5min: pd.DataFrame,
         base_timeframe: str,
     ) -> Dict[str, pd.DataFrame]:
-        """Prepare higher timeframe data for cross-TF features."""
+        """Prepare higher timeframe data for cross-TF features.
+
+        This method calculates both technical indicators AND enhanced features
+        for higher timeframes, ensuring feature parity between training and
+        prediction. Enhanced features include time, ROC, normalized, pattern,
+        and lag features - but NOT cross-TF features (to avoid recursion).
+        """
         from src.features.technical.calculator import TechnicalIndicatorCalculator
+        from .enhanced_features import EnhancedFeatureEngine
 
         calc = TechnicalIndicatorCalculator(model_type="short_term")
+
+        # Create feature engine for HTF data - NO cross-TF features to avoid recursion
+        htf_feature_engine = EnhancedFeatureEngine(
+            include_time_features=True,
+            include_roc_features=True,
+            include_normalized_features=True,
+            include_pattern_features=True,
+            include_lag_features=True,
+            include_sentiment_features=False,  # Sentiment handled at target TF level
+        )
+
         higher_tf_data = {}
 
         # Normalize timeframe for comparison (handle both "1H" and "1h")
         tf_upper = base_timeframe.upper()
 
         if tf_upper == "1H":
-            higher_tf_data["4H"] = calc.calculate(self.resample_data(df_5min, "4H"))
-            higher_tf_data["D"] = calc.calculate(self.resample_data(df_5min, "D"))
+            # Prepare 4H data with enhanced features
+            df_4h = calc.calculate(self.resample_data(df_5min, "4H"))
+            higher_tf_data["4H"] = htf_feature_engine.add_all_features(
+                df_4h, higher_tf_data=None  # No cross-TF for HTF
+            )
+
+            # Prepare Daily data with enhanced features
+            df_d = calc.calculate(self.resample_data(df_5min, "D"))
+            higher_tf_data["D"] = htf_feature_engine.add_all_features(
+                df_d, higher_tf_data=None  # No cross-TF for HTF
+            )
+
         elif tf_upper == "4H":
-            higher_tf_data["D"] = calc.calculate(self.resample_data(df_5min, "D"))
+            # Prepare Daily data with enhanced features
+            df_d = calc.calculate(self.resample_data(df_5min, "D"))
+            higher_tf_data["D"] = htf_feature_engine.add_all_features(
+                df_d, higher_tf_data=None  # No cross-TF for HTF
+            )
         # Daily doesn't need higher TF data
 
         return higher_tf_data

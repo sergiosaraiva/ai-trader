@@ -1,6 +1,7 @@
 ---
 name: creating-python-services
-description: Creates thread-safe singleton service classes with lazy initialization, caching, and status tracking. Use when implementing business logic that manages expensive resources like ML models, database connections, or external API clients.
+description: This skill should be used when the user asks to "create a service", "add a singleton", "implement business logic", "wrap an ML model". Creates thread-safe singleton service classes with lazy initialization, caching, and status tracking for expensive resources.
+version: 1.1.0
 ---
 
 # Creating Python Services
@@ -254,3 +255,7 @@ except Exception as e:
 - `creating-fastapi-endpoints` - Use services in API routes
 - `creating-pydantic-schemas` - Define service method return types
 - `writing-pytest-tests` - Mock services in tests
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: src/api/services/*

@@ -1,6 +1,7 @@
 ---
-name: creating-cli-scripts
-description: Creates Python CLI scripts with argparse, logging, and progress output for training, backtesting, and data processing. Use when adding standalone command-line tools, batch processing scripts, or workflow automation.
+name: build-deployment
+description: This skill should be used when the user asks to "create a script", "add a CLI tool", "build a command-line utility", "automate a workflow". Creates Python CLI scripts with argparse, logging, and progress output for training, backtesting, and data processing.
+version: 1.1.0
 ---
 
 # Creating CLI Scripts
@@ -323,3 +324,7 @@ if __name__ == "__main__":
 
 - `creating-python-services` - Services used by scripts
 - `creating-pydantic-schemas` - Config objects for scripts
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: scripts/*

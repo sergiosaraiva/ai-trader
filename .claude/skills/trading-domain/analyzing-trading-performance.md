@@ -1,6 +1,7 @@
 ---
 name: analyzing-trading-performance
 description: Calculates and interprets trading performance metrics including Sharpe ratio, Sortino ratio, drawdown, and trade statistics. Use when evaluating backtest results or live trading performance. Python metrics framework.
+version: 1.0.0
 ---
 
 # Analyzing Trading Performance

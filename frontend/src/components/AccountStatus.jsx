@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Wifi, WifiOff, Server, Database, Clock } from 'lucide-react';
+import { Activity, Wifi, WifiOff, Server, Database, Clock, Cpu } from 'lucide-react';
 
 /**
  * Format time difference from a timestamp
@@ -22,7 +22,8 @@ function formatTimeDiff(ts, now) {
  */
 export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
   // State for current time, updated periodically for relative time display
-  const [now, setNow] = useState(Date.now());
+  // Initialize with a function to avoid calling Date.now() during render
+  const [now, setNow] = useState(() => Date.now());
 
   // Update the current time every minute for the relative time display
   useEffect(() => {
@@ -46,13 +47,13 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
   }
 
   const getStatusColor = (status) => {
-    if (status === 'healthy' || status === 'loaded' || status === true) return 'text-green-400';
+    if (status === 'healthy' || status === 'ok' || status === 'loaded' || status === true) return 'text-green-400';
     if (status === 'warning' || status === 'stale') return 'text-yellow-400';
     return 'text-red-400';
   };
 
   const getStatusIcon = (status) => {
-    if (status === 'healthy' || status === 'loaded' || status === true) {
+    if (status === 'healthy' || status === 'ok' || status === 'loaded' || status === true) {
       return <Wifi size={16} className="text-green-400" />;
     }
     return <WifiOff size={16} className="text-red-400" />;
@@ -64,9 +65,16 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
     return date.toLocaleString();
   };
 
-  // Extract data from pipeline status
-  const pipeline = pipelineStatus || {};
-  const model = modelStatus || {};
+  // Extract data from pipeline status - handle nested structure
+  const pipelineData = pipelineStatus?.pipeline || pipelineStatus || {};
+  const pipelineInitialized = pipelineData.initialized || pipelineStatus?.status === 'ok';
+  const lastUpdate = pipelineData.last_update || pipelineData.last_run;
+  const dataQuality = pipelineData.data_info?.data_quality || pipelineData.data_quality;
+
+  // Extract data from model status
+  const modelsLoaded = modelStatus?.loaded || modelStatus?.models_loaded || false;
+  const modelDetails = modelStatus?.models || {};
+  const modelCount = Object.keys(modelDetails).length;
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="System Status">
@@ -89,41 +97,45 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
             <div>
               <span className="text-sm text-gray-300">Data Pipeline</span>
               <p className="text-xs text-gray-500">
-                {pipeline.last_run ? formatTimeDiff(pipeline.last_run, now) : 'Not initialized'}
+                {pipelineInitialized
+                  ? (lastUpdate ? formatTimeDiff(lastUpdate, now) : 'Initialized')
+                  : 'Not initialized'}
               </p>
             </div>
           </div>
-          <span aria-label={`Pipeline status: ${pipeline.status || 'unknown'}`}>
-            {getStatusIcon(pipeline.status || 'unknown')}
+          <span aria-label={`Pipeline status: ${pipelineInitialized ? 'ok' : 'error'}`}>
+            {getStatusIcon(pipelineInitialized)}
           </span>
         </div>
 
         {/* Model Status */}
-        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded" role="status" aria-label="ML Models Status">
+        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded" role="status" aria-label="AI Models Status">
           <div className="flex items-center gap-3">
-            <Server size={18} className="text-gray-400" aria-hidden="true" />
+            <Cpu size={18} className="text-gray-400" aria-hidden="true" />
             <div>
-              <span className="text-sm text-gray-300">ML Models</span>
+              <span className="text-sm text-gray-300">AI Models</span>
               <p className="text-xs text-gray-500">
-                {model.models_loaded ? 'All models loaded' : 'Not loaded'}
+                {modelsLoaded
+                  ? `${modelCount} models loaded`
+                  : 'Not loaded'}
               </p>
             </div>
           </div>
-          <span aria-label={`Model status: ${model.models_loaded ? 'loaded' : 'not loaded'}`}>
-            {getStatusIcon(model.models_loaded ? 'loaded' : 'error')}
+          <span aria-label={`Model status: ${modelsLoaded ? 'loaded' : 'not loaded'}`}>
+            {getStatusIcon(modelsLoaded)}
           </span>
         </div>
 
-        {/* Data Quality */}
-        {pipeline.data_quality && (
-          <div className="mt-4 pt-4 border-t border-gray-700">
-            <h3 className="text-sm text-gray-400 mb-3">Data Quality</h3>
+        {/* Model Details - Show individual model accuracy */}
+        {modelsLoaded && modelCount > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-700">
+            <h3 className="text-xs text-gray-500 mb-2">Model Accuracy</h3>
             <div className="grid grid-cols-3 gap-2">
-              {Object.entries(pipeline.data_quality).map(([tf, quality]) => (
+              {Object.entries(modelDetails).map(([tf, data]) => (
                 <div key={tf} className="text-center p-2 bg-gray-700/30 rounded">
-                  <span className="text-xs text-gray-500 block">{tf}</span>
-                  <span className={`text-sm font-medium ${getStatusColor(quality?.status)}`}>
-                    {quality?.rows || 0} rows
+                  <span className="text-xs text-gray-500 block">{tf === 'D' ? '1D' : tf}</span>
+                  <span className="text-sm font-medium text-green-400">
+                    {data?.val_accuracy ? `${(data.val_accuracy * 100).toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
               ))}
@@ -131,10 +143,20 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
           </div>
         )}
 
+        {/* Data Quality Indicator */}
+        {dataQuality && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500">Data:</span>
+            <span className={getStatusColor(dataQuality === 'fresh' ? 'ok' : 'warning')}>
+              {dataQuality}
+            </span>
+          </div>
+        )}
+
         {/* Last Update */}
-        <div className="flex items-center gap-2 text-xs text-gray-500 mt-4">
+        <div className="flex items-center gap-2 text-xs text-gray-500 mt-4 pt-2 border-t border-gray-700">
           <Clock size={12} />
-          <span>Last update: {formatTime(pipeline.last_run)}</span>
+          <span>Data refreshed: {lastUpdate ? formatTimeDiff(lastUpdate, now) : 'Never'}</span>
         </div>
       </div>
     </div>

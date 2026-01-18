@@ -50,6 +50,14 @@ AI Assets Trader is a **production-ready Multi-Timeframe (MTF) Ensemble trading 
 
 ```
 ai-trader/
+├── .claude/                       # Agent-Skill Framework (v1.2.0)
+│   ├── agents/                    # 6 specialized agents
+│   ├── skills/                    # 24 active skills by layer
+│   ├── improvement/               # Error reporting & continuous improvement
+│   ├── scripts/                   # Validation scripts
+│   ├── hooks/                     # Git pre-commit hooks
+│   ├── metrics/                   # Weekly health reports
+│   └── optimization/              # Monthly consolidation reports
 ├── data/
 │   ├── forex/                     # EUR/USD 5-minute data (448K bars, 2020-2025)
 │   │   └── EURUSD_*_5min_combined.csv
@@ -703,3 +711,123 @@ pytest tests/ --cov=src --cov-report=html
 - **Railway**: Deploy backend and frontend as separate services
 - **Testing**: 735+ backend tests, 35 frontend tests (all passing)
 - **Ports**: Backend on 8001, Frontend on 3001 (local), 80 (Docker internal)
+
+---
+
+## Agent-Skill Framework
+
+This project includes a comprehensive Agent-Skill framework (v1.2.0) for structured development workflows.
+
+### Framework Overview
+
+```
+.claude/
+├── agents/                    # 6 specialized agents
+├── skills/                    # 24 active skills (organized by layer)
+│   └── SKILL-INDEX.md         # Central catalog
+├── improvement/               # Continuous improvement system
+│   ├── error-template.md      # Error reporting template
+│   └── errors/                # Error reports directory
+├── scripts/                   # Validation scripts
+│   └── validate-framework.sh  # YAML validation
+├── hooks/                     # Git hooks
+│   └── pre-commit-framework-check.sh
+├── metrics/                   # Health reports
+│   └── weekly-health-report-*.md
+└── optimization/              # Consolidation reports
+    └── consolidation-report-*.md
+```
+
+### Agents (6 total, all v1.2.0)
+
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| `requirements-analyst` | sonnet | Analyzes work items, identifies gaps, produces refined requirements |
+| `solution-architect` | sonnet | Designs technical solutions, creates dependency-ordered implementation plans |
+| `code-engineer` | sonnet | Implements code following technical designs across all layers |
+| `quality-guardian` | sonnet | Performs code review, regression analysis, security scanning |
+| `test-automator` | sonnet | Generates tests following TDD, creates fixtures, verifies coverage |
+| `documentation-curator` | sonnet | Generates API docs, deployment guides, release notes |
+
+**Agent Workflow:**
+```
+requirements-analyst → solution-architect → code-engineer → quality-guardian → test-automator → documentation-curator
+```
+
+### Skills by Layer (24 active)
+
+| Layer | Skills | Primary Skill |
+|-------|--------|---------------|
+| **Meta** | 2 | `routing-to-skills`, `improving-framework-continuously` |
+| **Backend** | 6 | `backend` (FastAPI endpoints) |
+| **Frontend** | 2 | `frontend` (React components) |
+| **Database** | 1 | `database` (SQLAlchemy models) |
+| **Testing** | 2 | `testing` (pytest), `writing-vitest-tests` |
+| **Quality & Testing** | 4 | `planning-test-scenarios`, `generating-test-data` |
+| **Feature Engineering** | 2 | `creating-technical-indicators` |
+| **Data Layer** | 1 | `adding-data-sources` |
+| **Trading Domain** | 3 | `running-backtests`, `implementing-risk-management` |
+| **Build & Deployment** | 1 | `build-deployment` (CLI scripts) |
+
+**Full skill index:** `.claude/skills/SKILL-INDEX.md`
+
+### Quick Reference: When to Use Skills
+
+| Task | Primary Skill |
+|------|---------------|
+| Add API endpoint | `backend` |
+| Create service class | `creating-python-services` |
+| Define API schema | `creating-pydantic-schemas` |
+| Internal DTO | `creating-dataclasses` |
+| React component | `frontend` |
+| Database model | `database` |
+| Technical indicator | `creating-technical-indicators` |
+| New data source | `adding-data-sources` |
+| Backtest strategy | `running-backtests` |
+| Python tests | `testing` |
+| Frontend tests | `writing-vitest-tests` |
+| CLI script | `build-deployment` |
+
+### Framework Commands
+
+```bash
+# Validate all skills and agents (run before commits)
+.claude/scripts/validate-framework.sh
+
+# Install pre-commit hook (one-time)
+cp .claude/hooks/pre-commit-framework-check.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+### Framework Health
+
+| Metric | Current | Target |
+|--------|---------|--------|
+| Health Score | 97/100 | >90 |
+| Skills | 24 | 15-25 |
+| Agents | 6 | 6 |
+| YAML Validation | 100% | 100% |
+| Error Backlog | 0 | <10 |
+
+**Reports:**
+- Weekly health: `.claude/metrics/weekly-health-report-*.md`
+- Monthly consolidation: `.claude/optimization/consolidation-report-*.md`
+
+### Skill Invocation
+
+Skills are invoked via the `Skill` tool or slash commands:
+
+```
+/backend     - Create FastAPI endpoints
+/frontend    - Create React components
+/database    - Create SQLAlchemy models
+/testing     - Write pytest tests
+```
+
+### Anti-Hallucination Features (v1.2.0)
+
+The `routing-to-skills` meta-skill includes:
+- **Verification requirements**: Must read actual files before citing
+- **Citation requirements**: Include file:line references for claims
+- **Uncertainty permission**: Can say "I need to check the codebase"
+- **Grounding validation**: Verify references exist after generation

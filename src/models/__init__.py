@@ -26,24 +26,43 @@ Example:
     ```
 """
 
-from .base import BaseModel, Prediction, ModelRegistry
-from .technical import ShortTermModel, MediumTermModel, LongTermModel
-from .technical.plugin_bridge import PluginModel, create_model
-from .ensemble import EnsembleModel, TechnicalEnsemble
+# Lazy imports to avoid torch dependency at package initialization
+# Import these directly when needed:
+#   from src.models.base import BaseModel, Prediction, ModelRegistry
+#   from src.models.technical import ShortTermModel, MediumTermModel, LongTermModel
+#   from src.models.technical.plugin_bridge import PluginModel, create_model
+#   from src.models.ensemble import EnsembleModel, TechnicalEnsemble
 
 __all__ = [
-    # Base
+    # Base (import from src.models.base)
     "BaseModel",
     "Prediction",
     "ModelRegistry",
-    # Legacy technical models
+    # Legacy technical models (import from src.models.technical)
     "ShortTermModel",
     "MediumTermModel",
     "LongTermModel",
-    # Plugin architecture (recommended)
+    # Plugin architecture (import from src.models.technical.plugin_bridge)
     "PluginModel",
     "create_model",
-    # Ensemble
+    # Ensemble (import from src.models.ensemble)
     "EnsembleModel",
     "TechnicalEnsemble",
 ]
+
+
+def __getattr__(name):
+    """Lazy import to avoid torch dependency."""
+    if name in ("BaseModel", "Prediction", "ModelRegistry"):
+        from .base import BaseModel, Prediction, ModelRegistry
+        return {"BaseModel": BaseModel, "Prediction": Prediction, "ModelRegistry": ModelRegistry}[name]
+    elif name in ("ShortTermModel", "MediumTermModel", "LongTermModel"):
+        from .technical import ShortTermModel, MediumTermModel, LongTermModel
+        return {"ShortTermModel": ShortTermModel, "MediumTermModel": MediumTermModel, "LongTermModel": LongTermModel}[name]
+    elif name in ("PluginModel", "create_model"):
+        from .technical.plugin_bridge import PluginModel, create_model
+        return {"PluginModel": PluginModel, "create_model": create_model}[name]
+    elif name in ("EnsembleModel", "TechnicalEnsemble"):
+        from .ensemble import EnsembleModel, TechnicalEnsemble
+        return {"EnsembleModel": EnsembleModel, "TechnicalEnsemble": TechnicalEnsemble}[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

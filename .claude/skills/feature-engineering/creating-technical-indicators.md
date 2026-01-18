@@ -1,6 +1,7 @@
 ---
 name: creating-technical-indicators
 description: Creates technical indicator calculator classes following the project's feature tracking pattern. Use when adding new trend, momentum, volatility, or volume indicators for trading models. pandas/numpy stack with pandas-ta support.
+version: 1.0.0
 ---
 
 # Creating Technical Indicators

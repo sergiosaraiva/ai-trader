@@ -1,14 +1,16 @@
 import { useCallback } from 'react';
-import { RefreshCw, Activity, Clock } from 'lucide-react';
+import { RefreshCw, Activity, Clock, Brain } from 'lucide-react';
 
 import { api } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
+import { getFormattedSymbol } from '../utils/assetFormatting';
 
 import { PredictionCard } from './PredictionCard';
 import { AccountStatus } from './AccountStatus';
 import { PriceChart } from './PriceChart';
 import { PerformanceStats } from './PerformanceStats';
 import { TradeHistory } from './TradeHistory';
+import { AboutSection } from './AboutSection';
 
 // Polling intervals (in milliseconds)
 const INTERVALS = {
@@ -17,6 +19,27 @@ const INTERVALS = {
   pipeline: 60000,      // 1 minute
   signals: 30000,       // 30 seconds
   performance: 300000,  // 5 minutes (rarely changes)
+};
+
+/**
+ * Check if forex markets are currently open
+ * Forex markets are open from Sunday 5pm ET to Friday 5pm ET
+ */
+const isForexMarketOpen = () => {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0 = Sunday, 6 = Saturday
+  const hour = now.getUTCHours();
+
+  // Closed on Saturday
+  if (day === 6) return false;
+
+  // Sunday: opens at 22:00 UTC (5pm ET)
+  if (day === 0 && hour < 22) return false;
+
+  // Friday: closes at 22:00 UTC (5pm ET)
+  if (day === 5 && hour >= 22) return false;
+
+  return true;
 };
 
 /**
@@ -35,14 +58,18 @@ export function Dashboard() {
     INTERVALS.prediction
   );
 
-  // Candles/Price data
+  // Get trading pair and asset metadata from prediction or use default
+  const tradingPair = prediction?.symbol || 'EURUSD';
+  const assetMetadata = prediction?.asset_metadata;
+
+  // Candles/Price data - use dynamic trading pair
   const {
     data: candlesData,
     loading: candlesLoading,
     error: candlesError,
     refetch: refetchCandles,
   } = usePolling(
-    useCallback(() => api.getCandles('EURUSD', '1H', 48), []),
+    useCallback(() => api.getCandles(tradingPair, '1H', 48), [tradingPair]),
     INTERVALS.candles
   );
 
@@ -62,6 +89,14 @@ export function Dashboard() {
     loading: modelLoading,
   } = usePolling(
     useCallback(() => api.getModelStatus(), []),
+    INTERVALS.pipeline
+  );
+
+  // VIX sentiment data
+  const {
+    data: vixData,
+  } = usePolling(
+    useCallback(() => api.getVix(), []),
     INTERVALS.pipeline
   );
 
@@ -95,8 +130,11 @@ export function Dashboard() {
   // Extract candles array from response
   const candles = candlesData?.candles || candlesData || [];
 
-  // Extract signals array from response
-  const signals = signalsData?.signals || signalsData || [];
+  // Extract signals array from response (API returns 'predictions' not 'signals')
+  const signals = signalsData?.predictions || signalsData?.signals || (Array.isArray(signalsData) ? signalsData : []);
+
+  // Extract model weights for AboutSection
+  const modelWeights = modelStatus?.weights || null;
 
   // Refresh all data
   const handleRefreshAll = () => {
@@ -113,17 +151,30 @@ export function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-gray-100">
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-[1600px] mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <Activity size={24} className="text-blue-400" />
+              <Brain size={24} className="text-blue-400" />
               <div>
                 <h1 className="text-xl font-bold">AI Trader</h1>
-                <p className="text-xs text-gray-500">MTF Ensemble Trading System</p>
+                <p className="text-xs text-gray-500">
+                  MTF Ensemble • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Market Status */}
+              <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
+                isForexMarketOpen()
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-yellow-500/20 text-yellow-400'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  isForexMarketOpen() ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'
+                }`}></span>
+                {isForexMarketOpen() ? 'Market Open' : 'Market Closed'}
+              </div>
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Clock size={14} />
                 <span>Updated: {formatLastUpdated(predictionUpdated)}</span>
@@ -141,14 +192,22 @@ export function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-[1600px] mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Prediction & Status */}
+          {/* Left Column - Prediction, About (with VIX) & Status */}
           <div className="space-y-6">
             <PredictionCard
               prediction={prediction}
               loading={predictionLoading}
               error={predictionError}
+            />
+            <AboutSection
+              tradingPair={tradingPair}
+              modelWeights={modelWeights}
+              vixValue={vixData?.value}
+              assetMetadata={assetMetadata}
+              marketOpen={isForexMarketOpen()}
+              performance={performance}
             />
             <AccountStatus
               pipelineStatus={pipelineStatus}
@@ -158,7 +217,7 @@ export function Dashboard() {
             />
           </div>
 
-          {/* Middle Column - Chart & Performance */}
+          {/* Middle Column - Chart, Performance & Trade History */}
           <div className="lg:col-span-2 space-y-6">
             <PriceChart
               candles={candles}
@@ -171,29 +230,31 @@ export function Dashboard() {
               performance={performance}
               loading={performanceLoading}
               error={performanceError}
+              assetMetadata={assetMetadata}
+            />
+            <TradeHistory
+              signals={signals}
+              loading={signalsLoading}
+              error={signalsError}
+              assetMetadata={assetMetadata}
             />
           </div>
-        </div>
-
-        {/* Bottom Row - Trade History */}
-        <div className="mt-6">
-          <TradeHistory
-            signals={signals}
-            loading={signalsLoading}
-            error={signalsError}
-          />
         </div>
       </main>
 
       {/* Footer */}
       <footer className="bg-gray-800 border-t border-gray-700 mt-8">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-[1600px] mx-auto px-4 py-4">
           <div className="flex justify-between items-center text-sm text-gray-500">
-            <span>AI Assets Trader - MTF Ensemble System</span>
+            <span>AI Trader • Multi-Timeframe AI Ensemble</span>
             <div className="flex items-center gap-4">
-              <span>Win Rate: 62.1%</span>
-              <span>Profit Factor: 2.69</span>
-              <span>WFO Validated: 100%</span>
+              <span className="text-green-400">
+                {performance?.win_rate ? `${(performance.win_rate * 100).toFixed(0)}%` : '62%'} Win Rate
+              </span>
+              <span className="text-blue-400">
+                {performance?.profit_factor?.toFixed(2) || '2.69'} Profit Factor
+              </span>
+              <span className="text-yellow-400">WFO Validated</span>
             </div>
           </div>
         </div>

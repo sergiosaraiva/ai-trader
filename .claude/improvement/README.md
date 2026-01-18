@@ -10,26 +10,50 @@ Enable the framework to learn from mistakes and evolve alongside the codebase th
 
 ```
 .claude/improvement/
-├── README.md                    # This file
-├── error-template.md            # Template for reporting errors
-├── maintenance-checklist.md     # Quarterly review checklist
-├── errors/                      # Individual error reports
-│   └── YYYY-MM-DD-[desc].md    # One file per error
+├── README.md                     # This file
+├── error-template.md             # Template for reporting errors
+├── maintenance-checklist.md      # Quarterly review checklist
+├── errors/                       # Individual error reports
+│   └── ERR-YYYY-MM-DD-NNN.md    # One file per error (with Error ID)
 └── YYYY-QN-maintenance-report.md # Quarterly reports (when generated)
+
+.claude/scripts/
+└── validate-framework.sh         # YAML validation script
+
+.claude/hooks/
+└── pre-commit-framework-check.sh # Git pre-commit hook
+
+.claude/skills/improving-framework-continuously/
+└── SKILL.md                      # Continuous improvement skill
 ```
 
 ## Quick Start
+
+### YAML Validation (Run First!)
+
+Before any framework work, validate your skills and agents:
+
+```bash
+# Run full validation
+.claude/scripts/validate-framework.sh
+
+# Install pre-commit hook (one-time setup)
+cp .claude/hooks/pre-commit-framework-check.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
 
 ### Reporting an Error
 
 When you encounter wrong agent/skill behavior:
 
 ```bash
-# 1. Copy the template
-cp error-template.md errors/$(date +%Y-%m-%d)-brief-description.md
+# 1. Copy the template with Error ID
+cp error-template.md errors/ERR-$(date +%Y-%m-%d)-001-brief-description.md
 
 # 2. Open and fill out all sections
 # Focus on:
+#   - Error ID: ERR-YYYY-MM-DD-NNN
+#   - Severity (auto-classify by error type)
 #   - What went wrong (expected vs actual)
 #   - Evidence (code snippets, outputs)
 #   - Root cause analysis
@@ -59,14 +83,26 @@ cp error-template.md errors/$(date +%Y-%m-%d)-brief-description.md
 
 ## Error Types
 
-| Type | Description | Typical Fix |
-|------|-------------|-------------|
-| Hallucination | Agent made up facts | Add grounding requirements |
-| Outdated Pattern | Codebase changed | Re-scan and update skill |
-| Missing Skill | No coverage for use case | Create new skill |
-| Wrong Routing | Router selected wrong skill | Adjust scoring algorithm |
-| Agent Logic | Workflow bug | Fix agent definition |
-| Incomplete Guards | Validation gap | Add to checklist |
+| Type | Severity | Description | Typical Fix |
+|------|----------|-------------|-------------|
+| YAML Format Issue | Critical | Agent/skill won't load | Fix frontmatter, run validation |
+| Hallucination | High | Agent made up facts | Add grounding requirements |
+| Agent Logic Error | High | Workflow bug | Fix agent definition |
+| Outdated Pattern | Medium | Codebase changed | Re-scan and update skill |
+| Missing Skill | Medium | No coverage for use case | Create new skill |
+| Wrong Routing | Medium | Router selected wrong skill | Adjust scoring algorithm |
+| Incomplete Guards | Low | Validation gap | Add to checklist |
+
+### YAML Validation Rules
+
+| Field | Skills | Agents |
+|-------|--------|--------|
+| `name` | Must match folder name | Must match filename (without .md) |
+| `description` | Required, max 1024 chars | Required, max 1024 chars |
+| `model` | Not required | Required (opus/sonnet/haiku/inherit) |
+| `version` | Recommended | Optional |
+| `color` | Not required | Recommended |
+| Format | Lowercase, numbers, hyphens | Lowercase, numbers, hyphens |
 
 ## Metrics
 
@@ -74,6 +110,7 @@ cp error-template.md errors/$(date +%Y-%m-%d)-brief-description.md
 
 | Metric | Target | Current |
 |--------|--------|---------|
+| YAML validation pass rate | 100% | - |
 | Error recurrence rate | <5% | - |
 | Avg resolution time | <7 days | - |
 | Backlog size | <10 | 0 |
@@ -88,14 +125,27 @@ Update weekly:
 
 ## Integration Points
 
+### With Validation
+
+All framework updates must pass validation:
+
+```bash
+# Before any commit
+.claude/scripts/validate-framework.sh
+
+# Pre-commit hook (auto-runs)
+.git/hooks/pre-commit
+```
+
 ### With Skills
 
 The `improving-framework-continuously` skill provides:
 - Detailed workflow for processing errors
 - Error type handling procedures
 - Quality gates for resolutions
+- YAML validation integration
 
-Location: `.claude/skills/continuous-improvement/SKILL.md`
+Location: `.claude/skills/improving-framework-continuously/SKILL.md`
 
 ### With Agents
 
@@ -119,6 +169,8 @@ Routing errors are captured and used to:
 | `error-template.md` | Structure for error reports | When error occurs |
 | `maintenance-checklist.md` | Quarterly review guide | Every 3 months |
 | `errors/*.md` | Individual error records | Review weekly |
+| `.claude/scripts/validate-framework.sh` | YAML validation | Before every commit |
+| `.claude/hooks/pre-commit-framework-check.sh` | Git hook | Auto-runs on commit |
 
 ## Best Practices
 
@@ -139,6 +191,18 @@ Routing errors are captured and used to:
 5. **Close the loop**: Mark resolved with summary
 
 ## Changelog
+
+### 2026-01-18
+- Validated all improvement system components
+- Confirmed integration with v1.2.0 agents and skills
+- YAML validation scripts verified working
+- Pre-commit hook documentation updated
+
+### 2026-01-16
+- Added YAML validation integration to all components
+- Added Error ID format (ERR-YYYY-MM-DD-NNN)
+- Enhanced auto-classification rules
+- Added git integration documentation
 
 ### 2026-01-07
 - Initial creation of improvement system

@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from ..services.pipeline_service import pipeline_service
 from ..scheduler import run_pipeline_now
+from ..utils.validation import safe_iloc
 
 router = APIRouter()
 
@@ -109,7 +110,8 @@ async def get_pipeline_data_summary(timeframe: str) -> Dict[str, Any]:
             detail=f"No cached data for timeframe {timeframe}. Run the pipeline first.",
         )
 
-    return {
+    # Build response with safe DataFrame access
+    response = {
         "timeframe": timeframe,
         "rows": len(df),
         "columns": len(df.columns),
@@ -118,11 +120,23 @@ async def get_pipeline_data_summary(timeframe: str) -> Dict[str, Any]:
             "end": df.index.max().isoformat() if hasattr(df.index.max(), 'isoformat') else str(df.index.max()),
         },
         "sample_columns": list(df.columns[:20]),
-        "latest_bar": {
-            "timestamp": df.index[-1].isoformat() if hasattr(df.index[-1], 'isoformat') else str(df.index[-1]),
-            "open": float(df.iloc[-1].get("open", 0)),
-            "high": float(df.iloc[-1].get("high", 0)),
-            "low": float(df.iloc[-1].get("low", 0)),
-            "close": float(df.iloc[-1].get("close", 0)),
-        } if "close" in df.columns else None,
     }
+
+    # Safely add latest bar if data exists
+    if "close" in df.columns and len(df) > 0:
+        # Use safe_iloc to prevent IndexError
+        last_row = safe_iloc(df, -1)
+        if last_row is not None:
+            response["latest_bar"] = {
+                "timestamp": df.index[-1].isoformat() if hasattr(df.index[-1], 'isoformat') else str(df.index[-1]),
+                "open": float(last_row.get("open", 0)),
+                "high": float(last_row.get("high", 0)),
+                "low": float(last_row.get("low", 0)),
+                "close": float(last_row.get("close", 0)),
+            }
+        else:
+            response["latest_bar"] = None
+    else:
+        response["latest_bar"] = None
+
+    return response

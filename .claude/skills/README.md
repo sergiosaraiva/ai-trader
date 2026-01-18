@@ -8,8 +8,8 @@ This directory contains Claude Code Skills extracted from the ai-trader codebase
 
 | Skill | Description |
 |-------|-------------|
-| [routing-to-skills](skill-router/SKILL.md) | Routes tasks to appropriate skills by analyzing file paths, task types, and domain keywords |
-| [improving-framework-continuously](continuous-improvement/SKILL.md) | Processes error reports to evolve agents and skills, enabling self-healing framework |
+| [routing-to-skills](routing-to-skills/SKILL.md) | Meta-skill that analyzes task context and routes to appropriate skills. Returns ranked recommendations with confidence scores. |
+| [improving-framework-continuously](improving-framework-continuously/SKILL.md) | Processes error reports to evolve agents and skills, enabling self-healing framework. Includes YAML validation. |
 
 ### Backend Layer (`backend/`)
 
@@ -205,12 +205,40 @@ cp .claude/improvement/error-template.md \
 - Test with multiple Claude models (Haiku, Sonnet, Opus)
 - Keep SKILL.md files under 500 lines
 
+## Skill Metadata
+
+All skills follow the YAML frontmatter format:
+
+```yaml
+---
+name: skill-name-in-gerund-form  # max 64 chars, lowercase/numbers/hyphens
+description: Third person description with trigger phrases. Max 1024 chars.
+version: 1.0.0  # Recommended, SemVer format
+---
+```
+
+### Versioned Skills (Core Implementation)
+
+| Skill | Version | Last Verified |
+|-------|---------|---------------|
+| creating-fastapi-endpoints | 1.0.0 | 2026-01-16 |
+| creating-python-services | 1.0.0 | 2026-01-16 |
+| creating-pydantic-schemas | 1.0.0 | 2026-01-16 |
+| creating-react-components | 1.0.0 | 2026-01-16 |
+| creating-sqlalchemy-models | 1.0.0 | 2026-01-16 |
+| writing-pytest-tests | 1.0.0 | 2026-01-16 |
+| writing-vitest-tests | 1.0.0 | 2026-01-16 |
+| creating-cli-scripts | 1.0.0 | 2026-01-16 |
+| routing-to-skills | 1.0.0 | 2026-01-16 |
+| improving-framework-continuously | 1.0.0 | 2026-01-16 |
+
 ## Created
 
 - Date: 2026-01-07
 - Based on: `.claude/discovery/codebase-patterns.md`
 - Skills: 23 total (21 domain + 2 meta-skills)
-- Last updated: 2026-01-12
+- Last updated: 2026-01-16
+  - All core skills updated with version field
   - Added: creating-fastapi-endpoints, creating-python-services, creating-pydantic-schemas
   - Added: creating-react-components, creating-api-clients
   - Added: creating-sqlalchemy-models

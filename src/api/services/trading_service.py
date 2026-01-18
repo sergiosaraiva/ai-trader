@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from ..database.models import Trade, PerformanceSnapshot, Prediction
 from ..database.session import get_session
+from ..utils.validation import safe_division
 
 logger = logging.getLogger(__name__)
 
@@ -265,11 +266,15 @@ class TradingService:
 
         # Check max holding time
         if exit_reason is None:
-            if isinstance(entry_time, str):
-                entry_time = datetime.fromisoformat(entry_time)
-            hours_held = (datetime.utcnow() - entry_time).total_seconds() / 3600
-            if hours_held >= self.MAX_HOLDING_HOURS:
-                exit_reason = "timeout"
+            try:
+                if isinstance(entry_time, str):
+                    entry_time = datetime.fromisoformat(entry_time)
+                hours_held = (datetime.utcnow() - entry_time).total_seconds() / 3600
+                if hours_held >= self.MAX_HOLDING_HOURS:
+                    exit_reason = "timeout"
+            except (ValueError, TypeError) as e:
+                logger.error(f"Failed to parse entry_time: {entry_time}, error: {e}")
+                # Continue without timeout check if time parsing fails
 
         if exit_reason is None:
             return None
@@ -385,25 +390,30 @@ class TradingService:
 
     def get_performance(self) -> Dict[str, Any]:
         """Get trading performance metrics."""
-        win_rate = (
-            self._winning_trades / self._total_trades
-            if self._total_trades > 0
-            else 0.0
+        win_rate = safe_division(
+            self._winning_trades,
+            self._total_trades,
+            default=0.0
         )
 
-        avg_pips = (
-            self._total_pips / self._total_trades
-            if self._total_trades > 0
-            else 0.0
+        avg_pips = safe_division(
+            self._total_pips,
+            self._total_trades,
+            default=0.0
         )
 
-        # Profit factor approximation
+        # Profit factor: (winning_trades * avg_win) / (losing_trades * avg_loss)
+        # Requires both numerator and denominator to be non-zero
         avg_win = self.DEFAULT_TP_PIPS if self._winning_trades > 0 else 0
         avg_loss = self.DEFAULT_SL_PIPS if self._losing_trades > 0 else 0
-        profit_factor = (
-            (self._winning_trades * avg_win) / (self._losing_trades * avg_loss)
-            if self._losing_trades > 0 and avg_loss > 0
-            else 0.0
+
+        total_wins = self._winning_trades * avg_win
+        total_losses = self._losing_trades * avg_loss
+
+        profit_factor = safe_division(
+            total_wins,
+            total_losses,
+            default=0.0
         )
 
         return {

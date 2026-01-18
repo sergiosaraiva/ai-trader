@@ -2,7 +2,7 @@
  * API Client for AI Trader Backend
  */
 
-const API_BASE = '/api';
+const API_BASE = '/api/v1';
 
 class APIError extends Error {
   constructor(message, status, data) {
@@ -46,35 +46,57 @@ async function request(endpoint, options = {}) {
 }
 
 /**
- * API endpoints
+ * API endpoints - mapped to backend /api/v1/* routes
  */
 export const api = {
   // Health check
   health: () => fetch('/health').then(r => r.json()),
 
   // Predictions
-  getPrediction: () => request('/predict'),
-  getPredictionHistory: (limit = 50) => request(`/predictions?limit=${limit}`),
+  getPrediction: () => request('/predictions/latest'),
+  getPredictionHistory: (limit = 50) => request(`/predictions/history?limit=${limit}`),
+  generatePrediction: () => request('/predictions/generate', { method: 'POST' }),
+  getPredictionStats: () => request('/predictions/stats'),
 
-  // Price data
-  getCandles: (symbol = 'EURUSD', timeframe = '1H', count = 24) =>
-    request(`/candles?symbol=${symbol}&timeframe=${timeframe}&count=${count}`),
+  // Market data / Candles
+  getCandles: (symbol, timeframe = '1H', count = 24) =>
+    request(`/market/candles?symbol=${symbol}&timeframe=${timeframe}&count=${count}`),
+  getCurrentPrice: () => request('/market/current'),
+  getVix: () => request('/market/vix'),
 
   // Performance metrics
   getPerformance: () => request('/performance'),
+  getTradingPerformance: () => request('/trading/performance'),
 
-  // Trading signals
-  getSignals: (limit = 20) => request(`/signals?limit=${limit}`),
+  // Trading signals (using prediction history)
+  getSignals: (limit = 20) => request(`/predictions/history?limit=${limit}`),
 
   // Model status
-  getModelStatus: () => request('/model/status'),
+  getModelStatus: () => request('/models/status'),
 
   // Pipeline status
   getPipelineStatus: () => request('/pipeline/status'),
+  runPipeline: () => request('/pipeline/run', { method: 'POST' }),
+  runPipelineSync: () => request('/pipeline/run-sync', { method: 'POST' }),
 
   // Pipeline data by timeframe
   getPipelineData: (timeframe = '1H', limit = 100) =>
     request(`/pipeline/data/${timeframe}?limit=${limit}`),
+
+  // Trading
+  getTradingStatus: () => request('/trading/status'),
+  getTradingHistory: (limit = 50) => request(`/trading/history?limit=${limit}`),
+  getEquityCurve: () => request('/trading/equity-curve'),
+  closePosition: (positionId) => request('/trading/close-position', {
+    method: 'POST',
+    body: JSON.stringify({ position_id: positionId }),
+  }),
+
+  // Positions
+  getPositions: () => request('/positions'),
+
+  // Risk metrics
+  getRiskMetrics: () => request('/risk/metrics'),
 };
 
 export { APIError };

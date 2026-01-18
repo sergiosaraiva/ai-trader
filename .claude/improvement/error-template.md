@@ -8,17 +8,32 @@ Use this template when an agent or skill produces incorrect behavior. Save compl
 
 | Field | Value |
 |-------|-------|
+| **Error ID** | ERR-YYYY-MM-DD-NNN |
 | **Date** | YYYY-MM-DD |
 | **Reporter** | [Your name] |
 | **Severity** | [ ] Critical / [ ] High / [ ] Medium / [ ] Low |
 | **Status** | [ ] New / [ ] In Progress / [ ] Resolved |
 
-### Severity Guide
+### Severity Classification Guide
 
-- **Critical**: Agent produces dangerous output (security risk, data loss, production breakage)
-- **High**: Agent blocks workflow or produces completely wrong pattern
-- **Medium**: Agent produces suboptimal pattern or misses important consideration
-- **Low**: Minor issue, cosmetic, or edge case
+| Severity | Definition | Response Time | Examples |
+|----------|------------|---------------|----------|
+| **Critical** | Agent/skill completely broken, blocks all work, or YAML format prevents loading | Same day | Skill won't load, agent produces dangerous output |
+| **High** | Wrong guidance that could cause bugs or security issues | 2 days | Incorrect pattern causes runtime errors |
+| **Medium** | Suboptimal guidance, workaround exists | 1 week | Missing consideration, outdated line numbers |
+| **Low** | Minor improvement, nice-to-have | 2 weeks | Cosmetic, edge case, documentation typo |
+
+### Auto-Classification Rules
+
+| Error Type | Default Severity |
+|------------|------------------|
+| YAML Format Issue | Critical |
+| Hallucination | High |
+| Agent Logic Error | High |
+| Wrong Routing | Medium |
+| Outdated Pattern | Medium |
+| Missing Skill | Medium |
+| Incomplete Guardrails | Low |
 
 ---
 
@@ -94,14 +109,15 @@ Use this template when an agent or skill produces incorrect behavior. Save compl
 
 Check the primary category:
 
-- [ ] **Hallucination**: Agent made up facts not in codebase or documentation
-- [ ] **Outdated Pattern**: Codebase changed, skill/agent didn't update
-- [ ] **Missing Skill**: No skill exists for this use case
-- [ ] **Wrong Routing**: Skill-router selected incorrect skill
-- [ ] **Agent Logic Error**: Workflow bug in agent definition
-- [ ] **Incomplete Guardrails**: Validation didn't catch invalid approach
-- [ ] **Ambiguous Instructions**: Skill instructions unclear or contradictory
-- [ ] **Context Limit**: Important information fell out of context window
+- [ ] **YAML Format Issue**: Agent/skill YAML frontmatter invalid, file not loading (Critical)
+- [ ] **Hallucination**: Agent made up facts not in codebase or documentation (High)
+- [ ] **Agent Logic Error**: Workflow bug in agent definition (High)
+- [ ] **Outdated Pattern**: Codebase changed, skill/agent didn't update (Medium)
+- [ ] **Missing Skill**: No skill exists for this use case (Medium)
+- [ ] **Wrong Routing**: Skill-router selected incorrect skill (Medium)
+- [ ] **Incomplete Guardrails**: Validation didn't catch invalid approach (Low)
+- [ ] **Ambiguous Instructions**: Skill instructions unclear or contradictory (Low)
+- [ ] **Context Limit**: Important information fell out of context window (Low)
 
 ### Root Cause Details
 
@@ -143,6 +159,7 @@ How was the correct behavior confirmed?
 
 Check all that apply:
 
+- [ ] **Fix YAML format**: ________________________ (Critical - blocks loading)
 - [ ] Update skill: ________________________
 - [ ] Create new skill: ________________________
 - [ ] Fix agent workflow: ________________________
@@ -227,6 +244,7 @@ This scenario should be tested after the fix:
 ### Before Committing
 
 - [ ] Update affected skill/agent files
+- [ ] **Run YAML validation: `.claude/scripts/validate-framework.sh`**
 - [ ] Add example to skill documentation showing correct pattern
 - [ ] Update skill-router if routing issue
 - [ ] Add test case to validation suite

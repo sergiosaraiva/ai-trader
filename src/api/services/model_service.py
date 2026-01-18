@@ -164,15 +164,17 @@ class ModelService:
         self,
         df_5min: pd.DataFrame,
         use_cache: bool = True,
+        symbol: str = "EURUSD",
     ) -> Dict[str, Any]:
         """Make a prediction using the MTF Ensemble.
 
         Args:
             df_5min: 5-minute OHLCV DataFrame with sufficient history
             use_cache: Whether to use cached predictions
+            symbol: Trading symbol (default: EURUSD)
 
         Returns:
-            Dict with prediction details
+            Dict with prediction details including symbol
         """
         if not self.is_loaded:
             raise RuntimeError("Model not loaded. Call initialize() first.")
@@ -197,27 +199,28 @@ class ModelService:
             with self._lock:
                 prediction = self._ensemble.predict(df_5min)
 
-            # Convert to dict
+            # Convert to dict (clamp values to [0, 1] range for API validation)
             result = {
                 "direction": "long" if prediction.direction == 1 else "short",
-                "confidence": float(prediction.confidence),
-                "prob_up": float(prediction.prob_up),
-                "prob_down": float(prediction.prob_down),
+                "confidence": float(min(1.0, max(0.0, prediction.confidence))),
+                "prob_up": float(min(1.0, max(0.0, prediction.prob_up))),
+                "prob_down": float(min(1.0, max(0.0, prediction.prob_down))),
                 "should_trade": prediction.confidence >= 0.70,  # 70% threshold
                 "agreement_count": prediction.agreement_count,
-                "agreement_score": float(prediction.agreement_score),
+                "agreement_score": float(min(1.0, max(0.0, prediction.agreement_score))),
                 "all_agree": prediction.all_agree,
                 "market_regime": prediction.market_regime,
                 "component_directions": {
                     k: int(v) for k, v in prediction.component_directions.items()
                 },
                 "component_confidences": {
-                    k: float(v) for k, v in prediction.component_confidences.items()
+                    k: float(min(1.0, max(0.0, v))) for k, v in prediction.component_confidences.items()
                 },
                 "component_weights": {
                     k: float(v) for k, v in prediction.component_weights.items()
                 },
                 "timestamp": datetime.now().isoformat(),
+                "symbol": symbol,
             }
 
             # Cache result
@@ -339,22 +342,22 @@ class ModelService:
                     # The 1H model will use the pre-calculated features
                     prediction = self._ensemble.predict(df_1h)
 
-            # Convert to dict
+            # Convert to dict (clamp values to [0, 1] range for API validation)
             result = {
                 "direction": "long" if prediction.direction == 1 else "short",
-                "confidence": float(prediction.confidence),
-                "prob_up": float(prediction.prob_up),
-                "prob_down": float(prediction.prob_down),
+                "confidence": float(min(1.0, max(0.0, prediction.confidence))),
+                "prob_up": float(min(1.0, max(0.0, prediction.prob_up))),
+                "prob_down": float(min(1.0, max(0.0, prediction.prob_down))),
                 "should_trade": prediction.confidence >= 0.70,  # 70% threshold
                 "agreement_count": prediction.agreement_count,
-                "agreement_score": float(prediction.agreement_score),
+                "agreement_score": float(min(1.0, max(0.0, prediction.agreement_score))),
                 "all_agree": prediction.all_agree,
                 "market_regime": prediction.market_regime,
                 "component_directions": {
                     k: int(v) for k, v in prediction.component_directions.items()
                 },
                 "component_confidences": {
-                    k: float(v) for k, v in prediction.component_confidences.items()
+                    k: float(min(1.0, max(0.0, v))) for k, v in prediction.component_confidences.items()
                 },
                 "component_weights": {
                     k: float(v) for k, v in prediction.component_weights.items()

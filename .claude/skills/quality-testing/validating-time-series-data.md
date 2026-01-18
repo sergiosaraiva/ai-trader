@@ -1,6 +1,7 @@
 ---
 name: validating-time-series-data
 description: Validates time series data for ML models including chronological integrity, OHLCV relationships, and data leakage prevention. Use when preparing trading data for training or backtesting. pandas/numpy validation patterns.
+version: 1.0.0
 ---
 
 # Validating Time Series Data

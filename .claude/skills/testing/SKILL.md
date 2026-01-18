@@ -1,6 +1,7 @@
 ---
-name: writing-pytest-tests
-description: Writes pytest test classes with fixtures, mocked services, and FastAPI TestClient for API endpoint testing. Use when testing backend services, API routes, or business logic.
+name: testing
+description: This skill should be used when the user asks to "write tests", "add unit tests", "test the API endpoint", "create test fixtures". Writes pytest test classes with fixtures, mocked services, and FastAPI TestClient for API endpoint testing.
+version: 1.1.0
 ---
 
 # Writing Pytest Tests
@@ -252,3 +253,7 @@ def test_generate_prediction_model_not_loaded(self):
 - `creating-fastapi-endpoints` - Endpoints being tested
 - `creating-python-services` - Services being mocked
 - `writing-vitest-tests` - Frontend component tests
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: tests/api/*

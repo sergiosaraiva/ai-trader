@@ -1,6 +1,7 @@
 ---
-name: creating-react-components
-description: Creates React functional components with loading, error, and data states using TailwindCSS styling. Use when building UI cards, data displays, or dashboard widgets for the React frontend.
+name: frontend
+description: This skill should be used when the user asks to "create a React component", "add a dashboard card", "build a UI widget", "implement a data display". Creates React functional components with loading, error, and data states using TailwindCSS styling.
+version: 1.1.0
 ---
 
 # Creating React Components
@@ -243,3 +244,7 @@ export default PredictionCard;
 
 - `creating-api-clients` - Fetch data for components
 - `writing-vitest-tests` - Test component states
+
+---
+
+*Version 1.0.0 | Last verified: 2026-01-16 | Source: frontend/src/components/*

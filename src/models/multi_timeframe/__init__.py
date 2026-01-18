@@ -46,17 +46,10 @@ from .improved_model import (
     ImprovedTimeframeModel,
     ImprovedMultiTimeframeModel,
 )
-from .sequence_model import (
-    SequenceModelConfig,
-    CNNTransformerModel,
-    SequenceDataset,
-    SequenceTrainer,
-    SequencePredictor,
-)
-from .hybrid_ensemble import (
-    HybridConfig,
-    HybridEnsemble,
-)
+# Lazy imports for torch-dependent modules (optional, not needed for API)
+# Import these directly when needed:
+#   from src.models.multi_timeframe.sequence_model import ...
+#   from src.models.multi_timeframe.hybrid_ensemble import ...
 from .mtf_ensemble import (
     MTFEnsembleConfig,
     MTFEnsemble,
@@ -89,15 +82,8 @@ __all__ = [
     "ImprovedModelConfig",
     "ImprovedTimeframeModel",
     "ImprovedMultiTimeframeModel",
-    # Sequence model
-    "SequenceModelConfig",
-    "CNNTransformerModel",
-    "SequenceDataset",
-    "SequenceTrainer",
-    "SequencePredictor",
-    # Hybrid ensemble
-    "HybridConfig",
-    "HybridEnsemble",
+    # Sequence model (torch-dependent, import directly when needed)
+    # Hybrid ensemble (torch-dependent, import directly when needed)
     # MTF Ensemble (3-timeframe weighted)
     "MTFEnsembleConfig",
     "MTFEnsemble",
