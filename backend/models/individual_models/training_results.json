@@ -1,0 +1,22 @@
+{
+  "short_term": {
+    "model_type": "short_term",
+    "timeframe": "1H",
+    "train_samples": 26153,
+    "val_samples": 5585,
+    "test_samples": 5586,
+    "parameters": 4057030,
+    "best_epoch": 10,
+    "best_val_loss": 1.0145500647669512,
+    "train_time_seconds": 3002.751318,
+    "accuracy": 0.4427139276763337,
+    "precision_up": 0.43972210870453615,
+    "recall_up": 0.8705501618122977,
+    "precision_down": 0.4622093023255814,
+    "recall_down": 0.13578138343296328,
+    "sharpe_ratio": 0.0,
+    "max_drawdown": 0.0,
+    "total_return": 0.0,
+    "win_rate": 0.0
+  }
+}

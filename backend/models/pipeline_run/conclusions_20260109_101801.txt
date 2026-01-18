@@ -1,0 +1,71 @@
+============================================================
+EVALUATION REPORT: short_term_EURUSD
+============================================================
+
+DIRECTION PREDICTION METRICS
+----------------------------------------
+  Accuracy:           52.15%
+  Down         P:0.00 R:0.00 F1:0.00
+  Up           P:0.52 R:1.00 F1:0.69
+
+CALIBRATION METRICS
+----------------------------------------
+  ECE:                0.2303
+  MCE:                0.2303
+  Brier Score:        0.3026
+
+TRADING METRICS (Simulated)
+----------------------------------------
+  Sharpe Ratio:       -0.87
+  Sortino Ratio:      -1.49
+  Max Drawdown:       8.52%
+  Total Return:       -4.23%
+  Win Rate:           50.92%
+  Profit Factor:      0.87
+  Expectancy:         -0.0003
+
+TARGET ACHIEVEMENT
+----------------------------------------
+  Accuracy > 55%:     FAIL
+  Sharpe > 1.5:       FAIL
+  Drawdown < 15%:     PASS
+
+============================================================
+
+
+======================================================================
+PIPELINE EXECUTION CONCLUSIONS
+======================================================================
+
+## Training Analysis
+- Final training epochs: 10
+- Best validation loss: 0.438979
+- Best epoch: 8
+- Status: stopped_early
+
+## Direction Prediction Quality
+- Directional Accuracy: 52.15%
+  [MARGINAL] Slightly above random (>52%)
+- Precision (up): 52.15%
+- Recall (up): 100.00%
+- F1 Score (up): 68.55%
+
+## Simulated Trading Performance
+- Sharpe Ratio: -0.87
+  [FAIL] Negative risk-adjusted returns
+- Maximum Drawdown: 8.52%
+  [PASS] Within acceptable drawdown (<15%)
+- Total Return: -4.23%
+- Win Rate: 50.92%
+- Profit Factor: 0.87
+
+## Confidence Calibration
+- Expected Calibration Error (ECE): 0.2303
+  [FAIL] Poorly calibrated - consider calibration training
+
+## Recommendations
+1. ACCURACY: Consider adding more features, longer sequences, or different architectures
+2. SHARPE: Implement confidence-based position sizing to improve risk-adjusted returns
+4. CALIBRATION: Apply temperature scaling or Platt scaling post-training
+
+======================================================================

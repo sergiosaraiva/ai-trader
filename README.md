@@ -43,12 +43,14 @@ python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 ### Train the Model
 
 ```bash
+cd backend
+
 # Train with optimal configuration (sentiment on Daily only)
 python scripts/train_mtf_ensemble.py --sentiment
 
@@ -59,8 +61,20 @@ python scripts/train_mtf_ensemble.py
 ### Run Backtest
 
 ```bash
+cd backend
+
 # Backtest the trained model
 python scripts/backtest_mtf_ensemble.py --model-dir models/mtf_ensemble
+```
+
+### Run with Docker (Web Showcase)
+
+```bash
+# Build and run all services
+docker-compose up --build
+
+# Access the dashboard at http://localhost:3001
+# Access the API at http://localhost:8001/docs
 ```
 
 ### Make Predictions
@@ -68,7 +82,7 @@ python scripts/backtest_mtf_ensemble.py --model-dir models/mtf_ensemble
 ```python
 from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig
 
-# Load trained ensemble
+# Load trained ensemble (run from backend/ directory)
 config = MTFEnsembleConfig.with_sentiment("EURUSD")
 ensemble = MTFEnsemble(config=config, model_dir="models/mtf_ensemble")
 ensemble.load()
@@ -101,29 +115,27 @@ print(f"Confidence: {prediction.confidence:.1%}")
 
 ```
 ai-trader/
-├── configs/                 # Model and indicator configurations
-│   ├── profiles/           # Trading profiles (scalper, trader, investor)
-│   └── indicators/         # Technical indicator settings
-├── data/
-│   ├── forex/              # EUR/USD 5-minute data (2020-2025)
-│   ├── sentiment/          # VIX, EPU, GDELT sentiment data
-│   └── sample/             # Sample data for development
-├── docs/                   # Documentation
-├── models/
-│   └── mtf_ensemble/       # Trained production models
-├── scripts/
-│   ├── train_mtf_ensemble.py    # Training script
-│   ├── backtest_mtf_ensemble.py # Backtesting script
-│   └── download_*.py            # Data download scripts
-├── src/
-│   ├── features/
-│   │   ├── technical/      # Technical indicators
-│   │   └── sentiment/      # Sentiment feature engineering
+├── backend/                 # FastAPI Backend & ML Pipeline
+│   ├── configs/            # Model and indicator configurations
+│   ├── data/
+│   │   ├── forex/          # EUR/USD 5-minute data (2020-2025)
+│   │   └── sentiment/      # VIX, EPU, GDELT sentiment data
 │   ├── models/
-│   │   └── multi_timeframe/ # MTF ensemble implementation
-│   ├── simulation/         # Backtesting engine
-│   └── trading/            # Trading logic and risk management
-└── tests/                  # Unit tests
+│   │   └── mtf_ensemble/   # Trained production models
+│   ├── scripts/            # Training & data scripts
+│   ├── src/
+│   │   ├── api/            # FastAPI routes & services
+│   │   ├── features/       # Technical indicators & sentiment
+│   │   ├── models/         # MTF ensemble implementation
+│   │   ├── simulation/     # Backtesting engine
+│   │   └── trading/        # Risk management
+│   └── tests/              # Python tests (735+ tests)
+├── frontend/               # React Web Dashboard
+│   └── src/
+│       ├── components/     # Dashboard, PredictionCard, Charts
+│       └── api/            # API client
+├── docs/                   # Documentation
+└── docker-compose.yml      # Local orchestration
 ```
 
 ## Data
@@ -168,6 +180,8 @@ ai-trader/
 ### Training Options
 
 ```bash
+cd backend
+
 # With sentiment (recommended)
 python scripts/train_mtf_ensemble.py --sentiment
 

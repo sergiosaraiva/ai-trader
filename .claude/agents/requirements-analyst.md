@@ -89,11 +89,11 @@ Identify affected layers and files:
 
 | Layer | Path | Consideration |
 |-------|------|---------------|
-| API | `src/api/` | Routes, Services, Schemas, Database |
-| Models | `src/models/multi_timeframe/` | MTFEnsemble, feature changes |
-| Features | `src/features/` | Technical indicators, Sentiment |
-| Trading | `src/trading/` | Risk management, Position sizing |
-| Simulation | `src/simulation/` | Backtesting impact |
+| API | `backend/src/api/` | Routes, Services, Schemas, Database |
+| Models | `backend/src/models/multi_timeframe/` | MTFEnsemble, feature changes |
+| Features | `backend/src/features/` | Technical indicators, Sentiment |
+| Trading | `backend/src/trading/` | Risk management, Position sizing |
+| Simulation | `backend/src/simulation/` | Backtesting impact |
 | Frontend | `frontend/src/` | Components, API client, hooks |
 
 ### Phase 4: Question Generation

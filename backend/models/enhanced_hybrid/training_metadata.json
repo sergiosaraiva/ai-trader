@@ -1,0 +1,45 @@
+{
+  "training_date": "2026-01-11T09:05:39.475966",
+  "data_file": "data/forex/EURUSD_20200101_20251231_5min_combined.csv",
+  "timeframe": "1H",
+  "xgboost_metrics": {
+    "train_accuracy": 0.8608205953338697,
+    "val_accuracy": 0.672968624296058,
+    "train_samples": 22374,
+    "val_samples": 7458,
+    "val_acc_conf_55": 0.6966604823747681,
+    "val_samples_conf_55": 6468,
+    "val_acc_conf_60": 0.7208963381308071,
+    "val_samples_conf_60": 5489,
+    "val_acc_conf_65": 0.7510437266534827,
+    "val_samples_conf_65": 4551,
+    "val_acc_conf_70": 0.7797029702970297,
+    "val_samples_conf_70": 3636
+  },
+  "sequence_metrics": {
+    "train_accuracy": 0.7035893304690297,
+    "val_accuracy": 0.6595602038079914,
+    "train_samples": 22344,
+    "val_samples": 7458,
+    "val_acc_conf_55": 0.6756515264333581,
+    "val_samples_conf_55": 6715,
+    "val_acc_conf_60": 0.6900730411686588,
+    "val_samples_conf_60": 6024,
+    "val_acc_conf_65": 0.7127659574468085,
+    "val_samples_conf_65": 5358,
+    "val_acc_conf_70": 0.73068669527897,
+    "val_samples_conf_70": 4660
+  },
+  "ensemble_metrics": {
+    "val_accuracy": 0.6859747921694824,
+    "agreement_rate": 0.7243228747653526,
+    "val_acc_conf_55": 0.6945428773919207,
+    "val_samples_conf_55": 7055,
+    "val_acc_conf_60": 0.702880167139233,
+    "val_samples_conf_60": 6701,
+    "val_acc_conf_65": 0.7142178594046865,
+    "val_samples_conf_65": 6316,
+    "val_acc_conf_70": 0.7228141383392525,
+    "val_samples_conf_70": 5913
+  }
+}

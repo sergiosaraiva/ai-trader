@@ -1,0 +1,49 @@
+{
+  "model_metrics": {
+    "short_term": {
+      "accuracy": 0.5519125683060109,
+      "precision_up": 0.5519125683060109,
+      "recall_up": 1.0,
+      "sharpe": -0.12864593976127522,
+      "max_drawdown": 0.08521685199131714,
+      "total_return": -0.009013011742303845,
+      "win_rate": 0.5191256830601093
+    },
+    "medium_term": {
+      "accuracy": 0.5433526011560693,
+      "precision_up": 0.5433526011560693,
+      "recall_up": 1.0,
+      "sharpe": -0.6237461400072286,
+      "max_drawdown": 0.08521685199131714,
+      "total_return": -0.03295099061522411,
+      "win_rate": 0.5086705202312138
+    },
+    "long_term": {
+      "accuracy": 0.43137254901960786,
+      "precision_up": 0.45454545454545453,
+      "recall_up": 0.5769230769230769,
+      "sharpe": 1.2113450418634404,
+      "max_drawdown": 0.01136235054501586,
+      "total_return": 0.019483984563832824,
+      "win_rate": 0.0718954248366013
+    }
+  },
+  "backtest_results": {
+    "initial_balance": 10000.0,
+    "final_balance": 9992.2840956881,
+    "total_return": -0.0007715904311900886,
+    "sharpe_ratio": -0.9193102898492584,
+    "max_drawdown": 0.0013598528124397506,
+    "total_trades": 1,
+    "win_rate": 0.0,
+    "avg_win": 0,
+    "avg_loss": -7.715904311901653
+  },
+  "targets": {
+    "Accuracy > 55%": true,
+    "Sharpe > 1.5": "False",
+    "Max DD < 15%": "True",
+    "Positive Return": "False"
+  },
+  "timestamp": "2026-01-09T15:46:41.114747"
+}

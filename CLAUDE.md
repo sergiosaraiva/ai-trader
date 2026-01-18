@@ -58,79 +58,49 @@ ai-trader/
 │   ├── hooks/                     # Git pre-commit hooks
 │   ├── metrics/                   # Weekly health reports
 │   └── optimization/              # Monthly consolidation reports
-├── data/
-│   ├── forex/                     # EUR/USD 5-minute data (448K bars, 2020-2025)
-│   │   └── EURUSD_*_5min_combined.csv
-│   ├── sentiment/                 # Sentiment data
-│   │   ├── sentiment_scores_*.csv # EPU + VIX daily sentiment
-│   │   └── gdelt_sentiment_*.csv  # GDELT hourly (available, not used)
-│   └── sample/                    # Sample data for development
 ├── docs/
 │   ├── 01-current-state-of-the-art.md  # Comprehensive current state
+│   ├── RAILWAY-DEPLOYMENT.md      # Railway deployment guide
 │   └── ...                        # Analysis results and plans
-├── frontend/                      # React Web Showcase
+├── backend/                       # FastAPI Backend Service
+│   ├── Dockerfile                 # Backend container
+│   ├── railway.json               # Railway backend config
+│   ├── requirements-api.txt       # Production dependencies
+│   ├── data/
+│   │   ├── forex/                 # EUR/USD 5-minute data (448K bars)
+│   │   └── sentiment/             # EPU + VIX sentiment data
+│   ├── models/
+│   │   └── mtf_ensemble/          # Production ML models
+│   │       ├── 1H_model.pkl       # 1-hour XGBoost model
+│   │       ├── 4H_model.pkl       # 4-hour XGBoost model
+│   │       └── D_model.pkl        # Daily XGBoost model
+│   ├── src/
+│   │   ├── api/                   # FastAPI routes & services
+│   │   │   ├── main.py            # Application entry point
+│   │   │   ├── routes/            # API endpoints
+│   │   │   ├── services/          # Business logic
+│   │   │   ├── schemas/           # Pydantic schemas
+│   │   │   └── database/          # SQLAlchemy models
+│   │   ├── features/              # Feature engineering
+│   │   ├── models/                # ML model code
+│   │   ├── simulation/            # Backtesting
+│   │   └── trading/               # Risk management
+│   ├── scripts/                   # Training & data scripts
+│   ├── tests/                     # Python tests (735+ tests)
+│   └── configs/                   # Configuration files
+├── frontend/                      # React Web Dashboard
+│   ├── Dockerfile                 # Frontend container (nginx)
+│   ├── railway.json               # Railway frontend config
 │   ├── src/
 │   │   ├── components/            # React components
-│   │   │   ├── Dashboard.jsx      # Main dashboard layout
-│   │   │   ├── PredictionCard.jsx # Current prediction display
-│   │   │   ├── AccountStatus.jsx  # Paper trading balance
-│   │   │   ├── PerformanceStats.jsx # Trading statistics
-│   │   │   ├── TradeHistory.jsx   # Recent trades list
-│   │   │   └── PriceChart.jsx     # EUR/USD price chart
-│   │   ├── api/
-│   │   │   └── client.js          # API client with fetch
-│   │   └── hooks/                 # Custom React hooks
-│   ├── Dockerfile                 # Multi-stage build (Node → nginx)
+│   │   ├── api/                   # API client
+│   │   ├── hooks/                 # Custom React hooks
+│   │   └── utils/                 # Utility functions
 │   ├── nginx.conf.template        # Nginx config with API proxy
-│   ├── docker-entrypoint.sh       # Runtime env substitution
-│   └── railway.json               # Railway deployment config
-├── models/
-│   └── mtf_ensemble/              # Production models
-│       ├── 1H_model.pkl           # 1-hour XGBoost model
-│       ├── 4H_model.pkl           # 4-hour XGBoost model
-│       ├── D_model.pkl            # Daily XGBoost model (with sentiment)
-│       └── training_metadata.json # Configuration and results
-├── scripts/
-│   ├── train_mtf_ensemble.py      # Training script
-│   ├── backtest_mtf_ensemble.py   # Backtesting script
-│   ├── download_sentiment_data.py # EPU + VIX download
-│   └── download_gdelt_sentiment.py # GDELT download (BigQuery)
-├── src/
-│   ├── api/                       # FastAPI Backend Service
-│   │   ├── main.py                # Application entry point
-│   │   ├── scheduler.py           # APScheduler for data updates
-│   │   ├── routes/
-│   │   │   ├── health.py          # Health check endpoint
-│   │   │   ├── predictions.py     # Prediction endpoints
-│   │   │   ├── trading.py         # Paper trading endpoints
-│   │   │   ├── market.py          # Market data endpoints
-│   │   │   └── pipeline.py        # Data pipeline endpoints
-│   │   ├── services/
-│   │   │   ├── model_service.py   # MTF Ensemble predictions
-│   │   │   ├── trading_service.py # Paper trading logic
-│   │   │   ├── data_service.py    # Market data fetching
-│   │   │   └── pipeline_service.py # Data pipeline management
-│   │   ├── schemas/               # Pydantic schemas
-│   │   └── database/              # SQLAlchemy models
-│   ├── features/
-│   │   ├── technical/             # Technical indicators
-│   │   │   ├── calculator.py      # TechnicalIndicatorCalculator
-│   │   │   └── indicator_registry.py
-│   │   └── sentiment/             # Sentiment features
-│   │       ├── sentiment_loader.py # EPU/VIX loader
-│   │       └── gdelt_loader.py    # GDELT loader
-│   ├── models/
-│   │   └── multi_timeframe/       # MTF Ensemble (PRIMARY)
-│   │       ├── mtf_ensemble.py    # MTFEnsemble class
-│   │       ├── improved_model.py  # ImprovedTimeframeModel
-│   │       └── enhanced_features.py # EnhancedFeatureEngine
-│   ├── simulation/                # Backtesting
-│   └── trading/                   # Risk management
-├── tests/                         # Python tests (735+ tests)
-├── Dockerfile                     # Backend API container
+│   └── docker-entrypoint.sh       # Runtime env substitution
 ├── docker-compose.yml             # Local orchestration
-├── requirements-api.txt           # Production API dependencies
-└── railway.json                   # Railway backend config
+├── CLAUDE.md                      # Claude instructions
+└── README.md                      # Project readme
 ```
 
 ## MTF Ensemble Architecture
@@ -390,9 +360,13 @@ Both services have `railway.json` configuration files:
 
 ## Common Commands
 
+**Note:** Python scripts are run from the `backend/` directory.
+
 ### Training
 
 ```bash
+cd backend
+
 # Train with optimal configuration (sentiment on Daily only)
 python scripts/train_mtf_ensemble.py --sentiment
 
@@ -409,6 +383,8 @@ python scripts/train_mtf_ensemble.py --weights "0.6,0.3,0.1"
 ### Backtesting
 
 ```bash
+cd backend
+
 # Backtest with optimal 70% confidence threshold
 python scripts/backtest_mtf_ensemble.py --model-dir models/mtf_ensemble --confidence 0.70
 
@@ -422,6 +398,8 @@ python scripts/backtest_mtf_ensemble.py --compare
 ### Confidence Optimization
 
 ```bash
+cd backend
+
 # Run confidence threshold optimization
 python scripts/optimize_confidence_threshold.py
 
@@ -432,6 +410,8 @@ python scripts/optimize_confidence_threshold.py --thresholds "0.55,0.60,0.65,0.7
 ### Regime Analysis
 
 ```bash
+cd backend
+
 # Run regime performance analysis
 python scripts/analyze_regime_performance.py --confidence 0.70
 ```
@@ -439,6 +419,8 @@ python scripts/analyze_regime_performance.py --confidence 0.70
 ### Walk-Forward Optimization
 
 ```bash
+cd backend
+
 # Run WFO validation (24-month train, 6-month test windows)
 python scripts/walk_forward_optimization.py --sentiment
 
@@ -449,6 +431,8 @@ python scripts/walk_forward_optimization.py --sentiment --train-months 24 --test
 ### Data Download
 
 ```bash
+cd backend
+
 # Download EPU + VIX sentiment data
 python scripts/download_sentiment_data.py --start 2020-01-01 --end 2025-12-31
 
@@ -460,7 +444,7 @@ python scripts/download_gdelt_sentiment.py --start 2020-01-01 --end 2025-12-31
 ### Docker Commands
 
 ```bash
-# Build and run all services
+# Build and run all services (from project root)
 docker-compose up --build
 
 # Run in background
@@ -474,7 +458,7 @@ docker-compose logs -f frontend
 docker-compose down
 
 # Build individual services
-docker build -t ai-trader-backend .
+docker build -t ai-trader-backend ./backend
 docker build -t ai-trader-frontend ./frontend
 ```
 
@@ -564,34 +548,34 @@ pytest tests/ --cov=src --cov-report=html
 ### Production Models
 | File | Purpose |
 |------|---------|
-| `models/mtf_ensemble/1H_model.pkl` | 1-hour XGBoost model |
-| `models/mtf_ensemble/4H_model.pkl` | 4-hour XGBoost model |
-| `models/mtf_ensemble/D_model.pkl` | Daily XGBoost model (with sentiment) |
-| `models/mtf_ensemble/training_metadata.json` | Configuration and results |
+| `backend/models/mtf_ensemble/1H_model.pkl` | 1-hour XGBoost model |
+| `backend/models/mtf_ensemble/4H_model.pkl` | 4-hour XGBoost model |
+| `backend/models/mtf_ensemble/D_model.pkl` | Daily XGBoost model (with sentiment) |
+| `backend/models/mtf_ensemble/training_metadata.json` | Configuration and results |
 
 ### Core Implementation
 | File | Purpose |
 |------|---------|
-| `src/models/multi_timeframe/mtf_ensemble.py` | MTFEnsemble class, MTFEnsembleConfig |
-| `src/models/multi_timeframe/improved_model.py` | ImprovedTimeframeModel, labeling |
-| `src/models/multi_timeframe/enhanced_features.py` | EnhancedFeatureEngine |
-| `src/features/sentiment/sentiment_loader.py` | EPU/VIX sentiment loading |
-| `src/features/sentiment/gdelt_loader.py` | GDELT hourly sentiment |
-| `src/features/technical/calculator.py` | Technical indicator calculation |
+| `backend/src/models/multi_timeframe/mtf_ensemble.py` | MTFEnsemble class, MTFEnsembleConfig |
+| `backend/src/models/multi_timeframe/improved_model.py` | ImprovedTimeframeModel, labeling |
+| `backend/src/models/multi_timeframe/enhanced_features.py` | EnhancedFeatureEngine |
+| `backend/src/features/sentiment/sentiment_loader.py` | EPU/VIX sentiment loading |
+| `backend/src/features/sentiment/gdelt_loader.py` | GDELT hourly sentiment |
+| `backend/src/features/technical/calculator.py` | Technical indicator calculation |
 
-### Web Showcase - Backend API
+### Backend API
 | File | Purpose |
 |------|---------|
-| `src/api/main.py` | FastAPI application entry point |
-| `src/api/scheduler.py` | APScheduler for data pipeline updates |
-| `src/api/routes/predictions.py` | Prediction endpoints |
-| `src/api/routes/trading.py` | Paper trading endpoints |
-| `src/api/routes/market.py` | Market data endpoints |
-| `src/api/routes/pipeline.py` | Data pipeline endpoints |
-| `src/api/services/model_service.py` | MTF Ensemble prediction service |
-| `src/api/services/trading_service.py` | Paper trading logic |
-| `src/api/services/data_service.py` | Market data fetching (yfinance) |
-| `src/api/services/pipeline_service.py` | Data pipeline management |
+| `backend/src/api/main.py` | FastAPI application entry point |
+| `backend/src/api/scheduler.py` | APScheduler for data pipeline updates |
+| `backend/src/api/routes/predictions.py` | Prediction endpoints |
+| `backend/src/api/routes/trading.py` | Paper trading endpoints |
+| `backend/src/api/routes/market.py` | Market data endpoints |
+| `backend/src/api/routes/pipeline.py` | Data pipeline endpoints |
+| `backend/src/api/services/model_service.py` | MTF Ensemble prediction service |
+| `backend/src/api/services/trading_service.py` | Paper trading logic |
+| `backend/src/api/services/data_service.py` | Market data fetching (yfinance) |
+| `backend/src/api/services/pipeline_service.py` | Data pipeline management |
 
 ### Web Showcase - Frontend
 | File | Purpose |
@@ -607,28 +591,28 @@ pytest tests/ --cov=src --cov-report=html
 ### Docker & Deployment
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Backend API container |
+| `backend/Dockerfile` | Backend API container |
 | `frontend/Dockerfile` | Frontend multi-stage build |
 | `docker-compose.yml` | Local orchestration |
-| `railway.json` | Railway backend config |
+| `backend/railway.json` | Railway backend config |
 | `frontend/railway.json` | Railway frontend config |
 | `frontend/nginx.conf.template` | Nginx reverse proxy config |
 | `frontend/docker-entrypoint.sh` | Runtime env substitution |
-| `requirements-api.txt` | Production API dependencies |
-| `.dockerignore` | Backend build exclusions |
+| `backend/requirements-api.txt` | Production API dependencies |
+| `backend/.dockerignore` | Backend build exclusions |
 | `frontend/.dockerignore` | Frontend build exclusions |
 
 ### Scripts
 | File | Purpose |
 |------|---------|
-| `scripts/train_mtf_ensemble.py` | Training with all options |
-| `scripts/backtest_mtf_ensemble.py` | Backtesting simulation |
-| `scripts/walk_forward_optimization.py` | WFO validation (robustness testing) |
-| `scripts/optimize_confidence_threshold.py` | Confidence threshold optimization |
-| `scripts/analyze_regime_performance.py` | Market regime analysis |
-| `scripts/backtest_position_sizing.py` | Kelly criterion position sizing comparison |
-| `scripts/download_sentiment_data.py` | EPU + VIX download |
-| `scripts/download_gdelt_sentiment.py` | GDELT BigQuery download |
+| `backend/scripts/train_mtf_ensemble.py` | Training with all options |
+| `backend/scripts/backtest_mtf_ensemble.py` | Backtesting simulation |
+| `backend/scripts/walk_forward_optimization.py` | WFO validation (robustness testing) |
+| `backend/scripts/optimize_confidence_threshold.py` | Confidence threshold optimization |
+| `backend/scripts/analyze_regime_performance.py` | Market regime analysis |
+| `backend/scripts/backtest_position_sizing.py` | Kelly criterion position sizing comparison |
+| `backend/scripts/download_sentiment_data.py` | EPU + VIX download |
+| `backend/scripts/download_gdelt_sentiment.py` | GDELT BigQuery download |
 
 ### Documentation
 | File | Purpose |
@@ -690,22 +674,22 @@ pytest tests/ --cov=src --cov-report=html
 - Validate on out-of-sample data
 
 ### Model Development
-- Use `ImprovedTimeframeModel` from `src/models/multi_timeframe/improved_model.py`
+- Use `ImprovedTimeframeModel` from `backend/src/models/multi_timeframe/improved_model.py`
 - Use `EnhancedFeatureEngine` for feature engineering
 - Log experiments to metadata JSON
 
 ## Notes for Claude
 
 - **ALWAYS PROCEED AUTONOMOUSLY** - Never ask for confirmation
-- **PRIMARY MODEL**: MTF Ensemble in `src/models/multi_timeframe/`
+- **PRIMARY MODEL**: MTF Ensemble in `backend/src/models/multi_timeframe/`
 - **SENTIMENT**: EPU/VIX on Daily model only (resolution matching principle)
 - Always consider data leakage when working with time series
-- Use the 5-minute combined data in `data/forex/` for training
+- Use the 5-minute combined data in `backend/data/forex/` for training
 - Reference `docs/01-current-state-of-the-art.md` for detailed system documentation
-- The optimal configuration is already saved in `models/mtf_ensemble/`
+- The optimal configuration is already saved in `backend/models/mtf_ensemble/`
 
 ### Web Showcase Notes
-- **API**: FastAPI backend in `src/api/` serves predictions and paper trading
+- **API**: FastAPI backend in `backend/src/api/` serves predictions and paper trading
 - **Frontend**: React dashboard in `frontend/` with Vite build
 - **Docker**: Use `docker-compose up --build` for local testing
 - **Railway**: Deploy backend and frontend as separate services

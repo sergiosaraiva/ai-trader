@@ -1,0 +1,28 @@
+{
+  "training_date": "2026-01-11T08:17:16.576594",
+  "data_file": "data/forex/EURUSD_20200101_20251231_5min_combined.csv",
+  "data_bars": 448586,
+  "data_start": "2020-01-01 22:00:00",
+  "data_end": "2025-12-31 21:55:00",
+  "timeframe": "1H",
+  "train_ratio": 0.6,
+  "val_ratio": 0.2,
+  "xgboost_weight": 0.6,
+  "sequence_weight": 0.4,
+  "results": {
+    "xgboost_val_acc": 0.6756250835673219,
+    "sequence_val_acc": 0.568257788474395,
+    "ensemble_val_acc": 0.6504880331595133,
+    "ensemble_val_accuracy": 0.6504880331595133,
+    "ensemble_val_samples": 7479,
+    "ensemble_agreement_rate": 0.5921914694477871,
+    "ensemble_val_acc_conf_55": 0.6640454346876365,
+    "ensemble_val_samples_conf_55": 6867,
+    "ensemble_val_acc_conf_60": 0.6772030651340997,
+    "ensemble_val_samples_conf_60": 6264,
+    "ensemble_val_acc_conf_65": 0.6918482080112438,
+    "ensemble_val_samples_conf_65": 5692,
+    "ensemble_val_acc_conf_70": 0.702729236206558,
+    "ensemble_val_samples_conf_70": 5093
+  }
+}

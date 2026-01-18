@@ -115,14 +115,14 @@ For each task in implementation_plan (in order):
 1. **Select pattern** based on file path:
    | Path | Pattern |
    |------|---------|
-   | `src/api/routes/` | FastAPI Router |
-   | `src/api/services/` | Singleton service |
-   | `src/api/schemas/` | Pydantic schema |
-   | `src/api/database/` | SQLAlchemy model |
+   | `backend/src/api/routes/` | FastAPI Router |
+   | `backend/src/api/services/` | Singleton service |
+   | `backend/src/api/schemas/` | Pydantic schema |
+   | `backend/src/api/database/` | SQLAlchemy model |
    | `frontend/src/components/` | React component |
-   | `src/models/` | MTFEnsemble pattern |
-   | `src/features/technical/` | Indicator calculator |
-   | `scripts/` | CLI script |
+   | `backend/src/models/` | MTFEnsemble pattern |
+   | `backend/src/features/technical/` | Indicator calculator |
+   | `backend/scripts/` | CLI script |
 
 2. **Execute task**:
    - Create file → Write with proper structure
@@ -215,14 +215,14 @@ When router returns low confidence or no match:
 1. **Check fallback table** (static backup):
    | Path Pattern | Default Skill |
    |--------------|---------------|
-   | `src/api/routes/**` | `backend/creating-api-endpoints.md` |
-   | `src/api/services/**` | `backend/creating-python-services.md` |
-   | `src/api/schemas/**` | `backend/creating-pydantic-schemas.md` |
-   | `src/api/database/**` | `database/SKILL.md` |
+   | `backend/src/api/routes/**` | `backend/creating-api-endpoints.md` |
+   | `backend/src/api/services/**` | `backend/creating-python-services.md` |
+   | `backend/src/api/schemas/**` | `backend/creating-pydantic-schemas.md` |
+   | `backend/src/api/database/**` | `database/SKILL.md` |
    | `frontend/src/components/**` | `frontend/SKILL.md` |
    | `frontend/src/api/**` | `frontend/creating-api-clients.md` |
-   | `tests/**` | `testing/writing-pytest-tests.md` |
-   | `scripts/**` | `build-deployment/SKILL.md` |
+   | `backend/tests/**` | `testing/writing-pytest-tests.md` |
+   | `backend/scripts/**` | `build-deployment/SKILL.md` |
 
 2. **If no fallback matches**:
    - Search codebase for similar implementations using Grep

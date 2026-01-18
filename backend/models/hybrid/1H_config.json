@@ -1,0 +1,8 @@
+{
+  "name": "1H",
+  "base_timeframe": "1H",
+  "xgboost_weight": 0.6,
+  "sequence_weight": 0.4,
+  "ensemble_method": "confidence_weighted",
+  "min_confidence": 0.55
+}

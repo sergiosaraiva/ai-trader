@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: ai-trader-backend
     ports:
@@ -11,13 +11,13 @@ services:
     environment:
       - PORT=8001
       - PYTHONPATH=/app
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/trading.db}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/db/trading.db}
       - FRED_API_KEY=${FRED_API_KEY:-}
     volumes:
       # Mount data directory for persistence
-      - ./data:/app/data
+      - ./backend/data:/app/data
       # Mount models directory (read-only in production)
-      - ./models:/app/models:ro
+      - ./backend/models:/app/models:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8001/health', timeout=5)"]
       interval: 30s
@@ -39,14 +39,9 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
     restart: unless-stopped
-
-# Optional: Add volumes for data persistence
-volumes:
-  data:
-    driver: local

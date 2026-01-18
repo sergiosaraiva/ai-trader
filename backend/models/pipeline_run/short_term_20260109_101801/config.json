@@ -1,0 +1,61 @@
+{
+  "name": "short_term_pipeline",
+  "batch_size": 16,
+  "epochs": 10,
+  "gradient_clip": 1.0,
+  "accumulation_steps": 1,
+  "mixed_precision": false,
+  "seed": 42,
+  "num_workers": 0,
+  "pin_memory": true,
+  "optimizer": {
+    "optimizer_type": "adamw",
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "momentum": 0.9,
+    "eps": 1e-08
+  },
+  "scheduler": {
+    "scheduler_type": "cosine",
+    "step_size": 10,
+    "gamma": 0.1,
+    "T_max": 10,
+    "T_0": 10,
+    "T_mult": 2,
+    "eta_min": 1e-07,
+    "patience": 10,
+    "factor": 0.5,
+    "pct_start": 0.3,
+    "div_factor": 25.0,
+    "final_div_factor": 10000.0
+  },
+  "early_stopping": {
+    "enabled": true,
+    "patience": 10,
+    "min_delta": 0.0001,
+    "monitor": "val_loss",
+    "mode": "min",
+    "restore_best_weights": true,
+    "baseline": null,
+    "start_from_epoch": 0
+  },
+  "checkpoint": {
+    "enabled": true,
+    "save_dir": "checkpoints",
+    "save_best_only": true,
+    "save_freq": "epoch",
+    "monitor": "val_loss",
+    "mode": "min",
+    "max_to_keep": 3,
+    "save_weights_only": false
+  },
+  "device": "auto",
+  "verbose": 1,
+  "log_every_n_steps": 10,
+  "val_check_interval": 1.0,
+  "architecture_config": {}
+}

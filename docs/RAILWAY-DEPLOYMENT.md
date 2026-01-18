@@ -43,12 +43,12 @@ This guide explains how to deploy the AI Trader application to Railway cloud pla
 
 1. In your project, click "New" → "GitHub Repo"
 2. Select your AI Trader repository
-3. Railway will auto-detect the `Dockerfile` in the root
+3. Railway will auto-detect the `Dockerfile` in the backend folder
 4. Configure the service:
 
    **Service Settings:**
    - Name: `backend` (or `ai-trader-backend`)
-   - Root Directory: `/` (leave empty for root)
+   - Root Directory: `/backend`
 
    **Environment Variables:**
    ```

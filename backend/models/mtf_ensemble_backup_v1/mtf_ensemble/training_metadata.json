@@ -1,0 +1,79 @@
+{
+  "training_date": "2026-01-11T18:49:52.270828",
+  "data_file": "data/forex/EURUSD_20200101_20251231_5min_combined.csv",
+  "data_bars": 448586,
+  "data_start": "2020-01-01 22:00:00",
+  "data_end": "2025-12-31 21:55:00",
+  "train_ratio": 0.6,
+  "val_ratio": 0.2,
+  "timeframes": [
+    "1H",
+    "4H",
+    "D"
+  ],
+  "weights": {
+    "1H": 0.6,
+    "4H": 0.3,
+    "D": 0.1
+  },
+  "individual_results": {
+    "1H": {
+      "train_accuracy": 0.8592569410291948,
+      "val_accuracy": 0.670690811535882,
+      "train_samples": 22367,
+      "val_samples": 7455,
+      "val_acc_conf_55": 0.6955311581877223,
+      "val_samples_conf_55": 6467,
+      "val_acc_conf_60": 0.7214428857715431,
+      "val_samples_conf_60": 5489,
+      "val_acc_conf_65": 0.7472264520339352,
+      "val_samples_conf_65": 4597,
+      "val_acc_conf_70": 0.7855969331872946,
+      "val_samples_conf_70": 3652
+    },
+    "4H": {
+      "train_accuracy": 0.8695879888268156,
+      "val_accuracy": 0.6542692509167103,
+      "train_samples": 5728,
+      "val_samples": 1909,
+      "val_acc_conf_55": 0.6795881284070261,
+      "val_samples_conf_55": 1651,
+      "val_acc_conf_60": 0.7111735769501054,
+      "val_samples_conf_60": 1423,
+      "val_acc_conf_65": 0.7455166524338173,
+      "val_samples_conf_65": 1171,
+      "val_acc_conf_70": 0.7894168466522679,
+      "val_samples_conf_70": 926
+    },
+    "D": {
+      "train_accuracy": 0.8609271523178808,
+      "val_accuracy": 0.5909090909090909,
+      "train_samples": 1057,
+      "val_samples": 352,
+      "val_acc_conf_55": 0.6237623762376238,
+      "val_samples_conf_55": 303,
+      "val_acc_conf_60": 0.6626506024096386,
+      "val_samples_conf_60": 249,
+      "val_acc_conf_65": 0.6746411483253588,
+      "val_samples_conf_65": 209,
+      "val_acc_conf_70": 0.6923076923076923,
+      "val_samples_conf_70": 156
+    }
+  },
+  "ensemble_results": {
+    "test_samples": 353,
+    "accuracy": 0.6260623229461756,
+    "mean_confidence": 0.7625384990959599,
+    "mean_agreement": 0.7025495750708216,
+    "acc_conf_55": 0.6424050632911392,
+    "samples_conf_55": 316,
+    "acc_conf_60": 0.6753731343283582,
+    "samples_conf_60": 268,
+    "acc_conf_65": 0.7063829787234043,
+    "samples_conf_65": 235,
+    "acc_conf_70": 0.7046632124352331,
+    "samples_conf_70": 193,
+    "acc_full_agreement": 0.6693548387096774,
+    "samples_full_agreement": 124
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "timeframe": "1H",
+  "xgboost_weight": 0.5,
+  "sequence_weight": 0.5,
+  "xgboost_val_acc": 0.672968624296058,
+  "sequence_val_acc": 0.6595602038079914,
+  "ensemble_val_acc": 0.6859747921694824,
+  "agreement_rate": 0.7243228747653526
+}

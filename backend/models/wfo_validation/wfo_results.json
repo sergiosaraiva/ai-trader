@@ -1,0 +1,130 @@
+{
+  "timestamp": "2026-01-12T14:08:30.143599",
+  "config": {
+    "train_months": 24,
+    "test_months": 6,
+    "step_months": 6,
+    "min_confidence": 0.55,
+    "sentiment": true
+  },
+  "windows": [
+    {
+      "window_id": 1,
+      "train_period": "2020-01 to 2021-12",
+      "test_period": "2022-01 to 2022-06",
+      "total_trades": 533,
+      "win_rate": 57.223264540337716,
+      "total_pips": 3939.2499999997203,
+      "profit_factor": 2.2004052901022586,
+      "model_accuracies": {
+        "1H": 0.6616814874696847,
+        "4H": 0.6370967741935484,
+        "D": 0.5445544554455446
+      }
+    },
+    {
+      "window_id": 2,
+      "train_period": "2020-07 to 2022-06",
+      "test_period": "2022-07 to 2022-12",
+      "total_trades": 662,
+      "win_rate": 54.68277945619335,
+      "total_pips": 4357.599999999798,
+      "profit_factor": 1.9777418775802764,
+      "model_accuracies": {
+        "1H": 0.6176589712434184,
+        "4H": 0.5363489499192245,
+        "D": 0.42574257425742573
+      }
+    },
+    {
+      "window_id": 3,
+      "train_period": "2021-01 to 2022-12",
+      "test_period": "2023-01 to 2023-06",
+      "total_trades": 478,
+      "win_rate": 47.69874476987448,
+      "total_pips": 1454.9499999997524,
+      "profit_factor": 1.4104578666741037,
+      "model_accuracies": {
+        "1H": 0.6516990291262136,
+        "4H": 0.6870967741935484,
+        "D": 0.56
+      }
+    },
+    {
+      "window_id": 4,
+      "train_period": "2021-07 to 2023-06",
+      "test_period": "2023-07 to 2023-12",
+      "total_trades": 425,
+      "win_rate": 48.705882352941174,
+      "total_pips": 1634.8999999998168,
+      "profit_factor": 1.555956064882432,
+      "model_accuracies": {
+        "1H": 0.6798546628986677,
+        "4H": 0.7069243156199678,
+        "D": 0.6633663366336634
+      }
+    },
+    {
+      "window_id": 5,
+      "train_period": "2022-01 to 2023-12",
+      "test_period": "2024-01 to 2024-06",
+      "total_trades": 334,
+      "win_rate": 61.97604790419161,
+      "total_pips": 2432.2999999998474,
+      "profit_factor": 2.549383699079379,
+      "model_accuracies": {
+        "1H": 0.6585662211421628,
+        "4H": 0.6397415185783522,
+        "D": 0.71
+      }
+    },
+    {
+      "window_id": 6,
+      "train_period": "2022-07 to 2024-06",
+      "test_period": "2024-07 to 2024-12",
+      "total_trades": 380,
+      "win_rate": 56.57894736842105,
+      "total_pips": 2238.0999999998917,
+      "profit_factor": 2.075130902627582,
+      "model_accuracies": {
+        "1H": 0.6547667342799188,
+        "4H": 0.686084142394822,
+        "D": 0.64
+      }
+    },
+    {
+      "window_id": 7,
+      "train_period": "2023-01 to 2024-12",
+      "test_period": "2025-01 to 2025-06",
+      "total_trades": 568,
+      "win_rate": 47.7112676056338,
+      "total_pips": 2078.8999999997036,
+      "profit_factor": 1.477523831399938,
+      "model_accuracies": {
+        "1H": 0.6560097126669364,
+        "4H": 0.65,
+        "D": 0.7623762376237624
+      }
+    }
+  ],
+  "summary": {
+    "total_windows": 7,
+    "profitable_windows": 7,
+    "consistency_rate": 1.0,
+    "total_trades": 3380,
+    "overall_win_rate": 53.10650887573964,
+    "overall_profit_factor": Infinity,
+    "total_pips": 18135.99999999853,
+    "avg_pips_per_window": 2590.857142856933,
+    "pips_std": 1038.9115734502918,
+    "min_pips_window": 1454.9499999997524,
+    "max_pips_window": 4357.599999999798
+  },
+  "baseline_comparison": {
+    "baseline_total_pips": 7987.0,
+    "baseline_profit_factor": 2.22,
+    "baseline_win_rate": 57.8,
+    "pips_diff": 10148.99999999853,
+    "pf_diff": Infinity
+  }
+}

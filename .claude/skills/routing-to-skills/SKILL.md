@@ -67,21 +67,21 @@ Extracts layer, task type, and keywords from the input.
 
 | Path Pattern | Layer | Primary Skills |
 |-------------|-------|----------------|
-| `src/api/routes/**` | api-routes | creating-fastapi-endpoints |
-| `src/api/services/**` | api-services | creating-python-services |
-| `src/api/schemas/**` | api-schemas | creating-pydantic-schemas |
-| `src/api/database/**` | database | creating-sqlalchemy-models |
+| `backend/src/api/routes/**` | api-routes | creating-fastapi-endpoints |
+| `backend/src/api/services/**` | api-services | creating-python-services |
+| `backend/src/api/schemas/**` | api-schemas | creating-pydantic-schemas |
+| `backend/src/api/database/**` | database | creating-sqlalchemy-models |
 | `frontend/src/components/**` | frontend-components | creating-react-components |
 | `frontend/src/api/**` | frontend-api | creating-api-clients |
-| `src/models/**` | model | implementing-prediction-models |
-| `src/features/technical/**` | feature-engineering | creating-technical-indicators |
-| `src/data/sources/**` | data-sources | adding-data-sources |
-| `src/data/processors/**` | data-processors | creating-data-processors |
-| `src/trading/**` | trading | implementing-risk-management |
-| `src/simulation/**` | simulation | running-backtests |
-| `tests/**` or `*.test.*` | testing | writing-pytest-tests, writing-vitest-tests |
-| `scripts/**` | cli | creating-cli-scripts |
-| `configs/**` | config | configuring-indicator-yaml |
+| `backend/src/models/**` | model | implementing-prediction-models |
+| `backend/src/features/technical/**` | feature-engineering | creating-technical-indicators |
+| `backend/src/data/sources/**` | data-sources | adding-data-sources |
+| `backend/src/data/processors/**` | data-processors | creating-data-processors |
+| `backend/src/trading/**` | trading | implementing-risk-management |
+| `backend/src/simulation/**` | simulation | running-backtests |
+| `backend/tests/**` or `*.test.*` | testing | writing-pytest-tests, writing-vitest-tests |
+| `backend/scripts/**` | cli | creating-cli-scripts |
+| `backend/configs/**` | config | configuring-indicator-yaml |
 
 **Task Type Detection:**
 
@@ -549,11 +549,11 @@ Fallback triggered: No skill scores above 0.5 threshold
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-fastapi-endpoints` | `src/api/routes/**` | endpoint, route, FastAPI, APIRouter, GET, POST |
-| `creating-python-services` | `src/api/services/**` | service, singleton, cache, Lock, initialize |
-| `creating-pydantic-schemas` | `src/api/schemas/**` | schema, BaseModel, Field, response, request |
-| `implementing-prediction-models` | `src/models/**` | model, predict, train, ensemble, MTF |
-| `creating-data-processors` | `src/data/processors/**` | processor, transform, validate, clean |
+| `creating-fastapi-endpoints` | `backend/src/api/routes/**` | endpoint, route, FastAPI, APIRouter, GET, POST |
+| `creating-python-services` | `backend/src/api/services/**` | service, singleton, cache, Lock, initialize |
+| `creating-pydantic-schemas` | `backend/src/api/schemas/**` | schema, BaseModel, Field, response, request |
+| `implementing-prediction-models` | `backend/src/models/**` | model, predict, train, ensemble, MTF |
+| `creating-data-processors` | `backend/src/data/processors/**` | processor, transform, validate, clean |
 
 ### Frontend Layer
 
@@ -566,34 +566,34 @@ Fallback triggered: No skill scores above 0.5 threshold
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-sqlalchemy-models` | `src/api/database/**` | SQLAlchemy, Column, Table, Index, relationship |
+| `creating-sqlalchemy-models` | `backend/src/api/database/**` | SQLAlchemy, Column, Table, Index, relationship |
 
 ### Feature Engineering
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-technical-indicators` | `src/features/technical/**` | indicator, RSI, MACD, EMA, bollinger, ATR |
-| `configuring-indicator-yaml` | `configs/indicators/**` | config, yaml, priority, enabled |
+| `creating-technical-indicators` | `backend/src/features/technical/**` | indicator, RSI, MACD, EMA, bollinger, ATR |
+| `configuring-indicator-yaml` | `backend/configs/indicators/**` | config, yaml, priority, enabled |
 
 ### Data Layer
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `adding-data-sources` | `src/data/sources/**` | source, connector, fetch, provider |
+| `adding-data-sources` | `backend/src/data/sources/**` | source, connector, fetch, provider |
 
 ### Trading Domain
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `running-backtests` | `src/simulation/**` | backtest, simulate, walk-forward, WFO |
+| `running-backtests` | `backend/src/simulation/**` | backtest, simulate, walk-forward, WFO |
 | `analyzing-trading-performance` | - | sharpe, sortino, drawdown, metrics, performance |
-| `implementing-risk-management` | `src/trading/**` | risk, position, circuit, drawdown |
+| `implementing-risk-management` | `backend/src/trading/**` | risk, position, circuit, drawdown |
 
 ### Testing
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `writing-pytest-tests` | `tests/**` | pytest, TestClient, Mock, fixture, assert |
+| `writing-pytest-tests` | `backend/tests/**` | pytest, TestClient, Mock, fixture, assert |
 | `writing-vitest-tests` | `*.test.jsx`, `*.test.tsx` | vitest, render, screen, Testing Library |
 
 ### Quality & Testing
@@ -609,7 +609,7 @@ Fallback triggered: No skill scores above 0.5 threshold
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-cli-scripts` | `scripts/**` | argparse, CLI, command-line, main |
+| `creating-cli-scripts` | `backend/scripts/**` | argparse, CLI, command-line, main |
 
 ### Meta-Skills
 

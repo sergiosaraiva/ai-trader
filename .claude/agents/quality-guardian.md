@@ -169,12 +169,12 @@ Reference skills directly by file path:
 
 | Path Pattern | Skill for Review |
 |--------------|------------------|
-| `src/api/routes/**` | `backend/creating-api-endpoints.md` |
-| `src/api/services/**` | `backend/creating-python-services.md` |
-| `src/api/schemas/**` | `backend/creating-pydantic-schemas.md` |
+| `backend/src/api/routes/**` | `backend/creating-api-endpoints.md` |
+| `backend/src/api/services/**` | `backend/creating-python-services.md` |
+| `backend/src/api/schemas/**` | `backend/creating-pydantic-schemas.md` |
 | `frontend/src/components/**` | `frontend/SKILL.md` |
-| `src/features/**` | `quality-testing/validating-time-series-data.md` |
-| `src/trading/**` | `trading-domain/implementing-risk-management.md` |
+| `backend/src/features/**` | `quality-testing/validating-time-series-data.md` |
+| `backend/src/trading/**` | `trading-domain/implementing-risk-management.md` |
 
 See `.claude/skills/SKILL-INDEX.md` for complete list.
 

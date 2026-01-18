@@ -191,13 +191,13 @@ When router returns low confidence:
 
 | Path Pattern | Default Skill Reference |
 |--------------|-------------------------|
-| `src/api/routes/**` | `backend/creating-api-endpoints.md` |
-| `src/api/services/**` | `backend/creating-python-services.md` |
-| `src/api/schemas/**` | `backend/creating-pydantic-schemas.md` |
-| `src/api/database/**` | `database/SKILL.md` |
+| `backend/src/api/routes/**` | `backend/creating-api-endpoints.md` |
+| `backend/src/api/services/**` | `backend/creating-python-services.md` |
+| `backend/src/api/schemas/**` | `backend/creating-pydantic-schemas.md` |
+| `backend/src/api/database/**` | `database/SKILL.md` |
 | `frontend/src/components/**` | `frontend/SKILL.md` |
-| `tests/**` | `testing/writing-pytest-tests.md` |
-| `scripts/**` | `build-deployment/SKILL.md` |
+| `backend/tests/**` | `testing/writing-pytest-tests.md` |
+| `backend/scripts/**` | `build-deployment/SKILL.md` |
 
 ### Skills Available for Design Reference
 

@@ -1,0 +1,16 @@
+{
+  "input_dim": 42,
+  "sequence_length": 50,
+  "output_dim": 1,
+  "hidden_dim": 64,
+  "num_layers": 2,
+  "dropout": 0.3,
+  "use_batch_norm": true,
+  "activation": "relu",
+  "output_type": "regression",
+  "num_classes": 3,
+  "prediction_horizons": [
+    1
+  ],
+  "architecture_name": "cnn_lstm_attention"
+}

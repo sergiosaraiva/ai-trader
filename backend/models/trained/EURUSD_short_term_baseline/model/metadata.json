@@ -1,0 +1,39 @@
+{
+  "name": "short_term",
+  "version": "1.0.0",
+  "config": {
+    "name": "short_term",
+    "version": "1.0.0",
+    "sequence_length": 168,
+    "prediction_horizon": [
+      1,
+      4,
+      12,
+      24
+    ],
+    "cnn_filters": [
+      64,
+      128,
+      256
+    ],
+    "cnn_kernel_sizes": [
+      3,
+      5,
+      7
+    ],
+    "cnn_dropout": 0.2,
+    "lstm_hidden_size": 256,
+    "lstm_num_layers": 2,
+    "lstm_dropout": 0.3,
+    "lstm_bidirectional": true,
+    "attention_heads": 8,
+    "attention_dim": 256,
+    "batch_size": 64,
+    "learning_rate": 0.0001,
+    "epochs": 5,
+    "early_stopping_patience": 15
+  },
+  "feature_names": [],
+  "is_trained": true,
+  "saved_at": "2026-01-11T21:51:15.372016"
+}

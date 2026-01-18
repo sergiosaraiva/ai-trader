@@ -1,0 +1,16 @@
+{
+  "input_dim": 54,
+  "sequence_length": 42,
+  "output_dim": 1,
+  "hidden_dim": 24,
+  "num_layers": 1,
+  "dropout": 0.3,
+  "use_batch_norm": true,
+  "activation": "relu",
+  "output_type": "regression",
+  "num_classes": 3,
+  "prediction_horizons": [
+    1
+  ],
+  "architecture_name": "temporal_fusion_transformer"
+}

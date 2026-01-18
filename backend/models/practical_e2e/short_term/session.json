@@ -1,0 +1,237 @@
+{
+  "current_epoch": 11,
+  "total_epochs": 15,
+  "best_epoch": 6,
+  "best_val_loss": 0.40724236782782713,
+  "best_val_metric": 0.40724236782782713,
+  "monitor_metric": "val_loss",
+  "epochs_without_improvement": 5,
+  "global_step": 0,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 2.722038431601091,
+      "val_loss": 0.7009736270201011,
+      "train_metrics": {
+        "price": 0.2536099523305893,
+        "direction": 1.0543454744599081,
+        "confidence": 1.4140829952603036,
+        "total": 2.722038431601091
+      },
+      "val_metrics": {
+        "price": 0.13020098319307702,
+        "direction": 0.8115386682781366,
+        "confidence": -0.24076603239025574,
+        "total": 0.7009736270201011
+      },
+      "learning_rate": 0.001,
+      "duration_seconds": 3.8655786514282227,
+      "timestamp": "2026-01-09T15:43:05.554805"
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.8268490536646409,
+      "val_loss": 0.43291860656008696,
+      "train_metrics": {
+        "price": 0.17001490118828685,
+        "direction": 0.9264210256663236,
+        "confidence": -0.2695868706838651,
+        "total": 0.8268490536646409
+      },
+      "val_metrics": {
+        "price": 0.13057588932455563,
+        "direction": 0.8080032767493868,
+        "confidence": -0.5056605637073517,
+        "total": 0.43291860656008696
+      },
+      "learning_rate": 0.0009890748929868663,
+      "duration_seconds": 3.516170024871826,
+      "timestamp": "2026-01-09T15:43:09.124457"
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.6141585810617967,
+      "val_loss": 0.41341291555290016,
+      "train_metrics": {
+        "price": 0.14732731892303988,
+        "direction": 0.868134774944999,
+        "confidence": -0.401303509961475,
+        "total": 0.6141585810617967
+      },
+      "val_metrics": {
+        "price": 0.12631752586267034,
+        "direction": 0.8076356743854252,
+        "confidence": -0.5205402770003335,
+        "total": 0.41341291555290016
+      },
+      "learning_rate": 0.0009567770515484182,
+      "duration_seconds": 3.6234562397003174,
+      "timestamp": "2026-01-09T15:43:12.810585"
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.6072770286690105,
+      "val_loss": 0.4155032836674341,
+      "train_metrics": {
+        "price": 0.13954923450946807,
+        "direction": 0.8692546302622015,
+        "confidence": -0.40152683664451944,
+        "total": 0.6072770286690105
+      },
+      "val_metrics": {
+        "price": 0.12268074785099654,
+        "direction": 0.8086691329388019,
+        "confidence": -0.5158465994837506,
+        "total": 0.4155032836674341
+      },
+      "learning_rate": 0.0009045180463377549,
+      "duration_seconds": 3.6463987827301025,
+      "timestamp": "2026-01-09T15:43:16.518789"
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.5652124253186313,
+      "val_loss": 0.4119978654580038,
+      "train_metrics": {
+        "price": 0.1362949315797199,
+        "direction": 0.8475569746711037,
+        "confidence": -0.41863948106765747,
+        "total": 0.5652124253186313
+      },
+      "val_metrics": {
+        "price": 0.12656351761088344,
+        "direction": 0.8069124469340173,
+        "confidence": -0.5214780922470197,
+        "total": 0.4119978654580038
+      },
+      "learning_rate": 0.0008345818466491111,
+      "duration_seconds": 3.8232951164245605,
+      "timestamp": "2026-01-09T15:43:20.342579"
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.5456261011687192,
+      "val_loss": 0.40724236782782713,
+      "train_metrics": {
+        "price": 0.1346799219196493,
+        "direction": 0.8385217124765569,
+        "confidence": -0.42757553092458034,
+        "total": 0.5456261011687192
+      },
+      "val_metrics": {
+        "price": 0.12187150495299875,
+        "direction": 0.8070553264331296,
+        "confidence": -0.5216844666525314,
+        "total": 0.40724236782782713
+      },
+      "learning_rate": 0.000750025,
+      "duration_seconds": 4.400696516036987,
+      "timestamp": "2026-01-09T15:43:24.907292"
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.5503691245209087,
+      "val_loss": 0.42516569687369093,
+      "train_metrics": {
+        "price": 0.1366641330448064,
+        "direction": 0.8437092369252985,
+        "confidence": -0.43000425073233517,
+        "total": 0.5503691245209087
+      },
+      "val_metrics": {
+        "price": 0.12395859872057138,
+        "direction": 0.823247861992466,
+        "confidence": -0.5220407600936994,
+        "total": 0.42516569687369093
+      },
+      "learning_rate": 0.000654543046337755,
+      "duration_seconds": 5.885339975357056,
+      "timestamp": "2026-01-09T15:43:30.894139"
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.5508410383354534,
+      "val_loss": 0.42731138330991153,
+      "train_metrics": {
+        "price": 0.1342500161040913,
+        "direction": 0.8349026268178766,
+        "confidence": -0.41831160573796794,
+        "total": 0.5508410383354534
+      },
+      "val_metrics": {
+        "price": 0.1270412651241803,
+        "direction": 0.8116937110332844,
+        "confidence": -0.511423590567594,
+        "total": 0.42731138330991153
+      },
+      "learning_rate": 0.0005523090052106633,
+      "duration_seconds": 3.5046839714050293,
+      "timestamp": "2026-01-09T15:43:34.399276"
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.5412081897258758,
+      "val_loss": 0.4349158018664584,
+      "train_metrics": {
+        "price": 0.13324790827252647,
+        "direction": 0.8328966671770269,
+        "confidence": -0.42493638477542184,
+        "total": 0.5412081897258758
+      },
+      "val_metrics": {
+        "price": 0.1255869270999575,
+        "direction": 0.8117076060811027,
+        "confidence": -0.5023787234975992,
+        "total": 0.4349158018664584
+      },
+      "learning_rate": 0.0004477909947893368,
+      "duration_seconds": 3.596467971801758,
+      "timestamp": "2026-01-09T15:43:37.996290"
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.5467383796518499,
+      "val_loss": 0.42943768748820155,
+      "train_metrics": {
+        "price": 0.13410225388678637,
+        "direction": 0.8283694093877619,
+        "confidence": -0.4157332795587453,
+        "total": 0.5467383796518499
+      },
+      "val_metrics": {
+        "price": 0.12913319806420737,
+        "direction": 0.813877929429539,
+        "confidence": -0.5135734429776343,
+        "total": 0.42943768748820155
+      },
+      "learning_rate": 0.0003455569536622451,
+      "duration_seconds": 6.124894618988037,
+      "timestamp": "2026-01-09T15:43:44.121736"
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.5303571619770744,
+      "val_loss": 0.42209385718152825,
+      "train_metrics": {
+        "price": 0.13074973699721423,
+        "direction": 0.8311531673778187,
+        "confidence": -0.43154573609883135,
+        "total": 0.5303571619770744
+      },
+      "val_metrics": {
+        "price": 0.12508237826042487,
+        "direction": 0.8100131779420571,
+        "confidence": -0.5130017087107799,
+        "total": 0.42209385718152825
+      },
+      "learning_rate": 0.0002500750000000001,
+      "duration_seconds": 8.006482124328613,
+      "timestamp": "2026-01-09T15:43:52.128992"
+    }
+  ],
+  "status": "stopped_early",
+  "stop_reason": "Early stopped after 5 epochs without improvement. Best epoch: 6",
+  "started_at": "2026-01-09T15:43:01.687799",
+  "ended_at": "2026-01-09T15:43:52.129531",
+  "total_duration_seconds": 50.441732
+}
