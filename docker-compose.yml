@@ -13,6 +13,9 @@ services:
       - PYTHONPATH=/app
       - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/db/trading.db}
       - FRED_API_KEY=${FRED_API_KEY:-}
+      # Scheduler mode: "true" for always-on, "false" for Railway cron
+      - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-true}
+      - CRON_API_KEY=${CRON_API_KEY:-}
     volumes:
       # Mount data directory for persistence
       - ./backend/data:/app/data

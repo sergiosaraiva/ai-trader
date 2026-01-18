@@ -1,13 +1,14 @@
 """FastAPI application entry point."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import predictions, trading, health, market, pipeline
+from .routes import predictions, trading, health, market, pipeline, cron
 from .database.session import init_db
 from .services.data_service import data_service
 from .services.model_service import model_service
@@ -77,17 +78,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         log_exception(logger, "Trading service initialization failed with unexpected error", e)
 
-    # Start scheduler
-    logger.info("Starting scheduler...")
-    try:
-        from .scheduler import start_scheduler
-        start_scheduler()
-    except ImportError as e:
-        log_exception(logger, "Scheduler start failed: missing APScheduler", e)
-    except RuntimeError as e:
-        log_exception(logger, "Scheduler start failed: scheduler already running", e)
-    except Exception as e:
-        log_exception(logger, "Scheduler start failed with unexpected error", e)
+    # Start scheduler (optional - can be disabled for serverless/cron deployments)
+    scheduler_enabled = os.getenv("SCHEDULER_ENABLED", "true").lower() in ("true", "1", "yes")
+
+    if scheduler_enabled:
+        logger.info("Starting scheduler (SCHEDULER_ENABLED=true)...")
+        try:
+            from .scheduler import start_scheduler
+            start_scheduler()
+            logger.info("Scheduler started - running in ALWAYS-ON mode")
+        except ImportError as e:
+            log_exception(logger, "Scheduler start failed: missing APScheduler", e)
+        except RuntimeError as e:
+            log_exception(logger, "Scheduler start failed: scheduler already running", e)
+        except Exception as e:
+            log_exception(logger, "Scheduler start failed with unexpected error", e)
+    else:
+        logger.info("Scheduler disabled (SCHEDULER_ENABLED=false) - running in CRON mode")
+        logger.info("Use POST /api/v1/cron/tick to trigger updates via external cron")
 
     logger.info("AI-Trader API started successfully!")
 
@@ -146,6 +154,7 @@ def create_app() -> FastAPI:
     app.include_router(trading.router, prefix="/api/v1", tags=["Trading"])
     app.include_router(market.router, prefix="/api/v1", tags=["Market"])
     app.include_router(pipeline.router, prefix="/api/v1", tags=["Pipeline"])
+    app.include_router(cron.router, prefix="/api/v1", tags=["Cron"])
 
     return app
 

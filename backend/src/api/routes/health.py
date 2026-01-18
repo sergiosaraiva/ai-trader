@@ -1,5 +1,6 @@
 """Health check endpoints."""
 
+import os
 from datetime import datetime
 from typing import Dict, Any
 
@@ -10,6 +11,12 @@ from ..services.data_service import data_service
 from ..services.trading_service import trading_service
 
 router = APIRouter()
+
+
+def get_operating_mode() -> str:
+    """Get current operating mode (scheduler or cron)."""
+    scheduler_enabled = os.getenv("SCHEDULER_ENABLED", "true").lower() in ("true", "1", "yes")
+    return "scheduler" if scheduler_enabled else "cron"
 
 
 @router.get("/health")
@@ -63,6 +70,7 @@ async def detailed_health() -> Dict[str, Any]:
         "status": "healthy" if all_up else "degraded",
         "timestamp": datetime.now().isoformat(),
         "version": "1.0.0",
+        "mode": get_operating_mode(),
         "components": {
             "api": {"status": "up"},
             "models": {"status": model_status},
