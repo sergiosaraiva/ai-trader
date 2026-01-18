@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { RefreshCw, Activity, Clock, Brain } from 'lucide-react';
+import { RefreshCw, Activity, Clock, Brain, Mail, Github } from 'lucide-react';
 
 import { api } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
@@ -245,7 +245,8 @@ export function Dashboard() {
       {/* Footer */}
       <footer className="bg-gray-800 border-t border-gray-700 mt-8">
         <div className="max-w-[1600px] mx-auto px-4 py-4">
-          <div className="flex justify-between items-center text-sm text-gray-500">
+          {/* Stats Row */}
+          <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
             <span>AI Trader • Multi-Timeframe AI Ensemble</span>
             <div className="flex items-center gap-4">
               <span className="text-green-400">
@@ -256,6 +257,36 @@ export function Dashboard() {
               </span>
               <span className="text-yellow-400">WFO Validated</span>
             </div>
+          </div>
+
+          {/* Contact Row */}
+          <div className="border-t border-gray-700 pt-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-sm">
+              <div className="text-gray-400">
+                Created by <span className="text-gray-200 font-medium">Sergio Saraiva</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <a
+                  href="mailto:sergio.saraiva@gmail.com"
+                  className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors"
+                >
+                  <Mail size={16} />
+                  <span>sergio.saraiva@gmail.com</span>
+                </a>
+                <a
+                  href="https://github.com/sergiosaraiva/ai-trader"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors"
+                >
+                  <Github size={16} />
+                  <span>GitHub</span>
+                </a>
+              </div>
+            </div>
+            <p className="text-center text-xs text-gray-500 mt-3">
+              Feel free to contact me with any questions or clarifications about this project.
+            </p>
           </div>
         </div>
       </footer>
