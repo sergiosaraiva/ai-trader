@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { RefreshCw, Activity, Clock, Brain, Mail, Github } from 'lucide-react';
+import { RefreshCw, Clock, Brain, Mail } from 'lucide-react';
 
 import { api } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
@@ -261,32 +261,19 @@ export function Dashboard() {
 
           {/* Contact Row */}
           <div className="border-t border-gray-700 pt-4">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-sm">
-              <div className="text-gray-400">
-                Created by <span className="text-gray-200 font-medium">Sergio Saraiva</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <a
-                  href="mailto:sergio.saraiva@gmail.com"
-                  className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors"
-                >
-                  <Mail size={16} />
-                  <span>sergio.saraiva@gmail.com</span>
-                </a>
-                <a
-                  href="https://github.com/sergiosaraiva/ai-trader"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors"
-                >
-                  <Github size={16} />
-                  <span>GitHub</span>
-                </a>
-              </div>
+            <div className="flex flex-wrap justify-center items-center gap-x-2 gap-y-1 text-sm text-gray-400">
+              <span>Created by <span className="text-gray-200 font-medium">Sergio Saraiva</span></span>
+              <span className="text-gray-600">•</span>
+              <a
+                href="mailto:sergio.saraiva@gmail.com"
+                className="flex items-center gap-1.5 hover:text-blue-400 transition-colors"
+              >
+                <Mail size={14} />
+                <span>sergio.saraiva@gmail.com</span>
+              </a>
+              <span className="text-gray-600">•</span>
+              <span>Questions or feedback? I'd love to hear from you!</span>
             </div>
-            <p className="text-center text-xs text-gray-500 mt-3">
-              Feel free to contact me with any questions or clarifications about this project.
-            </p>
           </div>
         </div>
       </footer>
