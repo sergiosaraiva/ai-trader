@@ -232,21 +232,24 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
       </div>
 
       {/* Prediction indicator */}
-      {prediction && (
-        <div className="mt-4 pt-4 border-t border-gray-700 flex items-center justify-between">
-          <span className="text-sm text-gray-400">Agent Signal:</span>
-          <span className={`text-sm font-medium ${
-            prediction.signal === 'BUY' || prediction.signal === 1
-              ? 'text-green-400'
-              : prediction.signal === 'SELL' || prediction.signal === -1
-                ? 'text-red-400'
-                : 'text-gray-400'
-          }`}>
-            {prediction.signal === 1 ? 'BUY' : prediction.signal === -1 ? 'SELL' : prediction.signal || 'HOLD'}
-            {prediction.confidence && ` (${(prediction.confidence * 100).toFixed(0)}%)`}
-          </span>
-        </div>
-      )}
+      {prediction && (() => {
+        // Normalize signal: API returns "long"/"short" in direction field
+        const sig = prediction.signal || prediction.direction;
+        const isBuy = sig === 'BUY' || sig === 'long' || sig === 1;
+        const isSell = sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0;
+        const signalText = isBuy ? 'BUY' : isSell ? 'SELL' : 'HOLD';
+        const signalColor = isBuy ? 'text-green-400' : isSell ? 'text-red-400' : 'text-gray-400';
+
+        return (
+          <div className="mt-4 pt-4 border-t border-gray-700 flex items-center justify-between">
+            <span className="text-sm text-gray-400">Agent Signal:</span>
+            <span className={`text-sm font-medium ${signalColor}`}>
+              {signalText}
+              {prediction.confidence && ` (${(prediction.confidence * 100).toFixed(0)}%)`}
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
