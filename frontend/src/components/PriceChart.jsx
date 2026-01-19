@@ -237,16 +237,30 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
         const sig = prediction.signal || prediction.direction;
         const isBuy = sig === 'BUY' || sig === 'long' || sig === 1;
         const isSell = sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0;
-        const signalText = isBuy ? 'BUY' : isSell ? 'SELL' : 'HOLD';
-        const signalColor = isBuy ? 'text-green-400' : isSell ? 'text-red-400' : 'text-gray-400';
+
+        // HOLD when confidence is below 70% threshold (should_trade = false)
+        const isHold = prediction.should_trade === false;
+        const recommendation = isHold ? 'HOLD' : (isBuy ? 'BUY' : 'SELL');
+
+        const signalColor = isHold ? 'text-yellow-400' : isBuy ? 'text-green-400' : 'text-red-400';
+
+        // Generate short explanation
+        const confidencePct = ((prediction.confidence || 0) * 100).toFixed(0);
+        const reason = isHold
+          ? `Confidence ${confidencePct}% below 70% threshold`
+          : isBuy
+            ? `Bullish with ${confidencePct}% confidence`
+            : `Bearish with ${confidencePct}% confidence`;
 
         return (
-          <div className="mt-4 pt-4 border-t border-gray-700 flex items-center justify-between">
-            <span className="text-sm text-gray-400">Agent Signal:</span>
-            <span className={`text-sm font-medium ${signalColor}`}>
-              {signalText}
-              {prediction.confidence && ` (${(prediction.confidence * 100).toFixed(0)}%)`}
-            </span>
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-400">Agent Signal:</span>
+              <span className={`text-sm font-medium ${signalColor}`}>
+                {recommendation}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{reason}</p>
           </div>
         );
       })()}

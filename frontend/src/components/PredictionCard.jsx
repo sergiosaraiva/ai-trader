@@ -52,7 +52,33 @@ export function PredictionCard({ prediction, loading, error }) {
   } = prediction;
 
   // Normalize signal: API returns "long"/"short" in direction field
-  const normalizedSignal = signal || direction;
+  const rawSignal = signal || direction;
+
+  // Determine if this is a BUY or SELL based on raw signal
+  const isBuySignal = rawSignal === 'BUY' || rawSignal === 'long' || rawSignal === 1;
+  const isSellSignal = rawSignal === 'SELL' || rawSignal === 'short' || rawSignal === -1 || rawSignal === 0;
+
+  // HOLD when confidence is below 70% threshold (should_trade = false)
+  const isHold = should_trade === false;
+
+  // Final recommendation considering should_trade
+  const recommendation = isHold ? 'HOLD' : (isBuySignal ? 'BUY' : 'SELL');
+
+  // Generate explanation for the recommendation
+  const getRecommendationReason = () => {
+    const confidencePct = ((confidence || 0) * 100).toFixed(0);
+    const underlyingSignal = isBuySignal ? 'bullish' : 'bearish';
+
+    if (isHold) {
+      return `Model shows ${underlyingSignal} bias but confidence (${confidencePct}%) is below 70% threshold. Wait for stronger signal.`;
+    }
+
+    if (isBuySignal) {
+      return `Model predicts upward movement with ${confidencePct}% confidence. Consider long position.`;
+    }
+
+    return `Model predicts downward movement with ${confidencePct}% confidence. Consider short position.`;
+  };
 
   // Get primary timeframe (highest weight) - defaults to 1H
   const getPrimaryTimeframe = () => {
@@ -64,19 +90,22 @@ export function PredictionCard({ prediction, loading, error }) {
   };
   const primaryTimeframe = getPrimaryTimeframe();
 
-  const getSignalColor = (sig) => {
+  const getSignalColor = (sig, forceHold = false) => {
+    if (forceHold || sig === 'HOLD') return 'text-yellow-400';
     if (sig === 'BUY' || sig === 'long' || sig === 1) return 'text-green-400';
     if (sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0) return 'text-red-400';
     return 'text-gray-400';
   };
 
-  const getSignalIcon = (sig) => {
+  const getSignalIcon = (sig, forceHold = false) => {
+    if (forceHold || sig === 'HOLD') return <Minus size={32} />;
     if (sig === 'BUY' || sig === 'long' || sig === 1) return <TrendingUp size={32} />;
     if (sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0) return <TrendingDown size={32} />;
     return <Minus size={32} />;
   };
 
   const getSignalText = (sig) => {
+    if (sig === 'HOLD') return 'HOLD';
     if (sig === 'BUY' || sig === 'long' || sig === 1) return 'BUY';
     if (sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0) return 'SELL';
     return 'HOLD';
@@ -111,18 +140,26 @@ export function PredictionCard({ prediction, loading, error }) {
       </div>
 
       {/* Main Signal */}
-      <div className="flex items-center justify-center gap-4 py-6" role="status" aria-live="polite">
-        <div className={`${getSignalColor(normalizedSignal)}`} aria-hidden="true">
-          {getSignalIcon(normalizedSignal)}
+      <div className="flex items-center justify-center gap-4 py-4" role="status" aria-live="polite">
+        <div className={`${getSignalColor(recommendation, isHold)}`} aria-hidden="true">
+          {getSignalIcon(recommendation, isHold)}
         </div>
         <div className="text-center">
-          <span className={`text-4xl font-bold ${getSignalColor(normalizedSignal)}`} aria-label={`Signal: ${getSignalText(normalizedSignal)}`}>
-            {getSignalText(normalizedSignal)}
+          <span className={`text-4xl font-bold ${getSignalColor(recommendation, isHold)}`} aria-label={`Signal: ${recommendation}`}>
+            {recommendation}
           </span>
           <p className="text-gray-500 text-sm mt-1">
             @ {formatPrice(displayPrice, prediction?.asset_metadata)}
           </p>
         </div>
+      </div>
+
+      {/* Recommendation Explanation */}
+      <div className="bg-gray-700/30 rounded-lg p-3 mb-2">
+        <p className="text-sm text-gray-400 leading-relaxed">
+          <span className={`font-medium ${getSignalColor(recommendation, isHold)}`}>{recommendation}:</span>{' '}
+          {getRecommendationReason()}
+        </p>
       </div>
 
       {/* Confidence Bar */}
