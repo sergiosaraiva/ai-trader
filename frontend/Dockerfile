@@ -47,9 +47,8 @@ EXPOSE 80
 # Example: https://ai-trader-backend-production.up.railway.app
 ENV BACKEND_URL=http://backend:8001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost/health || exit 1
+# No Docker HEALTHCHECK - Railway handles this externally
+# The Railway healthcheck in railway.json checks /health on the public port
 
 # Run entrypoint script
 ENTRYPOINT ["/docker-entrypoint.sh"]

@@ -1,11 +1,13 @@
 #!/bin/sh
 set -e
 
-# Debug: Print all environment variables related to backend
-echo "=== Environment Debug ==="
-echo "BACKEND_URL from env: ${BACKEND_URL}"
-env | grep -i backend || true
-echo "========================="
+echo "========================================"
+echo "=== Frontend Container Starting ==="
+echo "========================================"
+echo "Date: $(date)"
+echo "PORT from Railway: ${PORT:-not set}"
+echo "BACKEND_URL from Railway: ${BACKEND_URL:-not set}"
+echo ""
 
 # Default values if not set
 BACKEND_URL=${BACKEND_URL:-http://backend:8001}
@@ -18,15 +20,21 @@ export PORT
 # Substitute environment variables in nginx config
 envsubst '${BACKEND_URL} ${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
-# Log configuration for debugging
+# Log configuration
 echo "Starting nginx with:"
 echo "  - BACKEND_URL: ${BACKEND_URL}"
 echo "  - PORT: ${PORT}"
+echo ""
 
-# Debug: Show the actual nginx config proxy_pass line
-echo "=== Nginx proxy_pass config ==="
-grep -i proxy_pass /etc/nginx/conf.d/default.conf || echo "No proxy_pass found"
+# Show nginx config
+echo "=== Generated nginx config ==="
+cat /etc/nginx/conf.d/default.conf
 echo "==============================="
+echo ""
 
-# Start nginx
+# Test nginx config
+echo "Testing nginx configuration..."
+nginx -t
+
+echo "Starting nginx..."
 exec nginx -g 'daemon off;'
