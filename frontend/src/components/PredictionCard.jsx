@@ -47,11 +47,22 @@ export function PredictionCard({ prediction, loading, error }) {
     timeframe_signals,
     component_directions,
     component_confidences,
+    component_weights,
     should_trade,
   } = prediction;
 
   // Normalize signal: API returns "long"/"short" in direction field
   const normalizedSignal = signal || direction;
+
+  // Get primary timeframe (highest weight) - defaults to 1H
+  const getPrimaryTimeframe = () => {
+    if (!component_weights) return '1H';
+    const entries = Object.entries(component_weights);
+    if (entries.length === 0) return '1H';
+    const [timeframe] = entries.reduce((max, curr) => curr[1] > max[1] ? curr : max);
+    return timeframe;
+  };
+  const primaryTimeframe = getPrimaryTimeframe();
 
   const getSignalColor = (sig) => {
     if (sig === 'BUY' || sig === 'long' || sig === 1) return 'text-green-400';
@@ -90,7 +101,7 @@ export function PredictionCard({ prediction, loading, error }) {
     <div className="bg-gray-800 rounded-lg p-6 card-hover">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-300">Current Prediction</h2>
+          <h2 className="text-lg font-semibold text-gray-300">Current Prediction <span className="text-blue-400 font-normal">({primaryTimeframe})</span></h2>
           <p className="text-sm text-gray-500">{getAssetTypeLabel(prediction?.asset_metadata)} • {getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
         </div>
         <div className="flex items-center gap-1 text-gray-500 text-sm">
