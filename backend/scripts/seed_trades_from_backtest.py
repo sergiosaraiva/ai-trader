@@ -205,8 +205,8 @@ def seed_database(trades: list[dict], clear_existing: bool = False):
         session.close()
 
 
-def check_existing_trades() -> int:
-    """Check how many trades exist in the database."""
+def check_existing_closed_trades() -> int:
+    """Check how many CLOSED trades exist in the database."""
     if not DB_PATH.exists():
         return 0
 
@@ -217,7 +217,8 @@ def check_existing_trades() -> int:
     session = Session()
 
     try:
-        count = session.query(Trade).count()
+        # Only count closed trades - open trades from live trading don't count
+        count = session.query(Trade).filter(Trade.status == "closed").count()
         return count
     finally:
         session.close()
@@ -230,10 +231,10 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force seeding even if trades exist")
     args = parser.parse_args()
 
-    # Check if trades already exist
-    existing = check_existing_trades()
+    # Check if closed trades already exist (open trades from live trading don't count)
+    existing = check_existing_closed_trades()
     if existing > 0 and not args.clear and not args.force:
-        logger.info(f"Database already has {existing} trades. Use --clear or --force to reseed.")
+        logger.info(f"Database already has {existing} closed trades. Use --clear or --force to reseed.")
         sys.exit(0)
 
     logger.info("=" * 60)
