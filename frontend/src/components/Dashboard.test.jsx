@@ -77,7 +77,7 @@ describe('Dashboard', () => {
     it('renders dashboard layout', () => {
       render(<Dashboard />);
 
-      expect(screen.getByText('AI Trader')).toBeInTheDocument();
+      expect(screen.getByText('AI Assets Trader')).toBeInTheDocument();
       expect(screen.getByTestId('prediction-card')).toBeInTheDocument();
       expect(screen.getByTestId('account-status')).toBeInTheDocument();
       expect(screen.getByTestId('about-section')).toBeInTheDocument();

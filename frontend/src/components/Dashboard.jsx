@@ -170,7 +170,7 @@ export function Dashboard() {
             <div className="flex items-center gap-3">
               <Brain size={24} className="text-blue-400" />
               <div>
-                <h1 className="text-xl font-bold">AI Trader</h1>
+                <h1 className="text-xl font-bold">AI Assets Trader</h1>
                 <p className="text-xs text-gray-500">
                   {getAssetTypeLabel(assetMetadata)} • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
                 </p>
@@ -316,7 +316,7 @@ export function Dashboard() {
         <div className="max-w-[1600px] mx-auto px-4 py-4">
           {/* Stats Row */}
           <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-            <span>AI Agent Trader • Multi-Timeframe Analysis</span>
+            <span>AI Assets Trader • Multi-Timeframe Analysis</span>
             <div className="flex items-center gap-4">
               <span className="text-green-400">
                 {performance?.win_rate ? `${(performance.win_rate * 100).toFixed(0)}%` : '62%'} Win Rate
