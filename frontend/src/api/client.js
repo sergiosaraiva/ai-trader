@@ -2,7 +2,8 @@
  * API Client for AI Trader Backend
  */
 
-const API_BASE = '/api/v1';
+// Use environment variable if set, otherwise use relative URL (for nginx proxy)
+const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
 class APIError extends Error {
   constructor(message, status, data) {
