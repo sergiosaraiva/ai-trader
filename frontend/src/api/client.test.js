@@ -64,7 +64,7 @@ describe('API Client', () => {
       const result = await api.getCandles('EURUSD');
       expect(result).toEqual(mockCandles);
       expect(fetch).toHaveBeenCalledWith(
-        '/api/v1/market/candles?symbol=EURUSD&timeframe=1H&count=24',
+        '/api/v1/market/candles?symbol=EURUSD&timeframe=1H&limit=24',
         expect.any(Object)
       );
     });
@@ -78,7 +78,7 @@ describe('API Client', () => {
 
       await api.getCandles('GBPUSD', '4H', 48);
       expect(fetch).toHaveBeenCalledWith(
-        '/api/v1/market/candles?symbol=GBPUSD&timeframe=4H&count=48',
+        '/api/v1/market/candles?symbol=GBPUSD&timeframe=4H&limit=48',
         expect.any(Object)
       );
     });

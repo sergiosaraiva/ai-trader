@@ -20,6 +20,7 @@ import { PriceChart } from './PriceChart';
 import { PerformanceStats } from './PerformanceStats';
 import { TradeHistory } from './TradeHistory';
 import { AboutSection } from './AboutSection';
+import { InvestmentCalculator } from './InvestmentCalculator';
 
 // Polling intervals (in milliseconds)
 const INTERVALS = {
@@ -272,6 +273,9 @@ export function Dashboard() {
               assetMetadata={assetMetadata}
               marketOpen={marketOpenStatus}
               performance={performance}
+            />
+            <InvestmentCalculator
+              assetMetadata={assetMetadata}
             />
             <AccountStatus
               pipelineStatus={pipelineStatus}
