@@ -1,6 +1,7 @@
 # AI Trader Frontend - Production Dockerfile
 # Multi-stage build for optimized production image
 # Optimized for Railway deployment
+# Cache bust: 2026-01-19-v2
 
 # Stage 1: Build
 FROM node:20-alpine AS builder
@@ -25,6 +26,9 @@ RUN echo "Building with VITE_API_URL=${VITE_API_URL}" && npm run build
 
 # Stage 2: Production
 FROM nginx:alpine
+
+# Force cache invalidation
+ENV CACHE_BUST=2026-01-19-v2
 
 # Install envsubst (gettext package)
 RUN apk add --no-cache gettext
