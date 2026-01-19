@@ -12,8 +12,13 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 COPY src/ ./src/
 COPY models/ ./models/
 COPY configs/ ./configs/
+COPY scripts/ ./scripts/
 COPY data/forex/ ./data/forex/
 COPY data/sentiment/ ./data/sentiment/
+
+# Copy and prepare entrypoint
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Create data directories
 RUN mkdir -p /app/logs /app/data/db
@@ -21,4 +26,4 @@ RUN mkdir -p /app/logs /app/data/db
 ENV PYTHONPATH=/app
 EXPOSE 8001
 
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8001"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

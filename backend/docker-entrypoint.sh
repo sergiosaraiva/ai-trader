@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+echo "Starting AI-Trader Backend..."
+
+# Seed trades if database is empty
+echo "Checking if trades need to be seeded..."
+python /app/scripts/seed_trades_from_backtest.py --days 45 2>/dev/null || echo "Seeding skipped or failed"
+
+# Start the application
+exec uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8001}

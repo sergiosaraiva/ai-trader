@@ -53,8 +53,9 @@ Thumbs.db
 data/backups/
 data/sample/
 
-# Scripts not needed in API
-scripts/
+# Scripts not needed in API (except seed script)
+scripts/*
+!scripts/seed_trades_from_backtest.py
 
 # CI/CD
 .github/
