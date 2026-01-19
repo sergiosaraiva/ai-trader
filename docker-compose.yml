@@ -16,6 +16,8 @@ services:
       # Scheduler mode: "true" for always-on, "false" for Railway cron
       - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-true}
       - CRON_API_KEY=${CRON_API_KEY:-}
+      # OpenAI API key for LLM explanations
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
       # Mount data directory for persistence
       - ./backend/data:/app/data

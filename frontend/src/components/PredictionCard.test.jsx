@@ -12,13 +12,13 @@ describe('PredictionCard', () => {
 
   it('renders error state', () => {
     render(<PredictionCard error="Test error message" />);
-    expect(screen.getByText('Error loading prediction')).toBeInTheDocument();
+    expect(screen.getByText('Error loading recommendation')).toBeInTheDocument();
     expect(screen.getByText('Test error message')).toBeInTheDocument();
   });
 
   it('renders no prediction state', () => {
     render(<PredictionCard prediction={null} />);
-    expect(screen.getByText('No prediction available')).toBeInTheDocument();
+    expect(screen.getByText('No recommendation available')).toBeInTheDocument();
   });
 
   it('renders BUY prediction correctly', () => {
@@ -186,6 +186,6 @@ describe('PredictionCard', () => {
     render(<PredictionCard prediction={prediction} />);
 
     // Should show N/A or handle gracefully
-    expect(screen.getByText('Current Prediction')).toBeInTheDocument();
+    expect(screen.getByText('Current Recommendation')).toBeInTheDocument();
   });
 });

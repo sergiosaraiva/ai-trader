@@ -12,6 +12,7 @@ from ..database.models import Prediction
 from ..services.data_service import data_service
 from ..services.model_service import model_service
 from ..services.asset_service import asset_service
+from ..services.explanation_service import explanation_service
 from ..schemas.prediction import (
     PredictionResponse,
     PredictionHistoryResponse,
@@ -246,4 +247,88 @@ async def generate_prediction_now() -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Error generating prediction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/predictions/explanation")
+async def get_prediction_explanation(
+    symbol: str = Query(
+        default="EURUSD",
+        pattern="^[A-Za-z0-9\\-]{1,20}$",
+        max_length=20,
+        description="Trading symbol"
+    ),
+    force_refresh: bool = Query(
+        default=False,
+        description="Force regenerate explanation even if cached"
+    ),
+) -> Dict[str, Any]:
+    """Get a plain English explanation of the current recommendation.
+
+    Uses GPT-4o-mini to generate an explanation of why the AI
+    is recommending BUY, SELL, or HOLD based on the current
+    technical and sentiment analysis.
+
+    The explanation is cached and only regenerates when:
+    - The direction changes (long/short)
+    - Should_trade changes (above/below 70% threshold)
+    - Confidence changes by more than 5%
+    - VIX changes by more than 2 points
+    - Timeframe agreement changes
+    """
+    if not model_service.is_loaded:
+        raise HTTPException(
+            status_code=503,
+            detail="Model not loaded. Service is initializing.",
+        )
+
+    try:
+        # Get data for prediction
+        df = data_service.get_data_for_prediction()
+        if df is None or len(df) < 100:
+            raise HTTPException(
+                status_code=503,
+                detail="Insufficient market data",
+            )
+
+        # Get current values
+        current_price = data_service.get_current_price(symbol)
+        vix_value = data_service.get_latest_vix()
+
+        # Make prediction
+        prediction = model_service.predict(df, symbol=symbol)
+
+        # Get asset metadata
+        asset_metadata = asset_service.get_asset_metadata(symbol)
+        asset_type = asset_metadata.asset_type if asset_metadata else "forex"
+        formatted_symbol = asset_metadata.formatted_symbol if asset_metadata else symbol
+
+        # Generate explanation
+        result = explanation_service.generate_explanation(
+            prediction=prediction,
+            vix=vix_value,
+            current_price=current_price,
+            symbol=formatted_symbol,
+            asset_type=asset_type,
+            force_refresh=force_refresh,
+        )
+
+        return {
+            "explanation": result.get("explanation"),
+            "generated_at": result.get("generated_at"),
+            "cached": result.get("cached", False),
+            "error": result.get("error"),
+            "prediction_summary": {
+                "direction": prediction.get("direction"),
+                "confidence": float(prediction.get("confidence", 0)),
+                "should_trade": bool(prediction.get("should_trade", False)),
+                "agreement_count": int(prediction.get("agreement_count", 0)),
+            },
+            "vix": float(vix_value) if vix_value is not None else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting explanation: {e}")
         raise HTTPException(status_code=500, detail=str(e))

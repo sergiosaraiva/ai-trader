@@ -231,7 +231,13 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Prediction indicator */}
+      {/* Chart explanation */}
+      <p className="text-xs text-gray-500 mt-3">
+        Real-time price chart showing {getFormattedSymbol(symbol, assetMetadata)} price movements.
+        The blue line tracks the closing price, helping identify trends and entry/exit points for {getAssetTypeLabel(assetMetadata).toLowerCase()} trading.
+      </p>
+
+      {/* Recommendation indicator */}
       {prediction && (() => {
         // Normalize signal: API returns "long"/"short" in direction field
         const sig = prediction.signal || prediction.direction;
@@ -255,7 +261,7 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
         return (
           <div className="mt-4 pt-4 border-t border-gray-700">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-400">Agent Signal:</span>
+              <span className="text-sm text-gray-400">Agent Recommendation:</span>
               <span className={`text-sm font-medium ${signalColor}`}>
                 {recommendation}
               </span>

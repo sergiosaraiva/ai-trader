@@ -34,3 +34,6 @@ python-dotenv>=1.0.0
 
 # FRED API for sentiment data
 fredapi>=0.5.0
+
+# LLM for explanations
+openai>=1.0.0

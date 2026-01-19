@@ -58,6 +58,8 @@ export const api = {
   getPredictionHistory: (limit = 50) => request(`/predictions/history?limit=${limit}`),
   generatePrediction: () => request('/predictions/generate', { method: 'POST' }),
   getPredictionStats: () => request('/predictions/stats'),
+  getExplanation: (forceRefresh = false) =>
+    request(`/predictions/explanation${forceRefresh ? '?force_refresh=true' : ''}`),
 
   // Market data / Candles
   getCandles: (symbol, timeframe = '1H', limit = 24) =>

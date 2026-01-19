@@ -13,7 +13,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
-import { getProfitUnitLabel } from '../utils/assetFormatting';
+import { getProfitUnitLabel, getAssetTypeLabel } from '../utils/assetFormatting';
 
 // Constants
 const DAYS_TO_DISPLAY = 30;
@@ -307,6 +307,12 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Chart explanation */}
+      <p className="text-xs text-gray-500 mt-3">
+        Historical performance of AI recommendations for {getAssetTypeLabel(assetMetadata).toLowerCase()} trading.
+        Green/red bars show daily profit or loss in {profitUnit}, while the blue line tracks cumulative results over time.
+      </p>
 
       {/* Statistics footer */}
       <div className="mt-4 pt-4 border-t border-gray-700 grid grid-cols-3 gap-4 text-sm" role="list" aria-label="Performance statistics">

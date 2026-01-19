@@ -2,7 +2,7 @@ import { TrendingUp, TrendingDown, Minus, AlertCircle, Clock } from 'lucide-reac
 import { formatPrice, getFormattedSymbol, getAssetTypeLabel } from '../utils/assetFormatting';
 
 /**
- * PredictionCard - Displays the current trading prediction
+ * PredictionCard - Displays the current trading recommendation
  */
 export function PredictionCard({ prediction, loading, error }) {
   if (loading) {
@@ -20,7 +20,7 @@ export function PredictionCard({ prediction, loading, error }) {
       <div className="bg-gray-800 rounded-lg p-6 border border-red-500/30">
         <div className="flex items-center gap-2 text-red-400">
           <AlertCircle size={20} />
-          <span>Error loading prediction</span>
+          <span>Error loading recommendation</span>
         </div>
         <p className="text-gray-500 text-sm mt-2">{error}</p>
       </div>
@@ -30,7 +30,7 @@ export function PredictionCard({ prediction, loading, error }) {
   if (!prediction) {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
-        <p className="text-gray-500">No prediction available</p>
+        <p className="text-gray-500">No recommendation available</p>
       </div>
     );
   }
@@ -130,7 +130,7 @@ export function PredictionCard({ prediction, loading, error }) {
     <div className="bg-gray-800 rounded-lg p-6 card-hover">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-300">Current Prediction <span className="text-blue-400 font-normal">({primaryTimeframe})</span></h2>
+          <h2 className="text-lg font-semibold text-gray-300">Current Recommendation <span className="text-blue-400 font-normal">({primaryTimeframe})</span></h2>
           <p className="text-sm text-gray-500">{getAssetTypeLabel(prediction?.asset_metadata)} • {getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
         </div>
         <div className="flex items-center gap-1 text-gray-500 text-sm">
@@ -145,7 +145,7 @@ export function PredictionCard({ prediction, loading, error }) {
           {getSignalIcon(recommendation, isHold)}
         </div>
         <div className="text-center">
-          <span className={`text-4xl font-bold ${getSignalColor(recommendation, isHold)}`} aria-label={`Signal: ${recommendation}`}>
+          <span className={`text-4xl font-bold ${getSignalColor(recommendation, isHold)}`} aria-label={`Recommendation: ${recommendation}`}>
             {recommendation}
           </span>
           <p className="text-gray-500 text-sm mt-1">
@@ -163,7 +163,7 @@ export function PredictionCard({ prediction, loading, error }) {
       </div>
 
       {/* Confidence Bar */}
-      <div className="mt-4" aria-label="Prediction confidence">
+      <div className="mt-4" aria-label="Recommendation confidence">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm text-gray-400" id="confidence-label">Confidence</span>
           <span className="text-sm font-medium text-gray-300">

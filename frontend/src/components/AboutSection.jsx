@@ -148,7 +148,7 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
       {/* Brief Description */}
       <p className="text-sm text-gray-400 mb-4 leading-relaxed">
         AI agent combining technical analysis with sentiment indicators
-        to generate high-confidence trading predictions.
+        to generate high-confidence trading recommendations.
       </p>
 
       {/* Key Features */}
