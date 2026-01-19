@@ -83,26 +83,26 @@ describe('AboutSection', () => {
 
     it('displays VIX usage note', () => {
       render(<AboutSection vixValue={18.5} />);
-      expect(screen.getByText('Daily Model')).toBeInTheDocument();
+      expect(screen.getByText('Daily Analysis')).toBeInTheDocument();
     });
   });
 
-  describe('Model Weights', () => {
+  describe('Timeframe Weights', () => {
     it('does not render model weights section when not provided', () => {
       render(<AboutSection />);
-      expect(screen.queryByText('Model Weights')).not.toBeInTheDocument();
+      expect(screen.queryByText('Timeframe Weights')).not.toBeInTheDocument();
     });
 
     it('does not render model weights section when empty object', () => {
       render(<AboutSection modelWeights={{}} />);
-      expect(screen.queryByText('Model Weights')).not.toBeInTheDocument();
+      expect(screen.queryByText('Timeframe Weights')).not.toBeInTheDocument();
     });
 
     it('renders model weights when provided', () => {
       const weights = { '1H': 0.6, '4H': 0.3, 'D': 0.1 };
       render(<AboutSection modelWeights={weights} />);
 
-      expect(screen.getByText('Model Weights')).toBeInTheDocument();
+      expect(screen.getByText('Timeframe Weights')).toBeInTheDocument();
       expect(screen.getByText('1H')).toBeInTheDocument();
       expect(screen.getByText('60%')).toBeInTheDocument();
       expect(screen.getByText('4H')).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('AboutSection', () => {
     it('renders feature descriptions', () => {
       render(<AboutSection />);
 
-      expect(screen.getByText(/Ensemble of 3 XGBoost models/)).toBeInTheDocument();
+      expect(screen.getByText(/AI agent combining 3 specialized analyzers/)).toBeInTheDocument();
       expect(screen.getByText(/Backtested on 7 rolling time periods/)).toBeInTheDocument();
       expect(screen.getByText(/70% confidence threshold/)).toBeInTheDocument();
     });
@@ -239,7 +239,7 @@ describe('AboutSection', () => {
       // Check all major sections are present
       expect(screen.getByText('AI Trading System')).toBeInTheDocument();
       expect(screen.getByText('EUR/USD')).toBeInTheDocument();
-      expect(screen.getByText('Model Weights')).toBeInTheDocument();
+      expect(screen.getByText('Timeframe Weights')).toBeInTheDocument();
       expect(screen.getByText('18.50')).toBeInTheDocument();
       expect(screen.getByText('Normal')).toBeInTheDocument();
       expect(screen.getByText('Data Sources')).toBeInTheDocument();

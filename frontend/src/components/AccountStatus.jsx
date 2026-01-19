@@ -116,7 +116,7 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
               <span className="text-sm text-gray-300">AI Models</span>
               <p className="text-xs text-gray-500">
                 {modelsLoaded
-                  ? `${modelCount} models loaded`
+                  ? `${modelCount} analyzers active`
                   : 'Not loaded'}
               </p>
             </div>
@@ -129,7 +129,7 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
         {/* Model Details - Show individual model accuracy */}
         {modelsLoaded && modelCount > 0 && (
           <div className="mt-2 pt-2 border-t border-gray-700">
-            <h3 className="text-xs text-gray-500 mb-2">Model Accuracy</h3>
+            <h3 className="text-xs text-gray-500 mb-2">Analysis Accuracy</h3>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(modelDetails).map(([tf, data]) => (
                 <div key={tf} className="text-center p-2 bg-gray-700/30 rounded">

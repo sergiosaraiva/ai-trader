@@ -26,8 +26,8 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
     );
   }
 
-  // Use default values or mock data if performance is not available
-  const stats = performance || {
+  // Backtest performance defaults (from WFO validation with 70% confidence threshold)
+  const backtestDefaults = {
     total_pips: 8693,
     win_rate: 0.621,
     profit_factor: 2.69,
@@ -35,6 +35,10 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
     sharpe_ratio: 7.67,
     avg_pips_per_trade: 9.0,
   };
+
+  // Use backtest defaults if no trades have been made yet
+  const hasLiveData = performance && performance.total_trades > 0;
+  const stats = hasLiveData ? performance : backtestDefaults;
 
   // Get profit unit label
   const profitUnit = getProfitUnitLabel(assetMetadata);

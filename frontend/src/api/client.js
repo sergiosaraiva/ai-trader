@@ -60,8 +60,8 @@ export const api = {
   getPredictionStats: () => request('/predictions/stats'),
 
   // Market data / Candles
-  getCandles: (symbol, timeframe = '1H', count = 24) =>
-    request(`/market/candles?symbol=${symbol}&timeframe=${timeframe}&count=${count}`),
+  getCandles: (symbol, timeframe = '1H', limit = 24) =>
+    request(`/market/candles?symbol=${symbol}&timeframe=${timeframe}&limit=${limit}`),
   getCurrentPrice: () => request('/market/current'),
   getVix: () => request('/market/vix'),
 

@@ -1,9 +1,18 @@
-import { useCallback } from 'react';
-import { RefreshCw, Clock, Brain, Mail } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { RefreshCw, Clock, Brain, Mail, ChevronDown } from 'lucide-react';
 
 import { api } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
-import { getFormattedSymbol } from '../utils/assetFormatting';
+import {
+  getFormattedSymbol,
+  getDashboardDescription,
+  isMarketOpen,
+  getMarketStatusLabel,
+  AVAILABLE_MARKETS,
+  AVAILABLE_ASSETS,
+  getDefaultMarket,
+  getDefaultAsset,
+} from '../utils/assetFormatting';
 
 import { PredictionCard } from './PredictionCard';
 import { AccountStatus } from './AccountStatus';
@@ -22,30 +31,17 @@ const INTERVALS = {
 };
 
 /**
- * Check if forex markets are currently open
- * Forex markets are open from Sunday 5pm ET to Friday 5pm ET
- */
-const isForexMarketOpen = () => {
-  const now = new Date();
-  const day = now.getUTCDay(); // 0 = Sunday, 6 = Saturday
-  const hour = now.getUTCHours();
-
-  // Closed on Saturday
-  if (day === 6) return false;
-
-  // Sunday: opens at 22:00 UTC (5pm ET)
-  if (day === 0 && hour < 22) return false;
-
-  // Friday: closes at 22:00 UTC (5pm ET)
-  if (day === 5 && hour >= 22) return false;
-
-  return true;
-};
-
-/**
  * Dashboard - Main trading dashboard layout
  */
 export function Dashboard() {
+  // Market and asset selection state
+  const [selectedMarket, setSelectedMarket] = useState(getDefaultMarket);
+  const [selectedAsset, setSelectedAsset] = useState(() => getDefaultAsset(getDefaultMarket()));
+
+  // Get current asset metadata
+  const currentAssetType = selectedMarket;
+  const marketOpenStatus = useMemo(() => isMarketOpen(currentAssetType), [currentAssetType]);
+
   // Prediction data
   const {
     data: prediction,
@@ -58,9 +54,9 @@ export function Dashboard() {
     INTERVALS.prediction
   );
 
-  // Get trading pair and asset metadata from prediction or use default
-  const tradingPair = prediction?.symbol || 'EURUSD';
-  const assetMetadata = prediction?.asset_metadata;
+  // Get trading pair and asset metadata from prediction or use selected
+  const tradingPair = prediction?.symbol || selectedAsset;
+  const assetMetadata = prediction?.asset_metadata || { asset_type: selectedMarket };
 
   // Candles/Price data - use dynamic trading pair
   const {
@@ -136,6 +132,19 @@ export function Dashboard() {
   // Extract model weights for AboutSection
   const modelWeights = modelStatus?.weights || null;
 
+  // Handle market change
+  const handleMarketChange = (e) => {
+    const newMarket = e.target.value;
+    setSelectedMarket(newMarket);
+    // Reset asset to default for new market
+    setSelectedAsset(getDefaultAsset(newMarket));
+  };
+
+  // Handle asset change
+  const handleAssetChange = (e) => {
+    setSelectedAsset(e.target.value);
+  };
+
   // Refresh all data
   const handleRefreshAll = () => {
     refetchPrediction();
@@ -147,8 +156,11 @@ export function Dashboard() {
     return date.toLocaleTimeString();
   };
 
+  // Get available assets for current market
+  const availableAssets = AVAILABLE_ASSETS[selectedMarket] || [];
+
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
+    <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
         <div className="max-w-[1600px] mx-auto px-4 py-4">
@@ -158,23 +170,66 @@ export function Dashboard() {
               <div>
                 <h1 className="text-xl font-bold">AI Trader</h1>
                 <p className="text-xs text-gray-500">
-                  MTF Ensemble • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
+                  AI Agent • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Market Selector */}
+              <div className="relative">
+                <select
+                  value={selectedMarket}
+                  onChange={handleMarketChange}
+                  className="appearance-none bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  aria-label="Select market"
+                >
+                  {AVAILABLE_MARKETS.map((market) => (
+                    <option
+                      key={market.id}
+                      value={market.id}
+                      disabled={!market.enabled}
+                    >
+                      {market.label}{!market.enabled ? ' (Coming Soon)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+
+              {/* Asset Selector */}
+              <div className="relative">
+                <select
+                  value={selectedAsset}
+                  onChange={handleAssetChange}
+                  className="appearance-none bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  aria-label="Select asset"
+                >
+                  {availableAssets.map((asset) => (
+                    <option
+                      key={asset.symbol}
+                      value={asset.symbol}
+                      disabled={!asset.enabled}
+                    >
+                      {asset.label}{!asset.enabled ? ' (Coming Soon)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+
               {/* Market Status */}
               <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
-                isForexMarketOpen()
+                marketOpenStatus
                   ? 'bg-green-500/20 text-green-400'
                   : 'bg-yellow-500/20 text-yellow-400'
               }`}>
                 <span className={`w-2 h-2 rounded-full ${
-                  isForexMarketOpen() ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'
+                  marketOpenStatus ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'
                 }`}></span>
-                {isForexMarketOpen() ? 'Market Open' : 'Market Closed'}
+                {getMarketStatusLabel(currentAssetType, marketOpenStatus)}
               </div>
+
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Clock size={14} />
                 <span>Updated: {formatLastUpdated(predictionUpdated)}</span>
@@ -191,8 +246,17 @@ export function Dashboard() {
         </div>
       </header>
 
+      {/* Dashboard Description */}
+      <div className="bg-gray-800/50 border-b border-gray-700">
+        <div className="max-w-[1600px] mx-auto px-4 py-3">
+          <p className="text-sm text-gray-400 text-center">
+            {getDashboardDescription(tradingPair, assetMetadata)}
+          </p>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 py-6">
+      <main className="max-w-[1600px] mx-auto px-4 py-6 flex-grow">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Prediction, About (with VIX) & Status */}
           <div className="space-y-6">
@@ -206,7 +270,7 @@ export function Dashboard() {
               modelWeights={modelWeights}
               vixValue={vixData?.value}
               assetMetadata={assetMetadata}
-              marketOpen={isForexMarketOpen()}
+              marketOpen={marketOpenStatus}
               performance={performance}
             />
             <AccountStatus
@@ -243,11 +307,11 @@ export function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 border-t border-gray-700 mt-8">
+      <footer className="bg-gray-800 border-t border-gray-700 mt-auto">
         <div className="max-w-[1600px] mx-auto px-4 py-4">
           {/* Stats Row */}
           <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-            <span>AI Trader • Multi-Timeframe AI Ensemble</span>
+            <span>AI Agent Trader • Multi-Timeframe Analysis</span>
             <div className="flex items-center gap-4">
               <span className="text-green-400">
                 {performance?.win_rate ? `${(performance.win_rate * 100).toFixed(0)}%` : '62%'} Win Rate
@@ -257,6 +321,15 @@ export function Dashboard() {
               </span>
               <span className="text-yellow-400">WFO Validated</span>
             </div>
+          </div>
+
+          {/* Risk Disclaimer */}
+          <div className="border-t border-gray-700 pt-4 mb-4">
+            <p className="text-xs text-gray-500 leading-relaxed text-center">
+              <strong className="text-yellow-500">⚠️ Risk Disclaimer:</strong> These predictions are generated by an AI agent and are provided for informational purposes only.
+              Past performance does not guarantee future results. Trading involves substantial risk of loss.
+              Use at your own risk and always do your own research before making investment decisions.
+            </p>
           </div>
 
           {/* Contact Row */}

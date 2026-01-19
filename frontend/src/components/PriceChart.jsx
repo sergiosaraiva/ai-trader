@@ -234,7 +234,7 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
       {/* Prediction indicator */}
       {prediction && (
         <div className="mt-4 pt-4 border-t border-gray-700 flex items-center justify-between">
-          <span className="text-sm text-gray-400">Model Prediction:</span>
+          <span className="text-sm text-gray-400">Agent Signal:</span>
           <span className={`text-sm font-medium ${
             prediction.signal === 'BUY' || prediction.signal === 1
               ? 'text-green-400'

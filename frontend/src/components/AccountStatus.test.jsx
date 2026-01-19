@@ -47,7 +47,7 @@ describe('AccountStatus', () => {
     render(<AccountStatus modelStatus={modelStatus} />);
 
     expect(screen.getByText('AI Models')).toBeInTheDocument();
-    expect(screen.getByText('3 models loaded')).toBeInTheDocument();
+    expect(screen.getByText('3 analyzers active')).toBeInTheDocument();
   });
 
   it('renders model accuracy when models are loaded', () => {
@@ -61,7 +61,7 @@ describe('AccountStatus', () => {
     };
     render(<AccountStatus modelStatus={modelStatus} />);
 
-    expect(screen.getByText('Model Accuracy')).toBeInTheDocument();
+    expect(screen.getByText('Analysis Accuracy')).toBeInTheDocument();
     expect(screen.getByText('1H')).toBeInTheDocument();
     expect(screen.getByText('4H')).toBeInTheDocument();
     expect(screen.getByText('1D')).toBeInTheDocument();

@@ -88,7 +88,9 @@ describe('Dashboard', () => {
 
     it('renders header with default trading pair', () => {
       render(<Dashboard />);
-      expect(screen.getByText('EUR/USD')).toBeInTheDocument();
+      // Header should contain EUR/USD in the subtitle
+      const header = document.querySelector('header');
+      expect(header.textContent).toContain('EUR/USD');
     });
 
     it('renders footer with performance metrics', () => {
@@ -215,8 +217,9 @@ describe('Dashboard', () => {
 
       render(<Dashboard />);
 
-      // Header should show GBP/USD
-      expect(screen.getByText('GBP/USD')).toBeInTheDocument();
+      // Header subtitle should show GBP/USD - look within header
+      const header = document.querySelector('header');
+      expect(header.textContent).toContain('GBP/USD');
     });
 
     it('uses default EURUSD when prediction has no symbol', () => {
@@ -243,7 +246,9 @@ describe('Dashboard', () => {
 
       render(<Dashboard />);
 
-      expect(screen.getByText('EUR/USD')).toBeInTheDocument();
+      // Header subtitle should show EUR/USD (default) - look within header
+      const header = document.querySelector('header');
+      expect(header.textContent).toContain('EUR/USD');
     });
   });
 

@@ -9,6 +9,7 @@ import {
   formatProfit,
   getFormattedSymbol,
   getAssetTypeLabel,
+  getDashboardDescription,
   inferAssetMetadata,
 } from './assetFormatting';
 
@@ -439,5 +440,179 @@ describe('Integration Tests', () => {
     expect(profit).toBe('+123.4 pips');
     expect(symbol).toBe('EUR/USD');
     expect(type).toBe('Financial Asset');
+  });
+});
+
+describe('getDashboardDescription', () => {
+  it('returns forex-specific description for currency pairs', () => {
+    const result = getDashboardDescription('EURUSD', { asset_type: 'forex' });
+    expect(result).toContain('EUR/USD');
+    expect(result).toContain('exchange rate patterns');
+    expect(result).toContain('AI agent');
+    expect(result).toContain('trading signals');
+  });
+
+  it('returns crypto-specific description for cryptocurrencies', () => {
+    const result = getDashboardDescription('BTCUSD', { asset_type: 'crypto' });
+    expect(result).toContain('BTC/USD');
+    expect(result).toContain('price dynamics');
+    expect(result).toContain('AI agent');
+  });
+
+  it('returns stock-specific description for stocks', () => {
+    const result = getDashboardDescription('AAPL', { asset_type: 'stock' });
+    expect(result).toContain('AAPL');
+    expect(result).toContain('market patterns');
+    expect(result).toContain('AI agent');
+  });
+
+  it('returns commodity-specific description for commodities', () => {
+    const result = getDashboardDescription('XAUUSD', { asset_type: 'commodity' });
+    expect(result).toContain('price movements');
+    expect(result).toContain('AI agent');
+  });
+
+  it('returns index-specific description for indices', () => {
+    const result = getDashboardDescription('SPX', { asset_type: 'index' });
+    expect(result).toContain('market trends');
+    expect(result).toContain('AI agent');
+  });
+
+  it('infers metadata when not provided', () => {
+    const result = getDashboardDescription('EURUSD', null);
+    expect(result).toContain('EUR/USD');
+    expect(result).toContain('exchange rate patterns');
+  });
+
+  it('returns generic description for unknown asset types', () => {
+    const result = getDashboardDescription('UNKNOWN', { asset_type: 'unknown' });
+    expect(result).toContain('AI agent');
+    expect(result).toContain('trading signals');
+    expect(result).toContain('multiple timeframes');
+  });
+
+  it('includes multiple timeframes reference', () => {
+    const result = getDashboardDescription('EURUSD', { asset_type: 'forex' });
+    expect(result).toContain('multiple timeframes');
+  });
+
+  it('includes high-confidence reference', () => {
+    const result = getDashboardDescription('EURUSD', { asset_type: 'forex' });
+    expect(result).toContain('high-confidence');
+  });
+});
+
+describe('Market Configuration', () => {
+  describe('AVAILABLE_MARKETS', () => {
+    it('exports available markets array', async () => {
+      const { AVAILABLE_MARKETS } = await import('./assetFormatting');
+      expect(Array.isArray(AVAILABLE_MARKETS)).toBe(true);
+      expect(AVAILABLE_MARKETS.length).toBeGreaterThan(0);
+    });
+
+    it('has forex as an enabled market', async () => {
+      const { AVAILABLE_MARKETS } = await import('./assetFormatting');
+      const forex = AVAILABLE_MARKETS.find(m => m.id === 'forex');
+      expect(forex).toBeDefined();
+      expect(forex.enabled).toBe(true);
+    });
+
+    it('markets have required properties', async () => {
+      const { AVAILABLE_MARKETS } = await import('./assetFormatting');
+      AVAILABLE_MARKETS.forEach(market => {
+        expect(market).toHaveProperty('id');
+        expect(market).toHaveProperty('label');
+        expect(market).toHaveProperty('enabled');
+      });
+    });
+  });
+
+  describe('AVAILABLE_ASSETS', () => {
+    it('exports available assets object', async () => {
+      const { AVAILABLE_ASSETS } = await import('./assetFormatting');
+      expect(typeof AVAILABLE_ASSETS).toBe('object');
+      expect(AVAILABLE_ASSETS.forex).toBeDefined();
+    });
+
+    it('has EURUSD as an enabled forex asset', async () => {
+      const { AVAILABLE_ASSETS } = await import('./assetFormatting');
+      const eurusd = AVAILABLE_ASSETS.forex.find(a => a.symbol === 'EURUSD');
+      expect(eurusd).toBeDefined();
+      expect(eurusd.enabled).toBe(true);
+    });
+
+    it('assets have required properties', async () => {
+      const { AVAILABLE_ASSETS } = await import('./assetFormatting');
+      Object.values(AVAILABLE_ASSETS).forEach(assets => {
+        assets.forEach(asset => {
+          expect(asset).toHaveProperty('symbol');
+          expect(asset).toHaveProperty('label');
+          expect(asset).toHaveProperty('enabled');
+        });
+      });
+    });
+  });
+
+  describe('getDefaultMarket', () => {
+    it('returns forex as default market', async () => {
+      const { getDefaultMarket } = await import('./assetFormatting');
+      const result = getDefaultMarket();
+      expect(result).toBe('forex');
+    });
+  });
+
+  describe('getDefaultAsset', () => {
+    it('returns EURUSD as default for forex', async () => {
+      const { getDefaultAsset } = await import('./assetFormatting');
+      const result = getDefaultAsset('forex');
+      expect(result).toBe('EURUSD');
+    });
+
+    it('returns first asset for unknown market', async () => {
+      const { getDefaultAsset } = await import('./assetFormatting');
+      const result = getDefaultAsset('unknown');
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('isMarketOpen', () => {
+    it('returns true for crypto (24/7 market)', async () => {
+      const { isMarketOpen } = await import('./assetFormatting');
+      expect(isMarketOpen('crypto')).toBe(true);
+    });
+
+    it('returns boolean for forex', async () => {
+      const { isMarketOpen } = await import('./assetFormatting');
+      const result = isMarketOpen('forex');
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('returns true for unknown asset type', async () => {
+      const { isMarketOpen } = await import('./assetFormatting');
+      expect(isMarketOpen('unknown')).toBe(true);
+    });
+  });
+
+  describe('getMarketStatusLabel', () => {
+    it('returns Market Open when open', async () => {
+      const { getMarketStatusLabel } = await import('./assetFormatting');
+      expect(getMarketStatusLabel('forex', true)).toBe('Market Open');
+    });
+
+    it('returns specific closed label for forex', async () => {
+      const { getMarketStatusLabel } = await import('./assetFormatting');
+      expect(getMarketStatusLabel('forex', false)).toBe('Forex Closed');
+    });
+
+    it('returns Market Open for crypto even when passed false', async () => {
+      const { getMarketStatusLabel } = await import('./assetFormatting');
+      // Crypto is always "Market Open" since it's 24/7
+      expect(getMarketStatusLabel('crypto', false)).toBe('Market Open');
+    });
+
+    it('returns Market Closed for unknown type', async () => {
+      const { getMarketStatusLabel } = await import('./assetFormatting');
+      expect(getMarketStatusLabel('unknown', false)).toBe('Market Closed');
+    });
   });
 });
