@@ -19,6 +19,7 @@ import { PredictionCard } from './PredictionCard';
 import { AccountStatus } from './AccountStatus';
 import { PriceChart } from './PriceChart';
 import { PerformanceStats } from './PerformanceStats';
+import { PerformanceChart } from './PerformanceChart';
 import { TradeHistory } from './TradeHistory';
 import { AboutSection } from './AboutSection';
 import { InvestmentCalculator } from './InvestmentCalculator';
@@ -30,6 +31,7 @@ const INTERVALS = {
   pipeline: 60000,      // 1 minute
   signals: 30000,       // 30 seconds
   performance: 300000,  // 5 minutes (rarely changes)
+  tradeHistory: 300000, // 5 minutes (for 30-day chart)
 };
 
 /**
@@ -124,6 +126,25 @@ export function Dashboard() {
     }, []),
     INTERVALS.performance
   );
+
+  // Trade history for 30-day performance chart
+  const {
+    data: tradeHistoryData,
+    loading: tradeHistoryLoading,
+    error: tradeHistoryError,
+  } = usePolling(
+    useCallback(async () => {
+      try {
+        return await api.getTradingHistory(100);
+      } catch {
+        return null;
+      }
+    }, []),
+    INTERVALS.tradeHistory
+  );
+
+  // Extract trades array from response
+  const trades = tradeHistoryData?.trades || [];
 
   // Extract candles array from response
   const candles = candlesData?.candles || candlesData || [];
@@ -291,6 +312,12 @@ export function Dashboard() {
               loading={candlesLoading}
               error={candlesError}
               onRefresh={refetchCandles}
+            />
+            <PerformanceChart
+              trades={trades}
+              loading={tradeHistoryLoading}
+              error={tradeHistoryError}
+              assetMetadata={assetMetadata}
             />
             <PerformanceStats
               performance={performance}
