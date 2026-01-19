@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { RefreshCw, Clock, Brain, Mail, ChevronDown } from 'lucide-react';
+import { RefreshCw, Clock, Mail, ChevronDown } from 'lucide-react';
 
 import { api } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
@@ -168,7 +168,7 @@ export function Dashboard() {
         <div className="max-w-[1600px] mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <Brain size={24} className="text-blue-400" />
+              <img src="/favicon.svg" alt="AI Assets Trader" className="w-8 h-8" />
               <div>
                 <h1 className="text-xl font-bold">AI Assets Trader</h1>
                 <p className="text-xs text-gray-500">
