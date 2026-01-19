@@ -82,15 +82,18 @@ data/forex/*
 *.h5
 *.hdf5
 
-# Model files (ignore raw weights, keep compressed archives)
+# Model files (ignore root models, keep backend models for deployment)
 /models/*
 !/models/README.md
 !/models/models_trained.tar.gz.part_*
+
+# Ignore model formats (but not .pkl - needed for backend)
 *.pt
 *.pth
 *.onnx
-*.pkl
 *.joblib
+
+# Note: .pkl files in backend/models/ are tracked for Railway deployment
 
 # Training checkpoints
 /checkpoints/
