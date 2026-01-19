@@ -205,84 +205,99 @@ export function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
-        <div className="max-w-[1600px] mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
+        <div className="max-w-[1600px] mx-auto px-4 py-3">
+          {/* Mobile: Stack vertically, Desktop: Single row */}
+          <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
+            {/* Logo and Title */}
             <div className="flex items-center gap-3">
               <img src="/favicon.svg" alt="AI Assets Trader" className="w-8 h-8" />
               <div>
-                <h1 className="text-xl font-bold">AI Assets Trader</h1>
+                <h1 className="text-lg md:text-xl font-bold">AI Assets Trader</h1>
                 <p className="text-xs text-gray-500">
                   {getAssetTypeLabel(assetMetadata)} • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Market Selector */}
-              <div className="relative">
-                <select
-                  value={selectedMarket}
-                  onChange={handleMarketChange}
-                  className="appearance-none bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
-                  aria-label="Select market"
+            {/* Controls - wrap on mobile */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-4">
+              {/* Selectors Row */}
+              <div className="flex items-center gap-2">
+                {/* Market Selector */}
+                <div className="relative">
+                  <select
+                    value={selectedMarket}
+                    onChange={handleMarketChange}
+                    className="appearance-none bg-gray-700 border border-gray-600 rounded-lg px-2 md:px-3 py-1.5 pr-7 md:pr-8 text-xs md:text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    aria-label="Select market"
+                  >
+                    {AVAILABLE_MARKETS.map((market) => (
+                      <option
+                        key={market.id}
+                        value={market.id}
+                        disabled={!market.enabled}
+                      >
+                        {market.label}{!market.enabled ? ' (Coming Soon)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+
+                {/* Asset Selector */}
+                <div className="relative">
+                  <select
+                    value={selectedAsset}
+                    onChange={handleAssetChange}
+                    className="appearance-none bg-gray-700 border border-gray-600 rounded-lg px-2 md:px-3 py-1.5 pr-7 md:pr-8 text-xs md:text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    aria-label="Select asset"
+                  >
+                    {availableAssets.map((asset) => (
+                      <option
+                        key={asset.symbol}
+                        value={asset.symbol}
+                        disabled={!asset.enabled}
+                      >
+                        {asset.label}{!asset.enabled ? ' (Coming Soon)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Status Row */}
+              <div className="flex items-center gap-2">
+                {/* Market Status */}
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${
+                  marketOpenStatus
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-yellow-500/20 text-yellow-400'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${
+                    marketOpenStatus ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'
+                  }`}></span>
+                  <span className="hidden sm:inline">{getMarketStatusLabel(currentAssetType, marketOpenStatus)}</span>
+                  <span className="sm:hidden">{marketOpenStatus ? 'Open' : 'Closed'}</span>
+                </div>
+
+                {/* Updated time - hide on very small screens */}
+                <div className="hidden sm:flex items-center gap-1.5 text-xs md:text-sm text-gray-500">
+                  <Clock size={14} />
+                  <span className="hidden md:inline">Updated: </span>
+                  <span>{formatLastUpdated(predictionUpdated)}</span>
+                </div>
+
+                {/* Refresh button */}
+                <button
+                  onClick={handleRefreshAll}
+                  className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 md:py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  aria-label="Refresh data"
                 >
-                  {AVAILABLE_MARKETS.map((market) => (
-                    <option
-                      key={market.id}
-                      value={market.id}
-                      disabled={!market.enabled}
-                    >
-                      {market.label}{!market.enabled ? ' (Coming Soon)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <RefreshCw size={14} className="md:w-4 md:h-4" />
+                  <span className="hidden md:inline text-sm">Refresh</span>
+                </button>
               </div>
-
-              {/* Asset Selector */}
-              <div className="relative">
-                <select
-                  value={selectedAsset}
-                  onChange={handleAssetChange}
-                  className="appearance-none bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
-                  aria-label="Select asset"
-                >
-                  {availableAssets.map((asset) => (
-                    <option
-                      key={asset.symbol}
-                      value={asset.symbol}
-                      disabled={!asset.enabled}
-                    >
-                      {asset.label}{!asset.enabled ? ' (Coming Soon)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              </div>
-
-              {/* Market Status */}
-              <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
-                marketOpenStatus
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-yellow-500/20 text-yellow-400'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${
-                  marketOpenStatus ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'
-                }`}></span>
-                {getMarketStatusLabel(currentAssetType, marketOpenStatus)}
-              </div>
-
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Clock size={14} />
-                <span>Updated: {formatLastUpdated(predictionUpdated)}</span>
-              </div>
-              <button
-                onClick={handleRefreshAll}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                <RefreshCw size={16} />
-                <span className="text-sm">Refresh</span>
-              </button>
             </div>
           </div>
         </div>
