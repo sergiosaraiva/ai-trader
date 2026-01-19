@@ -70,7 +70,8 @@ def fetch_market_data() -> None:
         vix = data_service.get_latest_vix()
 
         if price:
-            logger.debug(f"EUR/USD: {price:.5f}, VIX: {vix:.2f if vix else 'N/A'}")
+            vix_str = f"{vix:.2f}" if vix else "N/A"
+            logger.debug(f"EUR/USD: {price:.5f}, VIX: {vix_str}")
 
     except Exception as e:
         logger.error(f"Error fetching market data: {e}")
