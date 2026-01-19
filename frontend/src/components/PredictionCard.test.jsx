@@ -98,7 +98,7 @@ describe('PredictionCard', () => {
     };
     render(<PredictionCard prediction={prediction} />);
 
-    expect(screen.getByText('EUR/USD')).toBeInTheDocument();
+    expect(screen.getByText(/Forex Currency Pair.*EUR\/USD/)).toBeInTheDocument();
     expect(screen.getByText('@ 1.08543')).toBeInTheDocument();
   });
 
@@ -117,7 +117,7 @@ describe('PredictionCard', () => {
     };
     render(<PredictionCard prediction={prediction} />);
 
-    expect(screen.getByText('BTC/USD')).toBeInTheDocument();
+    expect(screen.getByText(/Cryptocurrency.*BTC\/USD/)).toBeInTheDocument();
     expect(screen.getByText('@ 50123.12345678')).toBeInTheDocument();
   });
 
@@ -136,7 +136,7 @@ describe('PredictionCard', () => {
     };
     render(<PredictionCard prediction={prediction} />);
 
-    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByText(/Stock.*AAPL/)).toBeInTheDocument();
     expect(screen.getByText('@ 150.50')).toBeInTheDocument();
   });
 
@@ -169,8 +169,9 @@ describe('PredictionCard', () => {
     };
     render(<PredictionCard prediction={prediction} />);
 
-    // Should still work with defaults
-    expect(screen.getByText('EUR/USD')).toBeInTheDocument(); // 6-char fallback
+    // Should still work with defaults - shows generic asset type and symbol
+    expect(screen.getByText(/Financial Asset/)).toBeInTheDocument();
+    expect(screen.getByText(/EUR\/USD/)).toBeInTheDocument();
     expect(screen.getByText('@ 1.08543')).toBeInTheDocument(); // Default precision
   });
 

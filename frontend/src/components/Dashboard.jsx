@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
 import {
   getFormattedSymbol,
+  getAssetTypeLabel,
   getDashboardDescription,
   isMarketOpen,
   getMarketStatusLabel,
@@ -171,7 +172,7 @@ export function Dashboard() {
               <div>
                 <h1 className="text-xl font-bold">AI Trader</h1>
                 <p className="text-xs text-gray-500">
-                  AI Agent • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
+                  {getAssetTypeLabel(assetMetadata)} • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
                 </p>
               </div>
             </div>

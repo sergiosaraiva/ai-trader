@@ -1,5 +1,5 @@
 import { TrendingUp, TrendingDown, Minus, AlertCircle, Clock } from 'lucide-react';
-import { formatPrice, getFormattedSymbol } from '../utils/assetFormatting';
+import { formatPrice, getFormattedSymbol, getAssetTypeLabel } from '../utils/assetFormatting';
 
 /**
  * PredictionCard - Displays the current trading prediction
@@ -91,7 +91,7 @@ export function PredictionCard({ prediction, loading, error }) {
       <div className="flex justify-between items-start mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-300">Current Prediction</h2>
-          <p className="text-sm text-gray-500">{getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
+          <p className="text-sm text-gray-500">{getAssetTypeLabel(prediction?.asset_metadata)} • {getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
         </div>
         <div className="flex items-center gap-1 text-gray-500 text-sm">
           <Clock size={14} />

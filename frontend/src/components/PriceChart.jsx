@@ -9,7 +9,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
-import { formatPrice, getFormattedSymbol } from '../utils/assetFormatting';
+import { formatPrice, getFormattedSymbol, getAssetTypeLabel } from '../utils/assetFormatting';
 
 /**
  * Custom tooltip component for the price chart
@@ -158,7 +158,7 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-300">{getFormattedSymbol(symbol, assetMetadata)} Price</h2>
+          <h2 className="text-lg font-semibold text-gray-300">{getAssetTypeLabel(assetMetadata)} • {getFormattedSymbol(symbol, assetMetadata)}</h2>
           <div className="flex items-center gap-3 mt-1">
             <span className="text-2xl font-bold text-gray-100">
               {formatPrice(currentPrice, assetMetadata)}
