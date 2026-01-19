@@ -259,7 +259,7 @@ export function Dashboard() {
       {/* Main Content */}
       <main className="max-w-[1600px] mx-auto px-4 py-6 flex-grow">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Prediction, About (with VIX) & Status */}
+          {/* Left Column - Prediction, About & Status */}
           <div className="space-y-6">
             <PredictionCard
               prediction={prediction}
@@ -274,9 +274,6 @@ export function Dashboard() {
               marketOpen={marketOpenStatus}
               performance={performance}
             />
-            <InvestmentCalculator
-              assetMetadata={assetMetadata}
-            />
             <AccountStatus
               pipelineStatus={pipelineStatus}
               modelStatus={modelStatus}
@@ -285,7 +282,7 @@ export function Dashboard() {
             />
           </div>
 
-          {/* Middle Column - Chart, Performance & Trade History */}
+          {/* Right Column - Chart, Performance, Calculator & Trade History */}
           <div className="lg:col-span-2 space-y-6">
             <PriceChart
               candles={candles}
@@ -298,6 +295,9 @@ export function Dashboard() {
               performance={performance}
               loading={performanceLoading}
               error={performanceError}
+              assetMetadata={assetMetadata}
+            />
+            <InvestmentCalculator
               assetMetadata={assetMetadata}
             />
             <TradeHistory
