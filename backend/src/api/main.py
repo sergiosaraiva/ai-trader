@@ -138,15 +138,30 @@ def create_app() -> FastAPI:
     )
 
     # CORS middleware
-    # Note: allow_credentials=False when using wildcard origins for security
-    # For production, use explicit origins: allow_origins=["https://yourdomain.com"]
+    # Allow origins from environment variable or use defaults
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    if cors_origins_env:
+        cors_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+    else:
+        # Default: allow common development and Railway origins
+        cors_origins = [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:5173",
+            "https://ai-assets-trader.up.railway.app",
+            "https://ai-trader-frontend.up.railway.app",
+        ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
-        allow_credentials=False,  # Must be False with wildcard origins
-        allow_methods=["*"],
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
+
+    logger.info(f"CORS enabled for origins: {cors_origins}")
 
     # Include routers
     app.include_router(health.router, tags=["Health"])
