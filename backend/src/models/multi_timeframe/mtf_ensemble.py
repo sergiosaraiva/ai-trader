@@ -448,6 +448,7 @@ class MTFEnsemble:
         # Weighted probability combination
         # Convert prediction + confidence to probability
         weighted_prob_up = 0.0
+        weighted_confidence = 0.0
         for tf in predictions:
             pred = predictions[tf]
             conf = confidences[tf]
@@ -461,22 +462,25 @@ class MTFEnsemble:
                 prob_up = 1 - conf
 
             weighted_prob_up += weight * prob_up
+            weighted_confidence += weight * conf
 
         # Final direction
         direction = 1 if weighted_prob_up > 0.5 else 0
 
-        # Base confidence from distance to 0.5
-        base_confidence = abs(weighted_prob_up - 0.5) * 2 + 0.5
+        # Base confidence is the weighted average of component confidences
+        # This reflects the actual model confidence, not an inflated value
+        base_confidence = weighted_confidence
 
         # Agreement calculation
         agreement_count = sum(1 for p in predictions.values() if p == direction)
         agreement_score = agreement_count / len(predictions)
 
-        # Agreement bonus
+        # Agreement bonus (small boost when all models agree)
         if agreement_count == len(predictions):
             confidence = min(base_confidence + self.config.agreement_bonus, 1.0)
         else:
-            confidence = base_confidence
+            # Reduce confidence when models disagree
+            confidence = base_confidence * agreement_score
 
         return MTFPrediction(
             direction=direction,
@@ -530,6 +534,7 @@ class MTFEnsemble:
 
         for i in range(n_samples):
             weighted_prob_up = 0.0
+            weighted_conf = 0.0
 
             for tf in self.models:
                 pred = all_preds[tf][i]
@@ -542,13 +547,14 @@ class MTFEnsemble:
                     prob_up = 1 - conf
 
                 weighted_prob_up += weight * prob_up
+                weighted_conf += weight * conf
 
             # Direction
             direction = 1 if weighted_prob_up > 0.5 else 0
             directions[i] = direction
 
-            # Base confidence
-            base_conf = abs(weighted_prob_up - 0.5) * 2 + 0.5
+            # Base confidence is weighted average of component confidences
+            base_conf = weighted_conf
 
             # Agreement
             agreement_count = sum(
@@ -557,11 +563,12 @@ class MTFEnsemble:
             agreement_score = agreement_count / len(self.models)
             agreement_scores[i] = agreement_score
 
-            # Confidence with agreement bonus
+            # Confidence with agreement bonus or penalty
             if agreement_count == len(self.models):
                 confidences[i] = min(base_conf + self.config.agreement_bonus, 1.0)
             else:
-                confidences[i] = base_conf
+                # Reduce confidence when models disagree
+                confidences[i] = base_conf * agreement_score
 
         return directions, confidences, agreement_scores
 

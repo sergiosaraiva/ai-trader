@@ -203,17 +203,18 @@ export function getAssetTypeLabel(metadata) {
 export function getDashboardDescription(symbol, metadata) {
   const meta = metadata || inferAssetMetadata(symbol);
   const formattedSymbol = getFormattedSymbol(symbol, meta);
+  const marketLabel = AVAILABLE_MARKETS.find(m => m.id === meta?.asset_type)?.label || 'Financial';
 
   const descriptions = {
-    forex: `AI agent analyzing ${formattedSymbol} exchange rate patterns across multiple timeframes to generate high-confidence trading signals.`,
-    crypto: `AI agent analyzing ${formattedSymbol} price dynamics across multiple timeframes to generate high-confidence trading signals.`,
-    stock: `AI agent analyzing ${formattedSymbol} market patterns across multiple timeframes to generate high-confidence trading signals.`,
-    commodity: `AI agent analyzing ${formattedSymbol} price movements across multiple timeframes to generate high-confidence trading signals.`,
-    index: `AI agent analyzing ${formattedSymbol} market trends across multiple timeframes to generate high-confidence trading signals.`,
+    forex: `AI agent analyzing ${marketLabel} ${formattedSymbol} exchange rate patterns across multiple timeframes to generate high-confidence trading signals.`,
+    crypto: `AI agent analyzing ${marketLabel} ${formattedSymbol} price dynamics across multiple timeframes to generate high-confidence trading signals.`,
+    stock: `AI agent analyzing ${marketLabel} ${formattedSymbol} market patterns across multiple timeframes to generate high-confidence trading signals.`,
+    commodity: `AI agent analyzing ${marketLabel} ${formattedSymbol} price movements across multiple timeframes to generate high-confidence trading signals.`,
+    index: `AI agent analyzing ${marketLabel} ${formattedSymbol} market trends across multiple timeframes to generate high-confidence trading signals.`,
   };
 
   return descriptions[meta?.asset_type] ||
-    `AI agent analyzing ${formattedSymbol} across multiple timeframes to generate high-confidence trading signals.`;
+    `AI agent analyzing ${marketLabel} ${formattedSymbol} across multiple timeframes to generate high-confidence trading signals.`;
 }
 
 /**

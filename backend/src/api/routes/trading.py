@@ -287,3 +287,93 @@ async def get_risk_metrics() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error getting risk metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Backtest performance data by time period (from WFO validation with 70% confidence threshold)
+# Data source: Walk-Forward Optimization windows in docs/02-walk-forward-optimization-results.md
+BACKTEST_PERIODS = {
+    "6m": {
+        "label": "Last 6 Months",
+        "total_pips": 2079,
+        "win_rate": 0.477,
+        "profit_factor": 1.48,
+        "total_trades": 568,
+        "period_start": "2025-01-01",
+        "period_end": "2025-06-30",
+        "period_years": 0.5,
+        "period_months": 6,
+    },
+    "1y": {
+        "label": "Last Year",
+        "total_pips": 4317,  # Window 6 + 7
+        "win_rate": 0.517,
+        "profit_factor": 1.73,
+        "total_trades": 948,
+        "period_start": "2024-07-01",
+        "period_end": "2025-06-30",
+        "period_years": 1.0,
+        "period_months": 12,
+    },
+    "2y": {
+        "label": "Last 2 Years",
+        "total_pips": 6749,  # Windows 5+6+7
+        "win_rate": 0.551,
+        "profit_factor": 1.93,
+        "total_trades": 1282,
+        "period_start": "2024-01-01",
+        "period_end": "2025-06-30",
+        "period_years": 2.0,
+        "period_months": 24,
+    },
+    "3y": {
+        "label": "Last 3 Years",
+        "total_pips": 9839,  # Windows 3+4+5+6+7
+        "win_rate": 0.524,
+        "profit_factor": 1.77,
+        "total_trades": 2185,
+        "period_start": "2023-01-01",
+        "period_end": "2025-06-30",
+        "period_years": 3.0,
+        "period_months": 36,
+    },
+    "5y": {
+        "label": "All Time (5 Years)",
+        "total_pips": 8693,
+        "win_rate": 0.621,
+        "profit_factor": 2.69,
+        "total_trades": 966,
+        "period_start": "2020-01-01",
+        "period_end": "2025-12-31",
+        "period_years": 5.0,
+        "period_months": 60,
+    },
+}
+
+# Leverage options for the calculator
+LEVERAGE_OPTIONS = [
+    {"value": 1, "label": "No Leverage (1:1)", "risk": "low"},
+    {"value": 10, "label": "10:1", "risk": "medium"},
+    {"value": 20, "label": "20:1", "risk": "high"},
+    {"value": 30, "label": "30:1 (EU Retail)", "risk": "high"},
+    {"value": 50, "label": "50:1", "risk": "extreme"},
+]
+
+
+@router.get("/trading/backtest-periods", response_model=Dict[str, Any])
+async def get_backtest_periods() -> Dict[str, Any]:
+    """Get backtest performance data by time period.
+
+    Returns historical backtest performance metrics for different time periods,
+    used by the What If Calculator to show potential returns.
+
+    Data source: Walk-Forward Optimization validation results.
+    """
+    return {
+        "periods": BACKTEST_PERIODS,
+        "leverage_options": LEVERAGE_OPTIONS,
+        "forex_constants": {
+            "standard_lot_size": 100000,
+            "pip_value_per_lot": 10,
+        },
+        "data_source": "WFO Validation (70% confidence threshold)",
+    }

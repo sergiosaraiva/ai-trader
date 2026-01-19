@@ -446,6 +446,7 @@ describe('Integration Tests', () => {
 describe('getDashboardDescription', () => {
   it('returns forex-specific description for currency pairs', () => {
     const result = getDashboardDescription('EURUSD', { asset_type: 'forex' });
+    expect(result).toContain('Forex');
     expect(result).toContain('EUR/USD');
     expect(result).toContain('exchange rate patterns');
     expect(result).toContain('AI agent');
@@ -454,6 +455,7 @@ describe('getDashboardDescription', () => {
 
   it('returns crypto-specific description for cryptocurrencies', () => {
     const result = getDashboardDescription('BTCUSD', { asset_type: 'crypto' });
+    expect(result).toContain('Crypto');
     expect(result).toContain('BTC/USD');
     expect(result).toContain('price dynamics');
     expect(result).toContain('AI agent');
@@ -461,6 +463,7 @@ describe('getDashboardDescription', () => {
 
   it('returns stock-specific description for stocks', () => {
     const result = getDashboardDescription('AAPL', { asset_type: 'stock' });
+    expect(result).toContain('Stocks');
     expect(result).toContain('AAPL');
     expect(result).toContain('market patterns');
     expect(result).toContain('AI agent');
@@ -468,12 +471,14 @@ describe('getDashboardDescription', () => {
 
   it('returns commodity-specific description for commodities', () => {
     const result = getDashboardDescription('XAUUSD', { asset_type: 'commodity' });
+    expect(result).toContain('Commodities');
     expect(result).toContain('price movements');
     expect(result).toContain('AI agent');
   });
 
   it('returns index-specific description for indices', () => {
     const result = getDashboardDescription('SPX', { asset_type: 'index' });
+    expect(result).toContain('Indices');
     expect(result).toContain('market trends');
     expect(result).toContain('AI agent');
   });

@@ -316,3 +316,119 @@ def run_pipeline_now() -> dict:
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+def seed_historical_predictions(min_predictions: int = 24) -> dict:
+    """Seed historical predictions if database has fewer than min_predictions.
+
+    This generates historical predictions using actual model inference on
+    historical data points, giving users something to see immediately after
+    deployment.
+
+    Args:
+        min_predictions: Minimum number of predictions to have in database
+
+    Returns:
+        dict with status and count of predictions seeded
+    """
+    from datetime import timedelta
+
+    db = get_session()
+    try:
+        # Check current count
+        current_count = db.query(Prediction).count()
+
+        if current_count >= min_predictions:
+            logger.info(f"Database has {current_count} predictions, skipping seed")
+            return {"status": "skipped", "current_count": current_count}
+
+        # Need to seed predictions
+        predictions_to_add = min_predictions - current_count
+        logger.info(f"Seeding {predictions_to_add} historical predictions...")
+
+        if not model_service.is_loaded:
+            logger.warning("Model not loaded, cannot seed predictions")
+            return {"status": "error", "message": "Model not loaded"}
+
+        # Get historical data from pipeline
+        df = pipeline_service.get_processed_data("1h")
+        if df is None or len(df) < 200:
+            df = data_service.get_data_for_prediction()
+
+        if df is None or len(df) < 200:
+            logger.warning("Insufficient data to seed predictions")
+            return {"status": "error", "message": "Insufficient data"}
+
+        # Get VIX value for all predictions (use latest)
+        vix_value = data_service.get_latest_vix()
+
+        # Generate predictions at hourly intervals going back in time
+        seeded = 0
+        now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+
+        for i in range(predictions_to_add):
+            try:
+                # Calculate timestamp for this prediction (going back in time)
+                pred_time = now - timedelta(hours=i + 1)
+
+                # Skip if prediction already exists for this hour
+                existing = db.query(Prediction).filter(
+                    Prediction.timestamp >= pred_time,
+                    Prediction.timestamp < pred_time + timedelta(hours=1)
+                ).first()
+
+                if existing:
+                    continue
+
+                # Make prediction using current model
+                prediction = model_service.predict_from_pipeline()
+
+                # Get price from historical data if available
+                market_price = None
+                if 'close' in df.columns:
+                    # Try to find price close to this timestamp
+                    market_price = float(df['close'].iloc[-1 - i]) if len(df) > i else None
+
+                if market_price is None:
+                    market_price = data_service.get_current_price() or 1.0800
+
+                # Create prediction record
+                pred_record = Prediction(
+                    timestamp=pred_time,
+                    symbol="EURUSD",
+                    direction=prediction["direction"],
+                    confidence=prediction["confidence"],
+                    prob_up=prediction["prob_up"],
+                    prob_down=prediction["prob_down"],
+                    pred_1h=prediction["component_directions"].get("1H"),
+                    conf_1h=prediction["component_confidences"].get("1H"),
+                    pred_4h=prediction["component_directions"].get("4H"),
+                    conf_4h=prediction["component_confidences"].get("4H"),
+                    pred_d=prediction["component_directions"].get("D"),
+                    conf_d=prediction["component_confidences"].get("D"),
+                    agreement_count=prediction["agreement_count"],
+                    agreement_score=prediction["agreement_score"],
+                    market_regime=prediction["market_regime"],
+                    market_price=market_price,
+                    vix_value=vix_value,
+                    trade_executed=False,
+                )
+
+                db.add(pred_record)
+                seeded += 1
+
+            except Exception as e:
+                logger.warning(f"Failed to seed prediction {i}: {e}")
+                continue
+
+        db.commit()
+        logger.info(f"Seeded {seeded} historical predictions")
+
+        return {"status": "success", "seeded": seeded, "total": current_count + seeded}
+
+    except Exception as e:
+        logger.error(f"Error seeding predictions: {e}")
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()

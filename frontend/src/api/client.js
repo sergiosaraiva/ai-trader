@@ -98,6 +98,9 @@ export const api = {
 
   // Risk metrics
   getRiskMetrics: () => request('/risk/metrics'),
+
+  // Backtest data for What If Calculator
+  getBacktestPeriods: () => request('/trading/backtest-periods'),
 };
 
 export { APIError };

@@ -78,6 +78,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         log_exception(logger, "Trading service initialization failed with unexpected error", e)
 
+    # Seed historical predictions if database is empty
+    logger.info("Checking prediction history...")
+    try:
+        from .scheduler import seed_historical_predictions
+        result = seed_historical_predictions(min_predictions=24)
+        if result["status"] == "success":
+            logger.info(f"Seeded {result['seeded']} historical predictions")
+        elif result["status"] == "skipped":
+            logger.info(f"Prediction history OK ({result['current_count']} records)")
+    except Exception as e:
+        log_exception(logger, "Failed to seed historical predictions", e)
+
     # Start scheduler (optional - can be disabled for serverless/cron deployments)
     scheduler_enabled = os.getenv("SCHEDULER_ENABLED", "true").lower() in ("true", "1", "yes")
 
