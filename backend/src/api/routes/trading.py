@@ -1,7 +1,9 @@
 """Trading endpoints."""
 
+import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Depends
@@ -289,74 +291,73 @@ async def get_risk_metrics() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Backtest performance data by time period (from WFO validation with 70% confidence threshold)
-# Data source: Walk-Forward Optimization windows in docs/02-walk-forward-optimization-results.md
-BACKTEST_PERIODS = {
-    "6m": {
-        "label": "Last 6 Months",
-        "total_pips": 2079,
-        "win_rate": 0.477,
-        "profit_factor": 1.48,
-        "total_trades": 568,
-        "period_start": "2025-01-01",
-        "period_end": "2025-06-30",
-        "period_years": 0.5,
-        "period_months": 6,
-    },
-    "1y": {
-        "label": "Last Year",
-        "total_pips": 4317,  # Window 6 + 7
-        "win_rate": 0.517,
-        "profit_factor": 1.73,
-        "total_trades": 948,
-        "period_start": "2024-07-01",
-        "period_end": "2025-06-30",
-        "period_years": 1.0,
-        "period_months": 12,
-    },
-    "2y": {
-        "label": "Last 2 Years",
-        "total_pips": 6749,  # Windows 5+6+7
-        "win_rate": 0.551,
-        "profit_factor": 1.93,
-        "total_trades": 1282,
-        "period_start": "2024-01-01",
-        "period_end": "2025-06-30",
-        "period_years": 2.0,
-        "period_months": 24,
-    },
-    "3y": {
-        "label": "Last 3 Years",
-        "total_pips": 9839,  # Windows 3+4+5+6+7
-        "win_rate": 0.524,
-        "profit_factor": 1.77,
-        "total_trades": 2185,
-        "period_start": "2023-01-01",
-        "period_end": "2025-06-30",
-        "period_years": 3.0,
-        "period_months": 36,
-    },
-    "5y": {
-        "label": "All Time (5 Years)",
-        "total_pips": 8693,
-        "win_rate": 0.621,
-        "profit_factor": 2.69,
-        "total_trades": 966,
-        "period_start": "2020-01-01",
-        "period_end": "2025-12-31",
-        "period_years": 5.0,
-        "period_months": 60,
-    },
-}
+# Path to backtest results JSON file
+BACKTEST_RESULTS_PATH = Path(__file__).parent.parent.parent.parent / "data" / "backtest_results.json"
 
-# Leverage options for the calculator
-LEVERAGE_OPTIONS = [
-    {"value": 1, "label": "No Leverage (1:1)", "risk": "low"},
-    {"value": 10, "label": "10:1", "risk": "medium"},
-    {"value": 20, "label": "20:1", "risk": "high"},
-    {"value": 30, "label": "30:1 (EU Retail)", "risk": "high"},
-    {"value": 50, "label": "50:1", "risk": "extreme"},
-]
+# Cache for backtest results (reloaded when file changes)
+_backtest_cache: Dict[str, Any] = {}
+_backtest_cache_mtime: float = 0
+
+
+def load_backtest_results() -> Dict[str, Any]:
+    """Load backtest results from JSON file with caching.
+
+    Results are cached and reloaded when the file is modified.
+    This allows monthly updates without code changes or restarts.
+    """
+    global _backtest_cache, _backtest_cache_mtime
+
+    # Check if file exists
+    if not BACKTEST_RESULTS_PATH.exists():
+        logger.warning(f"Backtest results file not found: {BACKTEST_RESULTS_PATH}")
+        return _get_fallback_backtest_data()
+
+    # Check if cache is still valid (file not modified)
+    try:
+        current_mtime = BACKTEST_RESULTS_PATH.stat().st_mtime
+        if _backtest_cache and current_mtime == _backtest_cache_mtime:
+            return _backtest_cache
+    except OSError:
+        pass
+
+    # Load from file
+    try:
+        with open(BACKTEST_RESULTS_PATH, "r") as f:
+            data = json.load(f)
+        _backtest_cache = data
+        _backtest_cache_mtime = BACKTEST_RESULTS_PATH.stat().st_mtime
+        logger.info(f"Loaded backtest results from {BACKTEST_RESULTS_PATH}")
+        return data
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"Error loading backtest results: {e}")
+        return _get_fallback_backtest_data()
+
+
+def _get_fallback_backtest_data() -> Dict[str, Any]:
+    """Return fallback data if JSON file is unavailable."""
+    return {
+        "metadata": {"last_updated": None, "error": "Backtest results file not found"},
+        "periods": {
+            "1y": {
+                "label": "Last Year",
+                "total_pips": 0,
+                "win_rate": 0,
+                "profit_factor": 0,
+                "total_trades": 0,
+                "period_start": "N/A",
+                "period_end": "N/A",
+                "period_years": 1.0,
+                "period_months": 12,
+            }
+        },
+        "leverage_options": [
+            {"value": 1, "label": "No Leverage (1:1)", "risk": "low"},
+        ],
+        "forex_constants": {
+            "standard_lot_size": 100000,
+            "pip_value_per_lot": 10,
+        },
+    }
 
 
 @router.get("/trading/backtest-periods", response_model=Dict[str, Any])
@@ -366,14 +367,14 @@ async def get_backtest_periods() -> Dict[str, Any]:
     Returns historical backtest performance metrics for different time periods,
     used by the What If Calculator to show potential returns.
 
-    Data source: Walk-Forward Optimization validation results.
+    Data is loaded from data/backtest_results.json, which is updated by
+    the walk_forward_optimization.py script during monthly backtest runs.
     """
+    data = load_backtest_results()
+
     return {
-        "periods": BACKTEST_PERIODS,
-        "leverage_options": LEVERAGE_OPTIONS,
-        "forex_constants": {
-            "standard_lot_size": 100000,
-            "pip_value_per_lot": 10,
-        },
-        "data_source": "WFO Validation (70% confidence threshold)",
+        "periods": data.get("periods", {}),
+        "leverage_options": data.get("leverage_options", []),
+        "forex_constants": data.get("forex_constants", {}),
+        "data_source": f"WFO Validation (updated: {data.get('metadata', {}).get('last_updated', 'unknown')})",
     }

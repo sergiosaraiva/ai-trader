@@ -1,0 +1,76 @@
+{
+  "metadata": {
+    "last_updated": "2025-01-19T00:00:00",
+    "generated_by": "walk_forward_optimization.py",
+    "confidence_threshold": 0.70,
+    "model_version": "mtf_ensemble_v1"
+  },
+  "periods": {
+    "6m": {
+      "label": "Last 6 Months",
+      "total_pips": 2079,
+      "win_rate": 0.477,
+      "profit_factor": 1.48,
+      "total_trades": 568,
+      "period_start": "2025-01-01",
+      "period_end": "2025-06-30",
+      "period_years": 0.5,
+      "period_months": 6
+    },
+    "1y": {
+      "label": "Last Year",
+      "total_pips": 4317,
+      "win_rate": 0.517,
+      "profit_factor": 1.73,
+      "total_trades": 948,
+      "period_start": "2024-07-01",
+      "period_end": "2025-06-30",
+      "period_years": 1.0,
+      "period_months": 12
+    },
+    "2y": {
+      "label": "Last 2 Years",
+      "total_pips": 6749,
+      "win_rate": 0.551,
+      "profit_factor": 1.93,
+      "total_trades": 1282,
+      "period_start": "2024-01-01",
+      "period_end": "2025-06-30",
+      "period_years": 2.0,
+      "period_months": 24
+    },
+    "3y": {
+      "label": "Last 3 Years",
+      "total_pips": 9839,
+      "win_rate": 0.524,
+      "profit_factor": 1.77,
+      "total_trades": 2185,
+      "period_start": "2023-01-01",
+      "period_end": "2025-06-30",
+      "period_years": 3.0,
+      "period_months": 36
+    },
+    "5y": {
+      "label": "All Time (5 Years)",
+      "total_pips": 8693,
+      "win_rate": 0.621,
+      "profit_factor": 2.69,
+      "total_trades": 966,
+      "period_start": "2020-01-01",
+      "period_end": "2025-12-31",
+      "period_years": 5.0,
+      "period_months": 60
+    }
+  },
+  "leverage_options": [
+    {"value": 1, "label": "No Leverage (1:1)", "risk": "low"},
+    {"value": 10, "label": "10:1", "risk": "medium"},
+    {"value": 20, "label": "20:1", "risk": "high"},
+    {"value": 30, "label": "30:1 (EU Retail)", "risk": "high"},
+    {"value": 50, "label": "50:1", "risk": "extreme"}
+  ],
+  "forex_constants": {
+    "standard_lot_size": 100000,
+    "pip_value_per_lot": 10
+  }
+}

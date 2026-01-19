@@ -661,6 +661,155 @@ def print_wfo_summary(summary: WFOSummary):
     print("=" * 80)
 
 
+def generate_api_backtest_results(
+    summary: "WFOSummary",
+    results_data: Dict,
+    confidence_threshold: float,
+) -> None:
+    """Generate backtest_results.json for the What If Calculator API.
+
+    This aggregates WFO window results into period-based data (6m, 1y, 2y, etc.)
+    that can be queried by the frontend.
+
+    The file is saved to data/backtest_results.json and is read by the API
+    without requiring code changes or restarts.
+    """
+    api_results_path = project_root / "data" / "backtest_results.json"
+
+    # Get window data sorted by test period end date
+    windows = sorted(
+        results_data["windows"],
+        key=lambda w: w["test_period"].split(" to ")[1],
+        reverse=True,  # Most recent first
+    )
+
+    # Calculate aggregate metrics for different periods
+    # Each WFO window is ~6 months, so we combine windows for longer periods
+    periods = {}
+
+    # Helper to aggregate windows
+    def aggregate_windows(window_list: List[Dict]) -> Dict:
+        if not window_list:
+            return None
+        total_pips = sum(w["total_pips"] for w in window_list)
+        total_trades = sum(w["total_trades"] for w in window_list)
+        # Weighted average for win_rate and profit_factor
+        total_wins = sum(w["win_rate"] * w["total_trades"] for w in window_list)
+        avg_win_rate = total_wins / total_trades if total_trades > 0 else 0
+        # Simple average for profit factor (weighted would need gross profit/loss)
+        avg_pf = sum(w["profit_factor"] for w in window_list) / len(window_list)
+        return {
+            "total_pips": round(total_pips),
+            "win_rate": round(avg_win_rate, 3),
+            "profit_factor": round(avg_pf, 2),
+            "total_trades": total_trades,
+        }
+
+    # Parse test period dates from windows
+    def get_test_dates(window: Dict) -> Tuple[str, str]:
+        parts = window["test_period"].split(" to ")
+        return parts[0], parts[1]
+
+    # Build period aggregations based on available windows
+    # Most recent window (6m)
+    if len(windows) >= 1:
+        latest = windows[0]
+        start, end = get_test_dates(latest)
+        periods["6m"] = {
+            "label": "Last 6 Months",
+            **aggregate_windows([latest]),
+            "period_start": f"{start}-01",
+            "period_end": f"{end}-30",
+            "period_years": 0.5,
+            "period_months": 6,
+        }
+
+    # Last 2 windows (1y)
+    if len(windows) >= 2:
+        _, end = get_test_dates(windows[0])
+        start, _ = get_test_dates(windows[1])
+        periods["1y"] = {
+            "label": "Last Year",
+            **aggregate_windows(windows[:2]),
+            "period_start": f"{start}-01",
+            "period_end": f"{end}-30",
+            "period_years": 1.0,
+            "period_months": 12,
+        }
+
+    # Last 4 windows (2y)
+    if len(windows) >= 4:
+        _, end = get_test_dates(windows[0])
+        start, _ = get_test_dates(windows[3])
+        periods["2y"] = {
+            "label": "Last 2 Years",
+            **aggregate_windows(windows[:4]),
+            "period_start": f"{start}-01",
+            "period_end": f"{end}-30",
+            "period_years": 2.0,
+            "period_months": 24,
+        }
+
+    # Last 6 windows (3y)
+    if len(windows) >= 6:
+        _, end = get_test_dates(windows[0])
+        start, _ = get_test_dates(windows[5])
+        periods["3y"] = {
+            "label": "Last 3 Years",
+            **aggregate_windows(windows[:6]),
+            "period_start": f"{start}-01",
+            "period_end": f"{end}-30",
+            "period_years": 3.0,
+            "period_months": 36,
+        }
+
+    # All windows (5y or "All Time")
+    if len(windows) >= 1:
+        _, end = get_test_dates(windows[0])
+        start, _ = get_test_dates(windows[-1])
+        total_months = len(windows) * 6
+        total_years = total_months / 12
+        periods["5y"] = {
+            "label": f"All Time ({total_years:.0f} Years)" if total_years >= 3 else "All Time",
+            **aggregate_windows(windows),
+            "period_start": f"{start}-01",
+            "period_end": f"{end}-31",
+            "period_years": total_years,
+            "period_months": total_months,
+        }
+
+    # Build the API response structure
+    api_data = {
+        "metadata": {
+            "last_updated": datetime.now().isoformat(),
+            "generated_by": "walk_forward_optimization.py",
+            "confidence_threshold": confidence_threshold,
+            "model_version": "mtf_ensemble_v1",
+            "total_windows": len(windows),
+        },
+        "periods": periods,
+        "leverage_options": [
+            {"value": 1, "label": "No Leverage (1:1)", "risk": "low"},
+            {"value": 10, "label": "10:1", "risk": "medium"},
+            {"value": 20, "label": "20:1", "risk": "high"},
+            {"value": 30, "label": "30:1 (EU Retail)", "risk": "high"},
+            {"value": 50, "label": "50:1", "risk": "extreme"},
+        ],
+        "forex_constants": {
+            "standard_lot_size": 100000,
+            "pip_value_per_lot": 10,
+        },
+    }
+
+    # Save to file
+    with open(api_results_path, "w") as f:
+        json.dump(api_data, f, indent=2)
+
+    logger.info(f"API backtest results saved to {api_results_path}")
+    print(f"\n  API backtest data updated: {api_results_path}")
+    print(f"  Periods available: {', '.join(periods.keys())}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Walk-Forward Optimization for MTF Ensemble")
     parser.add_argument(
@@ -825,6 +974,9 @@ def main():
         json.dump(results_data, f, indent=2)
 
     logger.info(f"\nResults saved to {results_path}")
+
+    # Generate API backtest results file for What If Calculator
+    generate_api_backtest_results(summary, results_data, args.confidence)
 
     # Final recommendation
     print("\n" + "=" * 80)
