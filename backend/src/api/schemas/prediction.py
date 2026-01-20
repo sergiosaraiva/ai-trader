@@ -94,6 +94,7 @@ class PredictionHistoryItem(BaseModel):
     confidence: float = Field(..., ge=0, le=1, description="Model confidence (0-1)")
     market_price: Optional[float] = Field(None, gt=0, description="Market price at prediction")
     trade_executed: bool = Field(..., description="Whether a trade was executed")
+    should_trade: bool = Field(..., description="Whether confidence >= 70% threshold")
 
     model_config = {
         "json_schema_extra": {
@@ -105,6 +106,7 @@ class PredictionHistoryItem(BaseModel):
                 "confidence": 0.72,
                 "market_price": 1.08523,
                 "trade_executed": True,
+                "should_trade": True,
             }
         }
     }
@@ -131,6 +133,7 @@ class PredictionHistoryResponse(BaseModel):
                         "confidence": 0.72,
                         "market_price": 1.08523,
                         "trade_executed": True,
+                        "should_trade": True,
                     }
                 ],
                 "count": 1,

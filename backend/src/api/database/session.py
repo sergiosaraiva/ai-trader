@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker, Session
 
 from .models import Base
@@ -60,6 +60,37 @@ def init_db() -> None:
 
     # Create all tables
     Base.metadata.create_all(bind=engine)
+
+    # Run migrations for existing tables
+    run_migrations()
+
+
+def run_migrations() -> None:
+    """Run database migrations for schema updates.
+
+    This handles adding new columns to existing tables without data loss.
+    """
+    inspector = inspect(engine)
+
+    # Check if predictions table exists
+    if "predictions" not in inspector.get_table_names():
+        return
+
+    # Get existing columns
+    columns = {col["name"] for col in inspector.get_columns("predictions")}
+
+    # Migration: Add should_trade column if missing
+    if "should_trade" not in columns:
+        with engine.connect() as conn:
+            # Add column with default value
+            conn.execute(text(
+                "ALTER TABLE predictions ADD COLUMN should_trade BOOLEAN DEFAULT 1"
+            ))
+            # Update existing records based on confidence threshold (70%)
+            conn.execute(text(
+                "UPDATE predictions SET should_trade = (confidence >= 0.70)"
+            ))
+            conn.commit()
 
 
 def get_session() -> Session:

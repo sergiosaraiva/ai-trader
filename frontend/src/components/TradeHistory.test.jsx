@@ -221,4 +221,187 @@ describe('TradeHistory', () => {
     expect(screen.getByText('@ 1.08543')).toBeInTheDocument();
     expect(screen.getByText('@ 50123.12')).toBeInTheDocument();
   });
+
+  // should_trade Tests (HOLD signals)
+  it('renders HOLD signal when should_trade is false', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.68,
+        timestamp: new Date().toISOString(),
+        should_trade: false,
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('HOLD')).toBeInTheDocument();
+    expect(screen.getByText('@ 1.08500')).toBeInTheDocument();
+    expect(screen.getByText('68%')).toBeInTheDocument();
+  });
+
+  it('renders BUY signal when should_trade is true', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.75,
+        timestamp: new Date().toISOString(),
+        should_trade: true,
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('BUY')).toBeInTheDocument();
+    expect(screen.queryByText('HOLD')).not.toBeInTheDocument();
+  });
+
+  it('renders SELL signal when should_trade is true and direction is short', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'short',
+        price: 1.08200,
+        confidence: 0.72,
+        timestamp: new Date().toISOString(),
+        should_trade: true,
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('SELL')).toBeInTheDocument();
+    expect(screen.queryByText('HOLD')).not.toBeInTheDocument();
+  });
+
+  it('prioritizes should_trade over direction when determining signal type', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.68,
+        timestamp: new Date().toISOString(),
+        should_trade: false, // should_trade=false overrides direction
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    // Should show HOLD, not BUY, because should_trade=false
+    expect(screen.getByText('HOLD')).toBeInTheDocument();
+    expect(screen.queryByText('BUY')).not.toBeInTheDocument();
+  });
+
+  it('handles mixed signals with should_trade true and false', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.75,
+        timestamp: new Date().toISOString(),
+        should_trade: true,
+      },
+      {
+        id: '2',
+        direction: 'short',
+        price: 1.08300,
+        confidence: 0.65,
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        should_trade: false,
+      },
+      {
+        id: '3',
+        direction: 'short',
+        price: 1.08200,
+        confidence: 0.72,
+        timestamp: new Date(Date.now() - 7200000).toISOString(),
+        should_trade: true,
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    expect(screen.getByText('BUY')).toBeInTheDocument();
+    expect(screen.getByText('HOLD')).toBeInTheDocument();
+    expect(screen.getByText('SELL')).toBeInTheDocument();
+    expect(screen.getByText('3 signals')).toBeInTheDocument();
+  });
+
+  it('renders HOLD signal with gray styling', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.68,
+        timestamp: new Date().toISOString(),
+        should_trade: false,
+      },
+    ];
+    const { container } = render(<TradeHistory signals={signals} />);
+
+    // Check HOLD text appears
+    expect(screen.getByText('HOLD')).toBeInTheDocument();
+
+    // Check gray color class is applied
+    const holdText = screen.getByText('HOLD');
+    expect(holdText).toHaveClass('text-gray-400');
+
+    // Check gray icon background
+    const iconContainer = container.querySelector('.bg-gray-500\\/20');
+    expect(iconContainer).toBeInTheDocument();
+  });
+
+  it('handles should_trade undefined (backward compatibility)', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.72,
+        timestamp: new Date().toISOString(),
+        // No should_trade field (old data)
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    // Should fallback to showing BUY based on direction
+    expect(screen.getByText('BUY')).toBeInTheDocument();
+  });
+
+  it('handles should_trade null (old records)', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.72,
+        timestamp: new Date().toISOString(),
+        should_trade: null, // Old record
+      },
+    ];
+    render(<TradeHistory signals={signals} />);
+
+    // Should fallback to showing BUY based on direction
+    expect(screen.getByText('BUY')).toBeInTheDocument();
+  });
+
+  it('uses ChevronRight icon for HOLD signals', () => {
+    const signals = [
+      {
+        id: '1',
+        direction: 'long',
+        price: 1.08500,
+        confidence: 0.68,
+        timestamp: new Date().toISOString(),
+        should_trade: false,
+      },
+    ];
+    const { container } = render(<TradeHistory signals={signals} />);
+
+    // Verify ChevronRight icon is used (size 18, gray color)
+    const chevronIcon = container.querySelector('.text-gray-400');
+    expect(chevronIcon).toBeInTheDocument();
+  });
 });

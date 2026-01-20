@@ -1,4 +1,4 @@
-import { ArrowUpRight, ArrowDownRight, Clock, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Clock, Minus } from 'lucide-react';
 import { formatPrice } from '../utils/assetFormatting';
 
 /**
@@ -41,9 +41,18 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
   };
 
   const getSignalType = (signal) => {
+    // Null safety check
+    if (!signal) return 'HOLD';
+
+    // Use should_trade flag if available (explicit false = HOLD)
+    if (Object.hasOwn(signal, 'should_trade') && signal.should_trade === false) {
+      return 'HOLD';
+    }
+
     // Handle both 'signal' and 'direction' field names from API
-    if (signal === 'BUY' || signal === 'long' || signal === 1) return 'BUY';
-    if (signal === 'SELL' || signal === 'short' || signal === -1) return 'SELL';
+    const direction = signal.signal || signal.direction;
+    if (direction === 'BUY' || direction === 'long' || direction === 1) return 'BUY';
+    if (direction === 'SELL' || direction === 'short' || direction === -1) return 'SELL';
     return 'HOLD';
   };
 
@@ -65,8 +74,8 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
       ) : (
         <div className="space-y-2 max-h-[400px] overflow-y-auto" role="list" aria-label="Trading signals list">
           {signalList.map((signal, idx) => {
-            // Handle both 'signal' and 'direction' field names from API
-            const signalType = getSignalType(signal.signal || signal.direction);
+            // Get signal type using full signal object (checks should_trade flag)
+            const signalType = getSignalType(signal);
             const isBuy = signalType === 'BUY';
             const isSell = signalType === 'SELL';
             // Handle both 'price', 'current_price', and 'market_price' field names
@@ -90,7 +99,7 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
                         ? 'bg-green-500/20'
                         : isSell
                           ? 'bg-red-500/20'
-                          : 'bg-gray-500/20'
+                          : 'bg-yellow-500/20'
                     }`}
                     aria-hidden="true"
                   >
@@ -99,7 +108,7 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
                     ) : isSell ? (
                       <ArrowDownRight size={18} className="text-red-400" />
                     ) : (
-                      <ChevronRight size={18} className="text-gray-400" />
+                      <Minus size={18} className="text-yellow-400" />
                     )}
                   </div>
                   <div>
@@ -110,7 +119,7 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
                             ? 'text-green-400'
                             : isSell
                               ? 'text-red-400'
-                              : 'text-gray-400'
+                              : 'text-yellow-400'
                         }`}
                       >
                         {signalType}

@@ -118,6 +118,8 @@ async def get_prediction_history(
                 confidence = max(0.0, min(1.0, p.confidence)) if p.confidence is not None else 0.0
                 market_price = p.market_price if p.market_price is not None else 0.0
                 trade_executed = p.trade_executed if p.trade_executed is not None else False
+                # Use should_trade if available, otherwise fallback to confidence >= 0.70
+                should_trade = p.should_trade if p.should_trade is not None else (p.confidence >= 0.70)
 
                 items.append(PredictionHistoryItem(
                     id=p.id,
@@ -127,6 +129,7 @@ async def get_prediction_history(
                     confidence=confidence,
                     market_price=market_price,
                     trade_executed=trade_executed,
+                    should_trade=should_trade,
                 ))
             except Exception as e:
                 # Log but don't fail entire request for single bad record

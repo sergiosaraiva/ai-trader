@@ -158,6 +158,7 @@ def generate_prediction() -> None:
                 market_price=current_price,
                 vix_value=vix_value,
                 trade_executed=False,
+                should_trade=prediction["should_trade"],
             )
 
             db.add(pred_record)
@@ -450,6 +451,7 @@ def seed_historical_predictions(min_predictions: int = 24) -> dict:
                     market_price=market_price,
                     vix_value=vix_value,
                     trade_executed=False,
+                    should_trade=prediction["should_trade"],
                 )
 
                 db.add(pred_record)

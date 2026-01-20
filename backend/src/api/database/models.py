@@ -54,6 +54,9 @@ class Prediction(Base):
     # Whether a trade was executed based on this prediction
     trade_executed = Column(Boolean, default=False)
 
+    # Whether confidence meets 70% threshold for trading
+    should_trade = Column(Boolean, nullable=False, default=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
