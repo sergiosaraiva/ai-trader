@@ -38,6 +38,9 @@ class ModelService:
     # Cache TTL
     PREDICTION_CACHE_TTL = timedelta(minutes=1)
 
+    # Cache size limit (prevent unbounded memory growth)
+    MAX_CACHE_SIZE = 100
+
     def __init__(self, model_dir: Optional[Path] = None):
         self._lock = Lock()
         self._model_dir = Path(model_dir) if model_dir else self.DEFAULT_MODEL_DIR
@@ -223,8 +226,10 @@ class ModelService:
                 "symbol": symbol,
             }
 
-            # Cache result
+            # Cache result (with size limit to prevent memory leak)
             with self._lock:
+                # Evict expired and oldest entries if cache is full
+                self._cleanup_cache_if_needed()
                 self._cache[cache_key] = {
                     "prediction": result,
                     "cached_at": datetime.now(),
@@ -281,7 +286,35 @@ class ModelService:
             self._cache.clear()
         logger.info("Model prediction cache cleared")
 
-    def predict_from_pipeline(self, use_cache: bool = True) -> Dict[str, Any]:
+    def _cleanup_cache_if_needed(self) -> None:
+        """Clean up expired entries and enforce cache size limit.
+
+        Must be called while holding self._lock.
+        """
+        now = datetime.now()
+
+        # First, remove expired entries
+        expired_keys = [
+            k for k, v in self._cache.items()
+            if now - v["cached_at"] > self.PREDICTION_CACHE_TTL
+        ]
+        for key in expired_keys:
+            del self._cache[key]
+
+        # Then enforce size limit by removing oldest entries
+        if len(self._cache) >= self.MAX_CACHE_SIZE:
+            # Remove 20% of oldest entries
+            entries_to_remove = max(1, len(self._cache) // 5)
+            sorted_keys = sorted(
+                self._cache.keys(),
+                key=lambda k: self._cache[k]["cached_at"]
+            )
+            for key in sorted_keys[:entries_to_remove]:
+                del self._cache[key]
+
+    def predict_from_pipeline(
+        self, use_cache: bool = True, symbol: str = "EURUSD"
+    ) -> Dict[str, Any]:
         """Make a prediction using pre-processed pipeline data.
 
         This method uses the cached processed data from the pipeline service
@@ -291,6 +324,10 @@ class ModelService:
         - 1H data with technical indicators and features
         - 4H data with technical indicators and features
         - Daily data with technical indicators, features, and sentiment
+
+        Args:
+            use_cache: Whether to use cached predictions
+            symbol: Trading symbol (default: EURUSD)
 
         Returns:
             Dict with prediction details
@@ -363,11 +400,14 @@ class ModelService:
                     k: float(v) for k, v in prediction.component_weights.items()
                 },
                 "timestamp": datetime.now().isoformat(),
+                "symbol": symbol,
                 "data_source": "pipeline",
             }
 
-            # Cache result
+            # Cache result (with size limit to prevent memory leak)
             with self._lock:
+                # Evict expired and oldest entries if cache is full
+                self._cleanup_cache_if_needed()
                 self._cache[cache_key] = {
                     "prediction": result,
                     "cached_at": datetime.now(),

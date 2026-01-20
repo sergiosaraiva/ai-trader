@@ -1,11 +1,15 @@
-"""Data service for fetching market data via yfinance + historical CSV.
+"""Data service for accessing market data from pipeline cache.
 
 This service provides:
-- Hybrid data: Historical 5-min CSV + live yfinance data
-- Real-time EUR/USD price data (with ~15-20 min delay)
-- VIX data for sentiment features
-- Data caching to avoid excessive API calls
-- Resampling to different timeframes
+- Fast data access via pipeline_service cache (no yfinance calls during API requests)
+- Current EUR/USD price from latest cached bar
+- VIX data from sentiment cache
+- OHLCV data for predictions (hourly resolution)
+- In-memory caching for even faster repeated access
+- Fallback to yfinance for get_ohlcv_data() and get_market_info() only
+
+The pipeline_service handles all external data fetching (yfinance, FRED)
+and runs on a schedule, keeping cache files up to date.
 """
 
 import logging
@@ -30,10 +34,16 @@ FOREX_DATA_DIR = DATA_DIR / "forex"
 
 
 class DataService:
-    """Service for fetching and caching market data.
+    """Service for accessing market data from pipeline cache.
 
-    Combines historical CSV data with live yfinance data for complete
-    coverage needed by the MTF Ensemble model.
+    Reads pre-processed data from pipeline_service cache files (parquet)
+    for fast API responses. No yfinance calls during request handling.
+
+    The pipeline_service is responsible for:
+    - Periodic data fetching from external sources
+    - Combining historical + live data
+    - Calculating features and resampling
+    - Updating cache files
     """
 
     # Yahoo Finance symbols
@@ -43,11 +53,15 @@ class DataService:
     # Historical data file
     HISTORICAL_DATA_FILE = FOREX_DATA_DIR / "EURUSD_20200101_20251231_5min_combined.csv"
 
-    # Cache durations
-    PRICE_CACHE_TTL = timedelta(minutes=5)
-    VIX_CACHE_TTL = timedelta(hours=1)
-    OHLCV_CACHE_TTL = timedelta(minutes=5)
+    # Cache durations (increased since we read from pipeline cache)
+    PRICE_CACHE_TTL = timedelta(minutes=15)  # Pipeline runs hourly
+    VIX_CACHE_TTL = timedelta(hours=4)
+    OHLCV_CACHE_TTL = timedelta(minutes=15)
     HISTORICAL_CACHE_TTL = timedelta(hours=24)  # Historical data rarely changes
+
+    # Cache size limits (prevent unbounded memory growth)
+    MAX_PRICE_CACHE_SIZE = 50
+    MAX_OHLCV_CACHE_SIZE = 20  # Each DataFrame can be 1-5MB
 
     def __init__(self):
         self._lock = Lock()
@@ -77,25 +91,24 @@ class DataService:
         return self._initialized
 
     def initialize(self) -> None:
-        """Initialize service by loading historical data and fetching live data."""
+        """Initialize service (lightweight since we use pipeline cache)."""
         if self._initialized:
             return
 
         logger.info("Initializing DataService...")
 
         try:
-            # Load historical data first
+            # Load historical data (kept for backward compatibility)
             self._load_historical_data()
 
-            # Pre-fetch live data
-            self.get_current_price()
-            self.get_vix_data()
-
+            # Mark as initialized
+            # Note: We don't pre-fetch data anymore since we read from pipeline cache
             self._initialized = True
-            logger.info("DataService initialized successfully")
+            logger.info("DataService initialized successfully (using pipeline cache)")
         except Exception as e:
             logger.error(f"Failed to initialize DataService: {e}")
-            raise
+            # Don't raise - service can still work with pipeline cache
+            self._initialized = True
 
     def _load_historical_data(self) -> None:
         """Load historical 5-minute data from CSV."""
@@ -136,53 +149,44 @@ class DataService:
         symbol: str = "EURUSD",
         start_date: Optional[datetime] = None,
     ) -> Optional[pd.DataFrame]:
-        """Fetch live data from yfinance.
+        """Get data from pipeline cache (no longer makes yfinance calls).
 
         Args:
             symbol: Trading symbol
-            start_date: Start date for data (default: 7 days ago)
+            start_date: Start date for data (optional, for filtering)
 
         Returns:
-            DataFrame with 5-min or hourly OHLCV data
+            DataFrame with hourly OHLCV data from pipeline cache
         """
-        yf_symbol = self.EURUSD_SYMBOL if symbol == "EURUSD" else f"{symbol}=X"
-
         try:
-            ticker = yf.Ticker(yf_symbol)
+            # Import pipeline_service to access cache
+            from .pipeline_service import pipeline_service
 
-            # For forex, yfinance 5-min data can be unreliable
-            # Try hourly first, then resample if needed
-            if start_date:
-                # Fetch from start_date to now
-                df = ticker.history(start=start_date, interval="1h")
-            else:
-                # Default: last 60 days of hourly data
-                df = ticker.history(period="60d", interval="1h")
+            # Read from pipeline's 1h cache (already has all data processed)
+            df = pipeline_service.get_processed_data("1h")
 
-            if df.empty:
-                logger.warning(f"No live data available for {yf_symbol}")
+            if df is None or df.empty:
+                logger.warning("Pipeline cache not available for 1h data")
                 return None
 
-            # Standardize column names
-            df = df.rename(columns={
-                "Open": "open",
-                "High": "high",
-                "Low": "low",
-                "Close": "close",
-                "Volume": "volume",
-            })
-
-            # Ensure datetime index is timezone-naive
-            if df.index.tz is not None:
-                df.index = df.index.tz_localize(None)
-
             # Keep only OHLCV columns
-            df = df[["open", "high", "low", "close", "volume"]].copy()
+            ohlcv_cols = ["open", "high", "low", "close", "volume"]
+            available_cols = [c for c in ohlcv_cols if c in df.columns]
+            df = df[available_cols].copy()
 
+            # Filter by start_date if provided
+            if start_date:
+                df = df[df.index >= start_date]
+
+            if df.empty:
+                logger.warning(f"No data available after filtering (start_date={start_date})")
+                return None
+
+            logger.debug(f"Retrieved {len(df):,} bars from pipeline cache")
             return df
 
         except Exception as e:
-            logger.error(f"Error fetching live data: {e}")
+            logger.error(f"Error reading from pipeline cache: {e}")
             return None
 
     def get_data_for_prediction(
@@ -190,98 +194,60 @@ class DataService:
         symbol: str = "EURUSD",
         use_cache: bool = True,
     ) -> Optional[pd.DataFrame]:
-        """Get combined historical + live data for model prediction.
+        """Get data from pipeline cache for model prediction.
 
-        This method:
-        1. Loads historical 5-minute data from CSV
-        2. Fetches recent data from yfinance
-        3. Combines them, using yfinance to fill the gap after CSV ends
-        4. Returns data ready for the MTF Ensemble model
+        The pipeline service handles:
+        1. Loading historical 5-minute data
+        2. Fetching new data periodically
+        3. Combining and resampling to hourly
+        4. Caching processed data
+
+        This method simply reads from the pipeline's cache.
 
         Args:
             symbol: Trading symbol
-            use_cache: Whether to use cached combined data
+            use_cache: Whether to use in-memory cache
 
         Returns:
-            DataFrame with 5-minute OHLCV data (historical + live)
+            DataFrame with hourly OHLCV data from pipeline cache
         """
-        # Check cache (5-minute TTL for combined data)
+        # Check in-memory cache first
         with self._lock:
             if use_cache and self._prediction_data_cache is not None:
                 df, cached_at = self._prediction_data_cache
-                if datetime.now() - cached_at < timedelta(minutes=5):
+                if datetime.now() - cached_at < self.OHLCV_CACHE_TTL:
                     logger.debug("Returning cached prediction data")
                     return df.copy()
 
-        # Ensure historical data is loaded
-        if self._historical_data is None:
-            self._load_historical_data()
-
-        if self._historical_data is None:
-            logger.warning("No historical data available, falling back to live only")
-            return self._get_live_data_for_prediction(symbol)
-
         try:
-            # Get the end date of historical data
-            hist_end = self._historical_data.index[-1]
-            logger.debug(f"Historical data ends at: {hist_end}")
+            # Import pipeline_service
+            from .pipeline_service import pipeline_service
 
-            # Fetch live data from yfinance
-            # Start from a day before hist_end to ensure overlap
-            live_start = hist_end - timedelta(days=1)
-            live_df = self._get_live_data(symbol, start_date=live_start)
+            # Read hourly data from pipeline cache
+            df = pipeline_service.get_processed_data("1h")
 
-            if live_df is None or live_df.empty:
-                logger.warning("No live data available, using historical only")
-                # Return last portion of historical data
-                return self._historical_data.tail(50000).copy()
+            if df is None or df.empty:
+                logger.warning("Pipeline cache not available, falling back to live data")
+                return self._get_live_data_for_prediction(symbol)
 
-            # The live data is hourly, we need to handle this properly
-            # Option 1: Resample historical to hourly and combine
-            # Option 2: Use historical as-is and append hourly data
+            # Keep only OHLCV columns
+            ohlcv_cols = ["open", "high", "low", "close", "volume"]
+            available_cols = [c for c in ohlcv_cols if c in df.columns]
+            df = df[available_cols].copy()
 
-            # We'll use Option 1 for consistency: resample historical to hourly
-            # This ensures feature calculations work correctly
-            hist_hourly = self._historical_data.resample("1h").agg({
-                "open": "first",
-                "high": "max",
-                "low": "min",
-                "close": "last",
-                "volume": "sum",
-            }).dropna()
-
-            # Find overlap point
-            overlap_start = live_df.index[0]
-            hist_before_overlap = hist_hourly[hist_hourly.index < overlap_start]
-
-            # Combine: historical (before overlap) + live
-            combined = pd.concat([hist_before_overlap, live_df])
-
-            # Remove any duplicates (prefer live data)
-            combined = combined[~combined.index.duplicated(keep="last")]
-
-            # Sort by index
-            combined = combined.sort_index()
-
-            # Forward-fill any gaps
-            combined = combined.ffill()
-
-            # Drop any NaN rows
-            combined = combined.dropna()
-
-            logger.info(
-                f"Combined data: {len(combined):,} hourly bars "
-                f"({combined.index[0]} to {combined.index[-1]})"
+            logger.debug(
+                f"Retrieved data from pipeline: {len(df):,} hourly bars "
+                f"({df.index[0]} to {df.index[-1]})"
             )
 
-            # Cache the result
+            # Cache the result in memory
             with self._lock:
-                self._prediction_data_cache = (combined.copy(), datetime.now())
+                self._prediction_data_cache = (df.copy(), datetime.now())
 
-            return combined
+            return df
 
         except Exception as e:
-            logger.error(f"Error combining data: {e}")
+            logger.error(f"Error reading from pipeline cache: {e}")
             return self._get_live_data_for_prediction(symbol)
 
     def _get_live_data_for_prediction(
@@ -301,41 +267,57 @@ class DataService:
         return df
 
     def get_current_price(self, symbol: str = "EURUSD") -> Optional[float]:
-        """Get current price for a symbol.
+        """Get current price from pipeline cache.
 
         Args:
             symbol: Trading symbol (default: EURUSD)
 
         Returns:
-            Current price or None if unavailable
+            Current price (latest close) or None if unavailable
         """
-        yf_symbol = self.EURUSD_SYMBOL if symbol == "EURUSD" else f"{symbol}=X"
+        cache_key = f"{symbol}_price"
 
         with self._lock:
-            # Check cache
-            if yf_symbol in self._price_cache:
-                price, timestamp = self._price_cache[yf_symbol]
+            # Check in-memory cache
+            if cache_key in self._price_cache:
+                price, timestamp = self._price_cache[cache_key]
                 if datetime.now() - timestamp < self.PRICE_CACHE_TTL:
                     return price
 
         try:
-            ticker = yf.Ticker(yf_symbol)
-            # Get most recent data
-            data = ticker.history(period="1d", interval="1m")
+            # Import pipeline_service
+            from .pipeline_service import pipeline_service
 
-            if data.empty:
-                logger.warning(f"No price data available for {yf_symbol}")
+            # Get latest bar from pipeline cache (1h data)
+            df = pipeline_service.get_processed_data("1h")
+
+            if df is None or df.empty:
+                logger.warning("Pipeline cache not available for current price")
                 return None
 
-            price = float(data["Close"].iloc[-1])
+            # Get the latest close price
+            if "close" not in df.columns:
+                logger.warning("No 'close' column in pipeline data")
+                return None
 
+            price = float(df["close"].iloc[-1])
+
+            # Cache the result (with size limit to prevent memory leak)
             with self._lock:
-                self._price_cache[yf_symbol] = (price, datetime.now())
+                # Evict oldest entries if cache is full
+                if len(self._price_cache) >= self.MAX_PRICE_CACHE_SIZE:
+                    oldest_key = min(
+                        self._price_cache.keys(),
+                        key=lambda k: self._price_cache[k][1]
+                    )
+                    del self._price_cache[oldest_key]
+                self._price_cache[cache_key] = (price, datetime.now())
 
+            logger.debug(f"Current price from pipeline cache: {price}")
             return price
 
         except Exception as e:
-            logger.error(f"Error fetching price for {yf_symbol}: {e}")
+            logger.error(f"Error fetching current price from pipeline cache: {e}")
             return None
 
     def get_ohlcv_data(
@@ -389,7 +371,15 @@ class DataService:
             # Keep only OHLCV columns
             df = df[["open", "high", "low", "close", "volume"]].copy()
 
+            # Cache result (with size limit to prevent memory leak)
             with self._lock:
+                # Evict oldest entries if cache is full
+                if len(self._ohlcv_cache) >= self.MAX_OHLCV_CACHE_SIZE:
+                    oldest_key = min(
+                        self._ohlcv_cache.keys(),
+                        key=lambda k: self._ohlcv_cache[k][1]
+                    )
+                    del self._ohlcv_cache[oldest_key]
                 self._ohlcv_cache[cache_key] = (df.copy(), datetime.now())
 
             logger.debug(f"Fetched {len(df)} bars for {yf_symbol} ({interval})")
@@ -404,14 +394,14 @@ class DataService:
         period: str = "60d",
         force_refresh: bool = False,
     ) -> Optional[pd.Series]:
-        """Get VIX data for sentiment features.
+        """Get VIX data from pipeline sentiment cache.
 
         Args:
-            period: Data period
+            period: Data period (ignored, returns all available from cache)
             force_refresh: Force refresh cache
 
         Returns:
-            Series with VIX closing values or None
+            Series with VIX values or None
         """
         with self._lock:
             if not force_refresh and self._vix_cache is not None:
@@ -420,15 +410,24 @@ class DataService:
                     return vix.copy()
 
         try:
-            ticker = yf.Ticker(self.VIX_SYMBOL)
-            df = ticker.history(period=period, interval="1d")
+            # Import pipeline_service
+            from .pipeline_service import pipeline_service
 
-            if df.empty:
-                logger.warning("No VIX data available")
+            # Read sentiment data from pipeline cache
+            df_sentiment = None
+            if pipeline_service.cache_sentiment.exists():
+                df_sentiment = pd.read_parquet(pipeline_service.cache_sentiment)
+
+            if df_sentiment is None or df_sentiment.empty:
+                logger.warning("Pipeline sentiment cache not available")
                 return None
 
-            # Get closing values
-            vix = df["Close"].copy()
+            # Extract VIX column
+            if "VIX" not in df_sentiment.columns:
+                logger.warning("No VIX column in sentiment data")
+                return None
+
+            vix = df_sentiment["VIX"].copy()
             vix.name = "vix"
 
             # Ensure timezone-naive
@@ -438,15 +437,15 @@ class DataService:
             with self._lock:
                 self._vix_cache = (vix.copy(), datetime.now())
 
-            logger.debug(f"Fetched {len(vix)} VIX values")
+            logger.debug(f"Retrieved {len(vix)} VIX values from pipeline cache")
             return vix
 
         except Exception as e:
-            logger.error(f"Error fetching VIX data: {e}")
+            logger.error(f"Error fetching VIX data from pipeline cache: {e}")
             return None
 
     def get_latest_vix(self) -> Optional[float]:
-        """Get most recent VIX value."""
+        """Get most recent VIX value from pipeline cache."""
         vix = self.get_vix_data()
         if vix is not None and len(vix) > 0:
             return float(vix.iloc[-1])
@@ -623,14 +622,59 @@ class DataService:
             "loaded_at": self._historical_loaded_at.isoformat() if self._historical_loaded_at else None,
         }
 
-    def clear_cache(self) -> None:
-        """Clear all cached data."""
+    def clear_cache(self, release_historical: bool = False) -> None:
+        """Clear all cached data.
+
+        Args:
+            release_historical: If True, also release the historical DataFrame
+                               to free ~50-100MB of memory
+        """
+        import gc
+
         with self._lock:
             self._price_cache.clear()
             self._ohlcv_cache.clear()
             self._vix_cache = None
             self._prediction_data_cache = None
+
+            if release_historical and self._historical_data is not None:
+                self._historical_data = None
+                self._historical_loaded_at = None
+                logger.info("Released historical data from memory")
+
+        # Force garbage collection
+        gc.collect()
         logger.info("DataService cache cleared")
+
+    def get_memory_usage(self) -> Dict:
+        """Get approximate memory usage of cached data.
+
+        Returns:
+            Dict with cache sizes and memory estimates
+        """
+        import sys
+
+        with self._lock:
+            historical_mb = (
+                sys.getsizeof(self._historical_data) / 1024 / 1024
+                if self._historical_data is not None
+                else 0
+            )
+            # Estimate DataFrame memory more accurately if available
+            if self._historical_data is not None:
+                try:
+                    historical_mb = self._historical_data.memory_usage(deep=True).sum() / 1024 / 1024
+                except Exception:
+                    pass
+
+            return {
+                "price_cache_entries": len(self._price_cache),
+                "ohlcv_cache_entries": len(self._ohlcv_cache),
+                "vix_cached": self._vix_cache is not None,
+                "prediction_data_cached": self._prediction_data_cache is not None,
+                "historical_data_mb": round(historical_mb, 2),
+                "historical_loaded": self._historical_data is not None,
+            }
 
 
 # Singleton instance

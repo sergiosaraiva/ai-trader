@@ -8,6 +8,7 @@ Handles:
 - Position monitoring (every 5 minutes)
 """
 
+import gc
 import logging
 from datetime import datetime
 from typing import Optional
@@ -189,6 +190,33 @@ def save_performance_snapshot() -> None:
         logger.error(f"Error saving performance snapshot: {e}")
 
 
+def cleanup_memory() -> None:
+    """Clean up service caches and run garbage collection.
+
+    Runs periodically to prevent memory leaks from growing caches
+    and to reclaim memory from temporary DataFrames.
+    """
+    try:
+        logger.debug("Running memory cleanup...")
+
+        # Clear service caches (keep historical data)
+        data_service.clear_cache(release_historical=False)
+
+        # Clear model cache
+        model_service.clear_cache()
+
+        # Run pipeline cleanup (closes session, clears temp references)
+        pipeline_service.cleanup()
+
+        # Force garbage collection
+        collected = gc.collect()
+
+        logger.info(f"Memory cleanup complete - collected {collected} objects")
+
+    except Exception as e:
+        logger.error(f"Error during memory cleanup: {e}")
+
+
 def start_scheduler() -> BackgroundScheduler:
     """Start the background scheduler with all jobs.
 
@@ -251,6 +279,16 @@ def start_scheduler() -> BackgroundScheduler:
         trigger=CronTrigger(minute=5),  # Run at :05 each hour
         id="save_performance",
         name="Save Performance",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    # Job 6: Periodic memory cleanup every 4 hours
+    scheduler.add_job(
+        cleanup_memory,
+        trigger=IntervalTrigger(hours=4),
+        id="cleanup_memory",
+        name="Memory Cleanup",
         replace_existing=True,
         max_instances=1,
     )

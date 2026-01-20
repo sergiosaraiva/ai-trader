@@ -436,6 +436,125 @@ class MTFEnsemble:
             predictions, confidences, probs_up, market_regime
         )
 
+    def predict_from_features(
+        self,
+        df_1h: pd.DataFrame,
+        df_4h: pd.DataFrame,
+        df_daily: pd.DataFrame,
+        use_regime_adjustment: bool = None,
+    ) -> MTFPrediction:
+        """Make ensemble prediction using pre-computed feature DataFrames.
+
+        This is a fast path that skips resampling and feature calculation.
+        Use when features have already been computed by the pipeline service.
+
+        Args:
+            df_1h: 1-hour DataFrame with pre-computed features
+            df_4h: 4-hour DataFrame with pre-computed features
+            df_daily: Daily DataFrame with pre-computed features
+            use_regime_adjustment: Whether to adjust weights for market regime
+
+        Returns:
+            MTFPrediction with direction, confidence, and component info
+        """
+        if not self.is_trained:
+            raise RuntimeError("Ensemble not trained. Call train() first.")
+
+        use_regime = (
+            use_regime_adjustment
+            if use_regime_adjustment is not None
+            else self.config.use_regime_adjustment
+        )
+
+        # Map timeframes to DataFrames
+        tf_data = {
+            "1H": df_1h,
+            "4H": df_4h,
+            "D": df_daily,
+        }
+
+        # Get predictions from each model using pre-computed features
+        predictions = {}
+        confidences = {}
+        probs_up = {}
+
+        for tf, model in self.models.items():
+            df_features = tf_data.get(tf)
+
+            if df_features is None or df_features.empty:
+                logger.warning(f"{tf}: No feature data available, using neutral")
+                predictions[tf] = 0
+                confidences[tf] = 0.5
+                probs_up[tf] = 0.5
+                continue
+
+            # Get features for latest bar
+            feature_cols = model.feature_names
+            available_cols = [c for c in feature_cols if c in df_features.columns]
+
+            if len(available_cols) < len(feature_cols) * 0.8:  # Need at least 80%
+                missing = set(feature_cols) - set(available_cols)
+                logger.warning(
+                    f"{tf}: Missing {len(missing)} features ({len(available_cols)}/{len(feature_cols)} available)"
+                )
+                predictions[tf] = 0
+                confidences[tf] = 0.5
+                probs_up[tf] = 0.5
+                continue
+
+            X = df_features[available_cols].iloc[-1:].values
+
+            # Handle NaN values
+            nan_count = np.isnan(X).sum()
+            if nan_count > 0:
+                nan_pct = nan_count / X.size * 100
+                if nan_pct > 20:
+                    logger.warning(
+                        f"{tf}: {nan_pct:.1f}% NaN in features, using neutral"
+                    )
+                    predictions[tf] = 0
+                    confidences[tf] = 0.5
+                    probs_up[tf] = 0.5
+                    continue
+                else:
+                    X = np.nan_to_num(X, nan=0.0)
+
+            pred, conf, prob_up, prob_down = model.predict(X[0])
+            predictions[tf] = pred
+            confidences[tf] = conf
+            probs_up[tf] = prob_up
+
+        # Detect market regime from 1H data (optional)
+        market_regime = "unknown"
+        if use_regime and df_1h is not None and not df_1h.empty:
+            # Simple regime detection from volatility
+            if "atr_14" in df_1h.columns and "close" in df_1h.columns:
+                recent = df_1h.tail(20)
+                atr = recent["atr_14"].iloc[-1] if "atr_14" in recent else 0
+                close = recent["close"].iloc[-1] if "close" in recent else 1
+                volatility = atr / close if close > 0 else 0
+
+                if volatility > 0.01:
+                    market_regime = "trending_high_vol"
+                elif volatility < 0.005:
+                    market_regime = "ranging_low_vol"
+                else:
+                    market_regime = "ranging"
+
+            if market_regime in self.config.regime_weights:
+                self.current_weights = self._normalize_weights(
+                    self.config.regime_weights[market_regime]
+                )
+            else:
+                self.current_weights = self._normalize_weights(self.config.weights)
+        else:
+            self.current_weights = self._normalize_weights(self.config.weights)
+
+        # Combine predictions
+        return self._combine_predictions(
+            predictions, confidences, probs_up, market_regime
+        )
+
     def _combine_predictions(
         self,
         predictions: Dict[str, int],

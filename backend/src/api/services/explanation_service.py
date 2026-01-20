@@ -116,6 +116,22 @@ class ExplanationService:
 
         return False
 
+    def _cleanup_expired_cache(self) -> None:
+        """Remove expired cache entries.
+
+        Must be called while holding self._lock.
+        This prevents memory from growing with old, unused cache entries.
+        """
+        now = datetime.now()
+        expired_keys = [
+            k for k, v in self._cache.items()
+            if now - v["generated_at"] > self.CACHE_TTL
+        ]
+        for key in expired_keys:
+            del self._cache[key]
+        if expired_keys:
+            logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
+
     def _build_prompt(self, data: Dict[str, Any]) -> str:
         """Build the prompt for GPT-4o-mini."""
         # Extract values
@@ -298,15 +314,22 @@ Example: "BUY with high (76%) confidence as all timeframes (1H, 4H, 1D) show bul
 
             # Cache the result
             with self._lock:
+                # First, clean up expired entries to prevent memory leak
+                self._cleanup_expired_cache()
+
                 self._cache[values_hash] = {
                     "explanation": explanation,
                     "generated_at": datetime.now(),
                 }
                 self._last_values = current_values.copy()
 
-                # Keep cache size manageable (max 10 entries)
+                # Keep cache size manageable (max 10 entries, oldest-first eviction)
                 if len(self._cache) > 10:
-                    oldest_key = next(iter(self._cache))
+                    # Remove oldest entry by generated_at time
+                    oldest_key = min(
+                        self._cache.keys(),
+                        key=lambda k: self._cache[k]["generated_at"]
+                    )
                     del self._cache[oldest_key]
 
             logger.info("Generated new explanation")

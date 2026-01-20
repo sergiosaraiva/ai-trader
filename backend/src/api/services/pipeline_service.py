@@ -12,6 +12,7 @@ This service manages the data pipeline that:
 The pipeline runs periodically to keep data current without retraining models.
 """
 
+import gc
 import io
 import logging
 from datetime import datetime, timedelta
@@ -116,8 +117,12 @@ class PipelineService:
                 allowed_methods=["HEAD", "GET", "OPTIONS"],  # Only retry safe methods
             )
 
-            # Create session with retry adapter
-            adapter = HTTPAdapter(max_retries=retry_strategy)
+            # Create session with retry adapter and connection pooling limits
+            adapter = HTTPAdapter(
+                max_retries=retry_strategy,
+                pool_connections=5,  # Limit connection pool size
+                pool_maxsize=10,  # Max connections per pool
+            )
             session = requests.Session()
             session.mount("http://", adapter)
             session.mount("https://", adapter)
@@ -125,6 +130,15 @@ class PipelineService:
             self._requests_session = session
 
         return self._requests_session
+
+    def _close_requests_session(self) -> None:
+        """Close the requests session to free resources."""
+        if self._requests_session is not None:
+            try:
+                self._requests_session.close()
+            except Exception:
+                pass
+            self._requests_session = None
 
     @property
     def is_loaded(self) -> bool:
@@ -198,6 +212,9 @@ class PipelineService:
             self.last_update = datetime.now()
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"Pipeline complete in {elapsed:.1f}s")
+
+            # Force garbage collection after processing large DataFrames
+            gc.collect()
 
             return True
 
@@ -277,6 +294,10 @@ class PipelineService:
             df_combined = pd.concat([df_hist, df_new])
             df_combined = df_combined[~df_combined.index.duplicated(keep='last')]
             df_combined = df_combined.sort_index()
+
+            # Explicitly release old DataFrames to prevent memory accumulation
+            del df_hist
+            del df_new
 
             # Save to both cache AND update the CSV
             self._save_price_data(df_combined, persist_csv=True)
@@ -964,6 +985,23 @@ class PipelineService:
             status["data_info_error"] = str(e)
 
         return status
+
+    def cleanup(self) -> None:
+        """Clean up resources to prevent memory leaks.
+
+        Should be called periodically or before shutdown.
+        """
+        # Close requests session
+        self._close_requests_session()
+
+        # Clear any cached technical calculators
+        self._technical_calculator = None
+        self._feature_engine = None
+
+        # Force garbage collection
+        gc.collect()
+
+        logger.debug("Pipeline service cleanup completed")
 
 
 # Singleton instance

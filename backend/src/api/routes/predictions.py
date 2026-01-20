@@ -47,20 +47,13 @@ async def get_latest_prediction(
         )
 
     try:
-        # Get data for prediction
-        df = data_service.get_data_for_prediction()
-        if df is None or len(df) < 100:
-            raise HTTPException(
-                status_code=503,
-                detail="Insufficient market data for prediction",
-            )
+        # Make prediction using pre-computed pipeline data (fast path)
+        # This uses cached features from pipeline_service instead of recalculating
+        prediction = model_service.predict_from_pipeline(symbol=symbol)
 
-        # Get current price and VIX
+        # Get current price and VIX for response
         current_price = data_service.get_current_price(symbol)
         vix_value = data_service.get_latest_vix()
-
-        # Make prediction
-        prediction = model_service.predict(df, symbol=symbol)
 
         # Get asset metadata
         asset_metadata = asset_service.get_asset_metadata(symbol)
