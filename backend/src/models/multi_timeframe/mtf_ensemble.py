@@ -14,6 +14,7 @@ import pickle
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from typing import Dict, List, Optional, Tuple, Any
 
 import numpy as np
@@ -45,6 +46,12 @@ class MTFEnsembleConfig:
         "ranging": {"1H": 0.7, "4H": 0.25, "D": 0.05},
         "volatile": {"1H": 0.6, "4H": 0.35, "D": 0.05},
     })
+
+    # Dynamic weight adjustment
+    use_dynamic_weights: bool = False  # Disabled by default for backward compatibility
+    dynamic_weight_window: int = 50  # Number of recent predictions to consider
+    dynamic_weight_min: float = 0.1  # Minimum weight for any model
+    dynamic_weight_blend: float = 0.5  # Blend factor: 0=all base, 1=all dynamic
 
     # Minimum confidence thresholds
     min_confidence: float = 0.55
@@ -196,8 +203,12 @@ class MTFEnsemble:
         for tf, cfg in self.model_configs.items():
             self.models[tf] = ImprovedTimeframeModel(cfg)
 
-        # Current weights (may be adjusted for regime)
+        # Current weights (may be adjusted for regime or dynamic adjustment)
         self.current_weights = self.config.weights.copy()
+
+        # Prediction history for dynamic weight adjustment
+        self.prediction_history: List[Dict[str, Any]] = []
+        self._history_lock = Lock()  # Thread-safe access to prediction_history
 
         # Training metadata
         self.is_trained = False
@@ -209,6 +220,108 @@ class MTFEnsemble:
         if total > 0:
             return {k: v / total for k, v in weights.items()}
         return weights
+
+    def record_outcome(self, prediction: MTFPrediction, actual_direction: int) -> None:
+        """Record prediction outcome for dynamic weight adjustment.
+
+        Call this after each prediction when the actual outcome is known.
+        Only uses historical data - no leakage.
+
+        Args:
+            prediction: The MTFPrediction that was made
+            actual_direction: The actual market direction (0=down, 1=up)
+        """
+        record = {
+            "timestamp": datetime.now(),
+            "actual": actual_direction,
+        }
+
+        # Record each model's prediction and whether it was correct
+        for tf in prediction.component_directions:
+            pred = prediction.component_directions[tf]
+            record[f"{tf}_pred"] = pred
+            record[f"{tf}_correct"] = int(pred == actual_direction)
+
+        # Thread-safe update of prediction history
+        with self._history_lock:
+            self.prediction_history.append(record)
+
+            # Keep only recent history (2x window size for buffer)
+            if len(self.prediction_history) > self.config.dynamic_weight_window * 2:
+                self.prediction_history = self.prediction_history[-self.config.dynamic_weight_window:]
+
+            history_size = len(self.prediction_history)
+
+        logger.debug(
+            f"Recorded outcome: actual={actual_direction}, "
+            f"history_size={history_size}"
+        )
+
+    def _calculate_dynamic_weights(self) -> Dict[str, float]:
+        """Calculate weights based on recent model accuracy.
+
+        Uses inverse error weighting: models with higher accuracy get more weight.
+        Only uses past predictions - no data leakage.
+
+        Returns:
+            Dict mapping timeframe to dynamic weight
+        """
+        # Thread-safe access to prediction history
+        with self._history_lock:
+            if len(self.prediction_history) < 10:  # Need minimum history
+                logger.debug("Insufficient history for dynamic weights, using base weights")
+                return self.config.weights.copy()
+
+            # Get recent predictions within the configured window
+            recent = self.prediction_history[-self.config.dynamic_weight_window:].copy()
+
+        # Calculate accuracy for each model
+        accuracies = {}
+        for tf in self.models:
+            correct = sum(r.get(f"{tf}_correct", 0) for r in recent)
+            total = sum(1 for r in recent if f"{tf}_correct" in r)
+            accuracies[tf] = correct / total if total > 0 else 0.5
+
+        logger.debug(f"Recent accuracies (window={len(recent)}): {accuracies}")
+
+        # Inverse error weighting
+        weights = {}
+        for tf, acc in accuracies.items():
+            # Clamp accuracy to avoid extreme weights (40% to 80%)
+            acc_clamped = max(0.4, min(0.8, acc))
+            error = 1 - acc_clamped
+            # Inverse error: higher accuracy = lower error = higher weight
+            weights[tf] = 1 / (error + 0.01)  # Add small constant to avoid division by zero
+
+        # Normalize to sum to 1
+        total = sum(weights.values())
+        weights = {k: v / total for k, v in weights.items()}
+
+        # Apply minimum weight constraint
+        for tf in weights:
+            weights[tf] = max(self.config.dynamic_weight_min, weights[tf])
+
+        # Re-normalize after applying minimums
+        total = sum(weights.values())
+        weights = {k: v / total for k, v in weights.items()}
+
+        # Blend with base weights (allows smooth transition)
+        blend = self.config.dynamic_weight_blend
+        blended = {}
+        for tf in self.models:
+            base = self.config.weights.get(tf, 0.33)
+            dynamic = weights.get(tf, 0.33)
+            blended[tf] = (1 - blend) * base + blend * dynamic
+
+        # Final normalization
+        blended = self._normalize_weights(blended)
+
+        logger.debug(
+            f"Dynamic weights: raw={weights}, blended={blended} "
+            f"(blend={blend})"
+        )
+
+        return blended
 
     def resample_data(self, df_5min: pd.DataFrame, timeframe: str) -> pd.DataFrame:
         """Resample 5-minute data to target timeframe."""
@@ -562,7 +675,35 @@ class MTFEnsemble:
         probs_up: Dict[str, float],
         market_regime: str,
     ) -> MTFPrediction:
-        """Combine individual predictions into ensemble prediction."""
+        """Combine individual predictions into ensemble prediction.
+
+        Applies dynamic weight adjustment if enabled and sufficient history exists.
+        Dynamic weights are blended with regime weights when both are active.
+        """
+
+        # Apply dynamic weights if enabled
+        if self.config.use_dynamic_weights and len(self.prediction_history) >= 10:
+            dynamic_weights = self._calculate_dynamic_weights()
+
+            # Blend dynamic with regime weights if both are used
+            if self.config.use_regime_adjustment and market_regime in self.config.regime_weights:
+                regime_w = self.config.regime_weights[market_regime]
+                blend = self.config.dynamic_weight_blend
+
+                # Blend regime weights with dynamic weights
+                for tf in dynamic_weights:
+                    base_regime = regime_w.get(tf, 0.33)
+                    dynamic = dynamic_weights[tf]
+                    self.current_weights[tf] = (1 - blend) * base_regime + blend * dynamic
+
+                self.current_weights = self._normalize_weights(self.current_weights)
+                logger.info(
+                    f"Applied dynamic+regime weights for {market_regime}: {self.current_weights}"
+                )
+            else:
+                # Use dynamic weights only
+                self.current_weights = dynamic_weights
+                logger.info(f"Applied dynamic weights: {self.current_weights}")
 
         # Weighted probability combination
         # Convert prediction + confidence to probability
@@ -730,12 +871,16 @@ class MTFEnsemble:
             model_path = save_dir / f"{tf}_model.pkl"
             model.save(model_path)
 
-        # Save ensemble config
+        # Save ensemble config (including dynamic weight settings)
         config_data = {
             "weights": self.config.weights,
             "agreement_bonus": self.config.agreement_bonus,
             "use_regime_adjustment": self.config.use_regime_adjustment,
             "regime_weights": self.config.regime_weights,
+            "use_dynamic_weights": self.config.use_dynamic_weights,
+            "dynamic_weight_window": self.config.dynamic_weight_window,
+            "dynamic_weight_min": self.config.dynamic_weight_min,
+            "dynamic_weight_blend": self.config.dynamic_weight_blend,
             "min_confidence": self.config.min_confidence,
             "min_agreement": self.config.min_agreement,
             "training_results": self.training_results,
@@ -743,6 +888,13 @@ class MTFEnsemble:
 
         with open(save_dir / "ensemble_config.json", "w") as f:
             json.dump(config_data, f, indent=2, default=str)
+
+        # Save prediction history for dynamic weights
+        if self.config.use_dynamic_weights and self.prediction_history:
+            history_path = save_dir / "prediction_history.pkl"
+            with open(history_path, "wb") as f:
+                pickle.dump(self.prediction_history, f)
+            logger.info(f"Saved prediction history: {len(self.prediction_history)} records")
 
         logger.info(f"Saved MTF Ensemble to {save_dir}")
 
@@ -768,7 +920,20 @@ class MTFEnsemble:
             self.config.agreement_bonus = config_data.get("agreement_bonus", 0.05)
             self.config.use_regime_adjustment = config_data.get("use_regime_adjustment", True)
             self.config.regime_weights = config_data.get("regime_weights", self.config.regime_weights)
+            self.config.use_dynamic_weights = config_data.get("use_dynamic_weights", False)
+            self.config.dynamic_weight_window = config_data.get("dynamic_weight_window", 50)
+            self.config.dynamic_weight_min = config_data.get("dynamic_weight_min", 0.1)
+            self.config.dynamic_weight_blend = config_data.get("dynamic_weight_blend", 0.5)
             self.training_results = config_data.get("training_results", {})
+
+        # Load prediction history for dynamic weights
+        history_path = load_dir / "prediction_history.pkl"
+        if history_path.exists():
+            with open(history_path, "rb") as f:
+                self.prediction_history = pickle.load(f)
+            logger.info(f"Loaded prediction history: {len(self.prediction_history)} records")
+        else:
+            self.prediction_history = []
 
         self.current_weights = self._normalize_weights(self.config.weights)
         self.is_trained = all(m.is_trained for m in self.models.values())
@@ -784,12 +949,25 @@ class MTFEnsemble:
             "",
             "Configuration:",
             f"  Weights: {self.config.weights}",
+            f"  Current Weights: {self.current_weights}",
             f"  Agreement Bonus: {self.config.agreement_bonus}",
             f"  Regime Adjustment: {self.config.use_regime_adjustment}",
+            f"  Dynamic Weights: {self.config.use_dynamic_weights}",
+        ]
+
+        if self.config.use_dynamic_weights:
+            lines.extend([
+                f"    Window: {self.config.dynamic_weight_window}",
+                f"    Min Weight: {self.config.dynamic_weight_min}",
+                f"    Blend Factor: {self.config.dynamic_weight_blend}",
+                f"    History Size: {len(self.prediction_history)}",
+            ])
+
+        lines.extend([
             f"  Min Confidence: {self.config.min_confidence}",
             "",
             "Models:",
-        ]
+        ])
 
         for tf, model in self.models.items():
             status = "trained" if model.is_trained else "not trained"

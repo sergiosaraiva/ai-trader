@@ -45,19 +45,25 @@ def load_data(data_path: Path) -> pd.DataFrame:
     if data_path.suffix == ".parquet":
         df = pd.read_parquet(data_path)
     else:
-        df = pd.read_csv(data_path)
+        # Try to load with unnamed timestamp column (index_col=0)
+        df = pd.read_csv(data_path, index_col=0, parse_dates=True)
 
     df.columns = [c.lower() for c in df.columns]
 
-    time_col = None
-    for col in ["timestamp", "time", "date", "datetime"]:
-        if col in df.columns:
-            time_col = col
-            break
+    # If index is not datetime, look for a timestamp column
+    if not isinstance(df.index, pd.DatetimeIndex):
+        time_col = None
+        for col in ["timestamp", "time", "date", "datetime"]:
+            if col in df.columns:
+                time_col = col
+                break
 
-    if time_col:
-        df[time_col] = pd.to_datetime(df[time_col])
-        df = df.set_index(time_col)
+        if time_col:
+            df[time_col] = pd.to_datetime(df[time_col])
+            df = df.set_index(time_col)
+        else:
+            # Try to convert index to datetime
+            df.index = pd.to_datetime(df.index)
 
     df = df.sort_index()
     logger.info(f"Loaded {len(df)} bars from {df.index[0]} to {df.index[-1]}")

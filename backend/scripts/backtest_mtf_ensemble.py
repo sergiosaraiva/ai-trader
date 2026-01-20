@@ -578,12 +578,16 @@ def main():
 
     # Load data
     data_path = project_root / args.data
-    df = pd.read_csv(data_path)
+    df = pd.read_csv(data_path, index_col=0, parse_dates=True)
     df.columns = [c.lower() for c in df.columns]
-    time_col = next((c for c in ["timestamp", "time", "date", "datetime"] if c in df.columns), None)
-    if time_col:
-        df[time_col] = pd.to_datetime(df[time_col])
-        df = df.set_index(time_col)
+    # If index is not datetime, look for a timestamp column
+    if not isinstance(df.index, pd.DatetimeIndex):
+        time_col = next((c for c in ["timestamp", "time", "date", "datetime"] if c in df.columns), None)
+        if time_col:
+            df[time_col] = pd.to_datetime(df[time_col])
+            df = df.set_index(time_col)
+        else:
+            df.index = pd.to_datetime(df.index)
     df = df.sort_index()
     logger.info(f"Loaded {len(df)} bars")
 
