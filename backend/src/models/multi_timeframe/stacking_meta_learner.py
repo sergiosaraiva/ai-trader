@@ -559,6 +559,56 @@ class StackingMetaLearner:
         )
 
         X = meta_feat.to_array(self.config).reshape(1, -1)
+
+        # Add enhanced features if enabled (to match training feature count)
+        if self.config.use_enhanced_meta_features:
+            try:
+                from .enhanced_meta_features import EnhancedMetaFeatureCalculator, get_enhanced_feature_names
+
+                # Convert single prediction to arrays for calculator
+                predictions = {
+                    "1H": np.array([dirs[0]]),
+                    "4H": np.array([dirs[1]]),
+                    "D": np.array([dirs[2]]),
+                }
+                probabilities = {
+                    "1H": np.array([prob_1h]),
+                    "4H": np.array([prob_4h]),
+                    "D": np.array([prob_d]),
+                }
+
+                # Calculate enhanced features (price_data=None means market context features will be zeros)
+                enhanced_calc = EnhancedMetaFeatureCalculator(self.config.enhanced_meta_lookback)
+                enhanced = enhanced_calc.calculate_all(
+                    predictions=predictions,
+                    probabilities=probabilities,
+                    price_data=None,  # Not available in single prediction
+                )
+
+                # Extract enhanced features in consistent order
+                enhanced_names = get_enhanced_feature_names()
+                enhanced_arrays = []
+                for name in enhanced_names:
+                    if name in enhanced:
+                        # Extract single value from array
+                        enhanced_arrays.append(enhanced[name][0])
+                    else:
+                        # Fill missing features with zeros
+                        logger.warning(f"Enhanced feature '{name}' not available, using zero")
+                        enhanced_arrays.append(0.0)
+
+                # Concatenate with standard features
+                enhanced_features = np.array(enhanced_arrays, dtype=np.float32).reshape(1, -1)
+                X = np.concatenate([X, enhanced_features], axis=1)
+
+            except Exception as e:
+                # Graceful fallback: if enhanced feature calculation fails, log warning and use zeros
+                logger.warning(f"Failed to calculate enhanced meta-features: {e}. Using zeros.")
+                from .enhanced_meta_features import get_enhanced_feature_names
+                n_enhanced = len(get_enhanced_feature_names())
+                enhanced_zeros = np.zeros((1, n_enhanced), dtype=np.float32)
+                X = np.concatenate([X, enhanced_zeros], axis=1)
+
         X_scaled = self.meta_scaler.transform(X)
 
         # Get meta-model prediction
