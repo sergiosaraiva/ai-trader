@@ -55,6 +55,11 @@ from .mtf_ensemble import (
     MTFEnsemble,
     MTFPrediction,
 )
+from .stacking_meta_learner import (
+    StackingConfig,
+    StackingMetaLearner,
+    StackingMetaFeatures,
+)
 
 __all__ = [
     # Original model
@@ -88,4 +93,8 @@ __all__ = [
     "MTFEnsembleConfig",
     "MTFEnsemble",
     "MTFPrediction",
+    # Stacking Meta-Learner
+    "StackingConfig",
+    "StackingMetaLearner",
+    "StackingMetaFeatures",
 ]

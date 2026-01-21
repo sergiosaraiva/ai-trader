@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .improved_model import ImprovedModelConfig, ImprovedTimeframeModel
+from .stacking_meta_learner import StackingMetaLearner, StackingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,10 @@ class MTFEnsembleConfig:
         "D": True,    # ENABLED - monthly EPU appropriate for position trading
     })
 
+    # Stacking Meta-Learner settings
+    use_stacking: bool = False  # Disabled by default for backward compatibility
+    stacking_config: Optional[StackingConfig] = None  # Uses defaults if None
+
     @classmethod
     def default(cls) -> "MTFEnsembleConfig":
         """Default configuration with 60/30/10 weights."""
@@ -123,6 +128,33 @@ class MTFEnsembleConfig:
             trading_pair=trading_pair,
             sentiment_source="gdelt",
             sentiment_by_timeframe={"1H": True, "4H": True, "D": True}
+        )
+
+    @classmethod
+    def with_stacking(cls, stacking_config: Optional[StackingConfig] = None) -> "MTFEnsembleConfig":
+        """Config with stacking meta-learner enabled.
+
+        The stacking meta-learner learns to optimally combine base model predictions
+        instead of using fixed weighted averaging.
+        """
+        return cls(
+            use_stacking=True,
+            stacking_config=stacking_config or StackingConfig.default(),
+        )
+
+    @classmethod
+    def with_stacking_and_sentiment(
+        cls,
+        trading_pair: str = "EURUSD",
+        stacking_config: Optional[StackingConfig] = None,
+    ) -> "MTFEnsembleConfig":
+        """Config with both stacking and sentiment for Daily model."""
+        return cls(
+            include_sentiment=True,
+            trading_pair=trading_pair,
+            sentiment_by_timeframe={"1H": False, "4H": False, "D": True},
+            use_stacking=True,
+            stacking_config=stacking_config or StackingConfig.default(),
         )
 
 
@@ -213,6 +245,13 @@ class MTFEnsemble:
         # Training metadata
         self.is_trained = False
         self.training_results: Dict[str, Dict] = {}
+
+        # Stacking meta-learner (optional)
+        self.stacking_meta_learner: Optional[StackingMetaLearner] = None
+        if self.config.use_stacking:
+            stacking_config = self.config.stacking_config or StackingConfig.default()
+            self.stacking_meta_learner = StackingMetaLearner(stacking_config)
+            logger.info("Stacking meta-learner initialized")
 
     def _normalize_weights(self, weights: Dict[str, float]) -> Dict[str, float]:
         """Normalize weights to sum to 1."""
@@ -460,6 +499,115 @@ class MTFEnsemble:
         self.training_results = results
         self.is_trained = all(m.is_trained for m in self.models.values())
 
+        # Train stacking meta-learner if enabled
+        if self.config.use_stacking and self.is_trained:
+            stacking_results = self.train_stacking(df_5min, train_ratio, val_ratio)
+            results["stacking"] = stacking_results
+
+        return results
+
+    def train_stacking(
+        self,
+        df_5min: pd.DataFrame,
+        train_ratio: float = 0.6,
+        val_ratio: float = 0.2,
+    ) -> Dict[str, Any]:
+        """Train the stacking meta-learner on OOF predictions.
+
+        CRITICAL: This method uses time-series cross-validation to generate
+        out-of-fold predictions, ensuring no data leakage.
+
+        Args:
+            df_5min: 5-minute OHLCV data
+            train_ratio: Fraction used for training (for split reference)
+            val_ratio: Fraction used for validation
+
+        Returns:
+            Dict of stacking training metrics
+        """
+        if self.stacking_meta_learner is None:
+            raise RuntimeError("Stacking not enabled. Set use_stacking=True in config.")
+
+        if not self.is_trained:
+            raise RuntimeError("Base models not trained. Call train() first.")
+
+        logger.info("\n" + "=" * 60)
+        logger.info("TRAINING STACKING META-LEARNER")
+        logger.info("=" * 60)
+
+        from src.features.technical.calculator import TechnicalIndicatorCalculator
+        calc = TechnicalIndicatorCalculator(model_type="short_term")
+
+        # Prepare features for each timeframe
+        X_dict = {}
+        y_dict = {}
+        volatility_data = None
+
+        for tf in ["1H", "4H", "D"]:
+            model = self.models[tf]
+            config = self.model_configs[tf]
+
+            # Resample
+            df_tf = self.resample_data(df_5min, config.base_timeframe)
+
+            # Prepare higher TF data
+            higher_tf_data = self.prepare_higher_tf_data(df_5min, config.base_timeframe)
+
+            # Get features and labels
+            X, y, _ = model.prepare_data(df_tf, higher_tf_data)
+
+            # Use full data for meta-training (splits handled inside OOF generation)
+            n_train_val = int(len(X) * (train_ratio + val_ratio))
+            X_dict[tf] = X[:n_train_val]
+            y_dict[tf] = y[:n_train_val]
+
+            logger.info(f"{tf}: {len(X_dict[tf])} samples for meta-training")
+
+            # Extract volatility for meta-features (use 1H as reference)
+            if tf == "1H" and "atr_14" in df_tf.columns and "close" in df_tf.columns:
+                df_tf_features = calc.calculate(df_tf)
+                if "atr_14" in df_tf_features.columns:
+                    vol = df_tf_features["atr_14"] / df_tf_features["close"]
+                    # Normalize to 0-1 range using rolling percentile (no future data!)
+                    vol_normalized = vol.rolling(window=100, min_periods=20).apply(
+                        lambda x: (x.iloc[-1] - x.min()) / (x.max() - x.min() + 1e-8)
+                    )
+                    vol_normalized = vol_normalized.fillna(0.5)
+                    volatility_data = vol_normalized.values[:n_train_val]
+
+        # Align data to shortest timeframe (use minimum length)
+        min_len = min(len(X_dict[tf]) for tf in X_dict)
+        for tf in X_dict:
+            X_dict[tf] = X_dict[tf][:min_len]
+            y_dict[tf] = y_dict[tf][:min_len]
+
+        if volatility_data is not None:
+            volatility_data = volatility_data[:min_len]
+
+        # Use 1H labels as ground truth (primary trading timeframe)
+        y_labels = y_dict["1H"]
+
+        logger.info(f"Aligned data: {min_len} samples, generating OOF predictions...")
+
+        # Generate OOF predictions
+        meta_features, oof_labels, valid_indices = self.stacking_meta_learner.generate_oof_predictions(
+            self.models,
+            X_dict,
+            y_labels,
+            volatility_data=volatility_data,
+        )
+
+        logger.info(f"Generated {len(valid_indices)} OOF predictions, training meta-model...")
+
+        # Train meta-model
+        results = self.stacking_meta_learner.train(
+            meta_features,
+            oof_labels,
+            val_ratio=0.2,  # Use 20% of OOF data for validation
+        )
+
+        logger.info(self.stacking_meta_learner.summary())
+
         return results
 
     def predict(
@@ -674,12 +822,57 @@ class MTFEnsemble:
         confidences: Dict[str, float],
         probs_up: Dict[str, float],
         market_regime: str,
+        volatility: float = 0.0,
     ) -> MTFPrediction:
         """Combine individual predictions into ensemble prediction.
 
-        Applies dynamic weight adjustment if enabled and sufficient history exists.
-        Dynamic weights are blended with regime weights when both are active.
+        If stacking is enabled and trained, uses the meta-learner to combine predictions.
+        Otherwise, uses weighted averaging with optional dynamic weights.
         """
+
+        # Use stacking meta-learner if available and trained
+        if (self.config.use_stacking and
+            self.stacking_meta_learner is not None and
+            self.stacking_meta_learner.is_trained):
+
+            # Get probabilities for stacking
+            prob_1h = probs_up.get("1H", 0.5)
+            prob_4h = probs_up.get("4H", 0.5)
+            prob_d = probs_up.get("D", 0.5)
+            conf_1h = confidences.get("1H", 0.5)
+            conf_4h = confidences.get("4H", 0.5)
+            conf_d = confidences.get("D", 0.5)
+
+            # Use meta-learner for prediction
+            direction, confidence, prob_up_final, prob_down_final = self.stacking_meta_learner.predict(
+                prob_1h=prob_1h,
+                prob_4h=prob_4h,
+                prob_d=prob_d,
+                conf_1h=conf_1h,
+                conf_4h=conf_4h,
+                conf_d=conf_d,
+                volatility=volatility,
+                weights=self.current_weights,
+            )
+
+            # Calculate agreement
+            agreement_count = sum(1 for p in predictions.values() if p == direction)
+            agreement_score = agreement_count / len(predictions)
+
+            return MTFPrediction(
+                direction=direction,
+                confidence=confidence,
+                prob_up=prob_up_final,
+                prob_down=prob_down_final,
+                component_directions=predictions.copy(),
+                component_confidences=confidences.copy(),
+                component_weights=self.current_weights.copy(),
+                agreement_count=agreement_count,
+                agreement_score=agreement_score,
+                market_regime=market_regime,
+            )
+
+        # Fallback to weighted averaging
 
         # Apply dynamic weights if enabled
         if self.config.use_dynamic_weights and len(self.prediction_history) >= 10:
@@ -785,26 +978,47 @@ class MTFEnsemble:
         # Get consistent length
         n_samples = min(len(p) for p in all_preds.values())
 
-        # Combine predictions
+        # Convert predictions to probabilities
+        all_probs_up = {}
+        for tf in self.models:
+            preds = all_preds[tf][:n_samples]
+            confs = all_confs[tf][:n_samples]
+            # prob_up = conf if pred==1, else 1-conf
+            all_probs_up[tf] = np.where(preds == 1, confs, 1 - confs)
+
+        weights = self._normalize_weights(self.config.weights)
+
+        # Use stacking if enabled and trained
+        if (self.config.use_stacking and
+            self.stacking_meta_learner is not None and
+            self.stacking_meta_learner.is_trained):
+
+            # Use stacking meta-learner for batch prediction
+            directions, confidences, agreement_scores = self.stacking_meta_learner.predict_batch(
+                probs_1h=all_probs_up["1H"],
+                probs_4h=all_probs_up["4H"],
+                probs_d=all_probs_up["D"],
+                confs_1h=all_confs["1H"][:n_samples],
+                confs_4h=all_confs["4H"][:n_samples],
+                confs_d=all_confs["D"][:n_samples],
+                volatility=None,  # Not available in batch mode
+                weights=weights,
+            )
+            return directions, confidences, agreement_scores
+
+        # Fallback to weighted averaging
         directions = np.zeros(n_samples, dtype=int)
         confidences = np.zeros(n_samples)
         agreement_scores = np.zeros(n_samples)
-
-        weights = self._normalize_weights(self.config.weights)
 
         for i in range(n_samples):
             weighted_prob_up = 0.0
             weighted_conf = 0.0
 
             for tf in self.models:
-                pred = all_preds[tf][i]
+                prob_up = all_probs_up[tf][i]
                 conf = all_confs[tf][i]
                 weight = weights.get(tf, 0)
-
-                if pred == 1:
-                    prob_up = conf
-                else:
-                    prob_up = 1 - conf
 
                 weighted_prob_up += weight * prob_up
                 weighted_conf += weight * conf
@@ -871,7 +1085,7 @@ class MTFEnsemble:
             model_path = save_dir / f"{tf}_model.pkl"
             model.save(model_path)
 
-        # Save ensemble config (including dynamic weight settings)
+        # Save ensemble config (including dynamic weight settings and stacking)
         config_data = {
             "weights": self.config.weights,
             "agreement_bonus": self.config.agreement_bonus,
@@ -884,6 +1098,7 @@ class MTFEnsemble:
             "min_confidence": self.config.min_confidence,
             "min_agreement": self.config.min_agreement,
             "training_results": self.training_results,
+            "use_stacking": self.config.use_stacking,
         }
 
         with open(save_dir / "ensemble_config.json", "w") as f:
@@ -895,6 +1110,13 @@ class MTFEnsemble:
             with open(history_path, "wb") as f:
                 pickle.dump(self.prediction_history, f)
             logger.info(f"Saved prediction history: {len(self.prediction_history)} records")
+
+        # Save stacking meta-learner if enabled and trained
+        if self.config.use_stacking and self.stacking_meta_learner is not None:
+            if self.stacking_meta_learner.is_trained:
+                stacking_path = save_dir / "stacking_meta_learner.pkl"
+                self.stacking_meta_learner.save(stacking_path)
+                logger.info("Saved stacking meta-learner")
 
         logger.info(f"Saved MTF Ensemble to {save_dir}")
 
@@ -925,6 +1147,7 @@ class MTFEnsemble:
             self.config.dynamic_weight_min = config_data.get("dynamic_weight_min", 0.1)
             self.config.dynamic_weight_blend = config_data.get("dynamic_weight_blend", 0.5)
             self.training_results = config_data.get("training_results", {})
+            self.config.use_stacking = config_data.get("use_stacking", False)
 
         # Load prediction history for dynamic weights
         history_path = load_dir / "prediction_history.pkl"
@@ -934,6 +1157,15 @@ class MTFEnsemble:
             logger.info(f"Loaded prediction history: {len(self.prediction_history)} records")
         else:
             self.prediction_history = []
+
+        # Load stacking meta-learner if enabled
+        stacking_path = load_dir / "stacking_meta_learner.pkl"
+        if stacking_path.exists():
+            self.config.use_stacking = True
+            if self.stacking_meta_learner is None:
+                self.stacking_meta_learner = StackingMetaLearner()
+            self.stacking_meta_learner.load(stacking_path)
+            logger.info("Loaded stacking meta-learner")
 
         self.current_weights = self._normalize_weights(self.config.weights)
         self.is_trained = all(m.is_trained for m in self.models.values())
@@ -965,6 +1197,7 @@ class MTFEnsemble:
 
         lines.extend([
             f"  Min Confidence: {self.config.min_confidence}",
+            f"  Stacking: {self.config.use_stacking}",
             "",
             "Models:",
         ])
@@ -982,7 +1215,22 @@ class MTFEnsemble:
                 "Training Results:",
             ])
             for tf, results in self.training_results.items():
-                lines.append(f"  {tf}: val_acc={results.get('val_accuracy', 0):.2%}")
+                if tf != "stacking":  # Show stacking separately
+                    lines.append(f"  {tf}: val_acc={results.get('val_accuracy', 0):.2%}")
+
+        # Stacking meta-learner info
+        if self.config.use_stacking and self.stacking_meta_learner is not None:
+            lines.extend([
+                "",
+                "Stacking Meta-Learner:",
+            ])
+            if self.stacking_meta_learner.is_trained:
+                lines.extend([
+                    f"  Status: trained",
+                    f"  Meta Val Acc: {self.stacking_meta_learner.meta_val_accuracy:.2%}",
+                ])
+            else:
+                lines.append("  Status: not trained")
 
         lines.append("=" * 60)
 

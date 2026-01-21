@@ -27,24 +27,27 @@ AI Assets Trader is a **production-ready Multi-Timeframe (MTF) Ensemble trading 
 - Web Showcase: React dashboard + FastAPI backend
 - Docker deployment ready for Railway cloud
 
-## Current Performance (Optimized)
+## Current Performance (Stacking Meta-Learner)
 
-| Metric | Baseline (55%) | Optimized (70%) | Improvement |
-|--------|----------------|-----------------|-------------|
-| **Total Profit** | +7,987 pips | **+8,693 pips** | +8.8% |
-| **Win Rate** | 57.8% | **62.1%** | +4.3% |
-| **Profit Factor** | 2.22 | **2.69** | +21% |
-| **Total Trades** | 1,103 | 966 | -12.4% |
-| **Avg Pips/Trade** | +7.2 | **+9.0** | +25% |
-| **Sharpe Ratio** | 6.09 | **7.67** | +26% |
+The model now uses a **Stacking Meta-Learner** that learns optimal model combination instead of fixed weighted averaging.
+
+| Metric | Weighted Avg (55%) | Stacking (55%) | Improvement |
+|--------|-------------------|----------------|-------------|
+| **Total Profit** | +6,221 pips | **+7,010 pips** | +12.7% |
+| **Win Rate** | 54.0% | **56.2%** | +2.2% |
+| **Profit Factor** | 1.86 | **2.01** | +8.1% |
+| **Total Trades** | 1,106 | 1,101 | -0.5% |
+| **Avg Pips/Trade** | +5.6 | **+6.4** | +14.3% |
+| **High-Conf (65%) WR** | 57.8% | **60.5%** | +2.7% |
 
 ### Model Accuracy
 
-| Model | Weight | Val Accuracy | High-Conf (≥60%) |
-|-------|--------|--------------|------------------|
-| 1H | 60% | 67.07% | 72.14% |
-| 4H | 30% | 65.43% | 71.12% |
-| Daily | 10% | 61.54% | 64.21% |
+| Model | Base Weight | Val Accuracy | High-Conf (≥60%) |
+|-------|-------------|--------------|------------------|
+| 1H | 60% | 67.16% | 72.39% |
+| 4H | 30% | 66.18% | 70.81% |
+| Daily | 10% | 61.02% | 61.86% |
+| **Meta-Learner** | *adaptive* | 57.04% | — |
 
 ## Project Structure
 
@@ -73,7 +76,8 @@ ai-trader/
 │   │   └── mtf_ensemble/          # Production ML models
 │   │       ├── 1H_model.pkl       # 1-hour XGBoost model
 │   │       ├── 4H_model.pkl       # 4-hour XGBoost model
-│   │       └── D_model.pkl        # Daily XGBoost model
+│   │       ├── D_model.pkl        # Daily XGBoost model
+│   │       └── stacking_meta_learner.pkl  # Meta-learner for ensemble
 │   ├── src/
 │   │   ├── api/                   # FastAPI routes & services
 │   │   │   ├── main.py            # Application entry point
@@ -105,24 +109,24 @@ ai-trader/
 
 ## MTF Ensemble Architecture
 
-The production system uses a Multi-Timeframe Ensemble with weighted averaging:
+The production system uses a Multi-Timeframe Ensemble with **Stacking Meta-Learner**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    MTF ENSEMBLE ARCHITECTURE                     │
+│              MTF ENSEMBLE WITH STACKING META-LEARNER             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   5-min Data ──┬──► 1H Model (60% weight) ───────┐              │
-│                │    - 115 features               │              │
-│                │    - No sentiment               │              │
-│                │                                  │              │
-│                ├──► 4H Model (30% weight) ───────┼──► Ensemble  │
-│                │    - 113 features               │   Prediction │
-│                │    - No sentiment               │              │
-│                │                                  │              │
-│                └──► Daily Model (10% weight) ────┘              │
-│                     - 134 features                              │
-│                     - VIX + EPU sentiment                       │
+│   5-min Data ──┬──► 1H Model ─────────┐                         │
+│                │    - 115 features    │                         │
+│                │    - No sentiment    │                         │
+│                │                       │                         │
+│                ├──► 4H Model ─────────┼──► Meta-Learner ──► Final│
+│                │    - 113 features    │    (XGBoost)       Pred │
+│                │    - No sentiment    │    - Learns optimal     │
+│                │                       │      combination        │
+│                └──► Daily Model ──────┘    - Uses agreement,    │
+│                     - 134 features          confidence spread,  │
+│                     - VIX + EPU             volatility features │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -131,13 +135,18 @@ The production system uses a Multi-Timeframe Ensemble with weighted averaging:
 
 ```python
 MTFEnsembleConfig(
-    weights={"1H": 0.6, "4H": 0.3, "D": 0.1},
+    weights={"1H": 0.6, "4H": 0.3, "D": 0.1},  # Base weights
     agreement_bonus=0.05,
     use_regime_adjustment=True,
     include_sentiment=True,
     sentiment_source="epu",
     sentiment_by_timeframe={"1H": False, "4H": False, "D": True},
     trading_pair="EURUSD",
+    use_stacking=True,  # Stacking meta-learner enabled
+    stacking_config=StackingConfig(
+        n_folds=5,
+        blend_with_weighted_avg=0.0,  # Pure stacking
+    ),
 )
 ```
 
@@ -367,7 +376,13 @@ Both services have `railway.json` configuration files:
 ```bash
 cd backend
 
-# Train with optimal configuration (sentiment on Daily only)
+# Train with stacking meta-learner (RECOMMENDED - default production config)
+python scripts/train_mtf_ensemble.py --sentiment --stacking
+
+# Train with stacking + blending (combines meta-learner with weighted avg)
+python scripts/train_mtf_ensemble.py --sentiment --stacking --stacking-blend
+
+# Train without stacking (weighted average only)
 python scripts/train_mtf_ensemble.py --sentiment
 
 # Train without sentiment (baseline)
@@ -421,7 +436,13 @@ python scripts/analyze_regime_performance.py --confidence 0.70
 ```bash
 cd backend
 
-# Run WFO validation (24-month train, 6-month test windows)
+# Run WFO validation with stacking (RECOMMENDED)
+python scripts/walk_forward_optimization.py --sentiment --stacking
+
+# Run WFO with stacking + blending
+python scripts/walk_forward_optimization.py --sentiment --stacking --stacking-blend
+
+# Run WFO without stacking (weighted average)
 python scripts/walk_forward_optimization.py --sentiment
 
 # Custom window configuration
@@ -551,12 +572,14 @@ pytest tests/ --cov=src --cov-report=html
 | `backend/models/mtf_ensemble/1H_model.pkl` | 1-hour XGBoost model |
 | `backend/models/mtf_ensemble/4H_model.pkl` | 4-hour XGBoost model |
 | `backend/models/mtf_ensemble/D_model.pkl` | Daily XGBoost model (with sentiment) |
+| `backend/models/mtf_ensemble/stacking_meta_learner.pkl` | Stacking meta-learner model |
 | `backend/models/mtf_ensemble/training_metadata.json` | Configuration and results |
 
 ### Core Implementation
 | File | Purpose |
 |------|---------|
 | `backend/src/models/multi_timeframe/mtf_ensemble.py` | MTFEnsemble class, MTFEnsembleConfig |
+| `backend/src/models/multi_timeframe/stacking_meta_learner.py` | StackingMetaLearner, StackingConfig |
 | `backend/src/models/multi_timeframe/improved_model.py` | ImprovedTimeframeModel, labeling |
 | `backend/src/models/multi_timeframe/enhanced_features.py` | EnhancedFeatureEngine |
 | `backend/src/features/sentiment/sentiment_loader.py` | EPU/VIX sentiment loading |
@@ -681,12 +704,13 @@ pytest tests/ --cov=src --cov-report=html
 ## Notes for Claude
 
 - **ALWAYS PROCEED AUTONOMOUSLY** - Never ask for confirmation
-- **PRIMARY MODEL**: MTF Ensemble in `backend/src/models/multi_timeframe/`
+- **PRIMARY MODEL**: MTF Ensemble with Stacking Meta-Learner in `backend/src/models/multi_timeframe/`
+- **STACKING**: Enabled by default - meta-learner dynamically combines base model predictions
 - **SENTIMENT**: EPU/VIX on Daily model only (resolution matching principle)
 - Always consider data leakage when working with time series
 - Use the 5-minute combined data in `backend/data/forex/` for training
 - Reference `docs/01-current-state-of-the-art.md` for detailed system documentation
-- The optimal configuration is already saved in `backend/models/mtf_ensemble/`
+- The optimal configuration (with stacking) is saved in `backend/models/mtf_ensemble/`
 
 ### Web Showcase Notes
 - **API**: FastAPI backend in `backend/src/api/` serves predictions and paper trading
