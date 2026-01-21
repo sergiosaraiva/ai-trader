@@ -12,7 +12,7 @@ import pickle
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Any
 
 import numpy as np
 import pandas as pd
@@ -22,6 +22,9 @@ from xgboost import XGBClassifier
 
 from .labeling import AdvancedLabeler, LabelingConfig, LabelMethod
 from .enhanced_features import EnhancedFeatureEngine
+
+if TYPE_CHECKING:
+    from ..feature_selection import RFECVConfig
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,10 @@ class ImprovedModelConfig:
     us_only_sentiment: bool = True  # Use US-only sentiment (EPU + VIX) - recommended
     trading_pair: str = "EURUSD"
     sentiment_source: str = "epu"  # 'epu' (daily VIX/EPU), 'gdelt' (hourly), or 'both'
+
+    # RFECV feature selection
+    use_rfecv: bool = False  # Enable RFECV feature selection
+    rfecv_config: Optional["RFECVConfig"] = None  # RFECV configuration (uses defaults if None)
 
     @classmethod
     def hourly_model(cls) -> "ImprovedModelConfig":
@@ -111,6 +118,11 @@ class ImprovedTimeframeModel:
         self.scaler: Optional[StandardScaler] = None
         self.feature_names: List[str] = []
         self.is_trained: bool = False
+
+        # RFECV feature selection
+        self.selected_features: Optional[List[str]] = None
+        self.selected_indices: Optional[np.ndarray] = None
+        self.rfecv_scores: Optional[Dict] = None
 
         # Labeler
         label_config = LabelingConfig(
@@ -241,6 +253,35 @@ class ImprovedTimeframeModel:
         """
         self.feature_names = feature_names
 
+        # RFECV feature selection if enabled
+        if self.config.use_rfecv:
+            from ..feature_selection import FeatureSelectionManager
+
+            logger.info(f"Running RFECV for {self.config.name} model...")
+            manager = FeatureSelectionManager(self.config.rfecv_config)
+
+            # Run RFECV on training data
+            self.selected_features, self.selected_indices, self.rfecv_scores = (
+                manager.select_features(
+                    timeframe=self.config.name,
+                    X=X_train,
+                    y=y_train,
+                    feature_names=feature_names,
+                )
+            )
+
+            # Filter features
+            X_train = X_train[:, self.selected_indices]
+            X_val = X_val[:, self.selected_indices]
+
+            logger.info(
+                f"RFECV selected {len(self.selected_features)} / {len(feature_names)} features"
+            )
+        else:
+            # Use all features
+            self.selected_features = feature_names
+            self.selected_indices = np.arange(len(feature_names))
+
         # Scale features
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
@@ -286,10 +327,10 @@ class ImprovedTimeframeModel:
                 results[f"val_acc_conf_{int(thresh*100)}"] = acc
                 results[f"val_samples_conf_{int(thresh*100)}"] = int(mask.sum())
 
-        # Feature importance
+        # Feature importance (using selected features)
         if hasattr(self.model, "feature_importances_"):
             importance = self.model.feature_importances_
-            self.feature_importance = dict(zip(feature_names, importance))
+            self.feature_importance = dict(zip(self.selected_features, importance))
 
             # Log top features
             top_features = sorted(
@@ -318,6 +359,10 @@ class ImprovedTimeframeModel:
         if not self.is_trained:
             raise RuntimeError(f"Model {self.config.name} is not trained")
 
+        # Filter features if RFECV was used
+        if self.config.use_rfecv and self.selected_indices is not None:
+            X = X[self.selected_indices]
+
         X_scaled = self.scaler.transform(X.reshape(1, -1))
         probs = self.model.predict_proba(X_scaled)[0]
         pred = self.model.predict(X_scaled)[0]
@@ -340,6 +385,10 @@ class ImprovedTimeframeModel:
         if not self.is_trained:
             raise RuntimeError(f"Model {self.config.name} is not trained")
 
+        # Filter features if RFECV was used
+        if self.config.use_rfecv and self.selected_indices is not None:
+            X = X[:, self.selected_indices]
+
         X_scaled = self.scaler.transform(X)
         predictions = self.model.predict(X_scaled)
         probs = self.model.predict_proba(X_scaled)
@@ -357,6 +406,9 @@ class ImprovedTimeframeModel:
             "train_accuracy": self.train_accuracy,
             "val_accuracy": self.val_accuracy,
             "feature_importance": self.feature_importance,
+            "selected_features": self.selected_features,
+            "selected_indices": self.selected_indices,
+            "rfecv_scores": self.rfecv_scores,
         }
         with open(path, "wb") as f:
             pickle.dump(data, f)
@@ -374,6 +426,9 @@ class ImprovedTimeframeModel:
         self.train_accuracy = data["train_accuracy"]
         self.val_accuracy = data["val_accuracy"]
         self.feature_importance = data.get("feature_importance", {})
+        self.selected_features = data.get("selected_features")
+        self.selected_indices = data.get("selected_indices")
+        self.rfecv_scores = data.get("rfecv_scores")
         self.is_trained = True
         logger.info(f"Loaded {self.config.name} model from {path}")
 

@@ -80,6 +80,10 @@ class MTFEnsembleConfig:
     use_stacking: bool = False  # Disabled by default for backward compatibility
     stacking_config: Optional[StackingConfig] = None  # Uses defaults if None
 
+    # RFECV feature selection settings
+    use_rfecv: bool = False  # Disabled by default for backward compatibility
+    rfecv_config: Optional["RFECVConfig"] = None  # Uses defaults if None
+
     @classmethod
     def default(cls) -> "MTFEnsembleConfig":
         """Default configuration with 60/30/10 weights."""
@@ -230,6 +234,13 @@ class MTFEnsemble:
                     logger.info(f"{tf} model: Sentiment ENABLED {source_info}")
                 else:
                     logger.info(f"{tf} model: Sentiment DISABLED (research-based)")
+
+        # Apply RFECV settings if enabled
+        if self.config.use_rfecv:
+            for tf, cfg in self.model_configs.items():
+                cfg.use_rfecv = True
+                cfg.rfecv_config = self.config.rfecv_config
+            logger.info("RFECV feature selection enabled for all timeframes")
 
         # Create model instances
         for tf, cfg in self.model_configs.items():

@@ -1084,6 +1084,22 @@ def main():
         "--stacking-blend", type=float, default=0.0,
         help="Blend ratio between stacking and weighted avg (0=pure stacking, 1=pure weighted, default: 0)"
     )
+    parser.add_argument(
+        "--use-rfecv", action="store_true",
+        help="Enable RFECV feature selection for all timeframes"
+    )
+    parser.add_argument(
+        "--rfecv-min-features", type=int, default=20,
+        help="Minimum features to select per model (default: 20)"
+    )
+    parser.add_argument(
+        "--rfecv-step", type=float, default=0.1,
+        help="Fraction of features to remove per RFECV iteration (default: 0.1)"
+    )
+    parser.add_argument(
+        "--rfecv-cv-folds", type=int, default=3,
+        help="Number of CV folds for RFECV (default: 3)"
+    )
     args = parser.parse_args()
 
     print("\n" + "=" * 80)
@@ -1102,6 +1118,11 @@ def main():
     print(f"Stacking:        {'ON' if args.stacking else 'OFF'}")
     if args.stacking:
         print(f"Stacking Blend:  {args.stacking_blend}")
+    print(f"RFECV:           {'ON' if args.use_rfecv else 'OFF'}")
+    if args.use_rfecv:
+        print(f"  Min Features:  {args.rfecv_min_features}")
+        print(f"  Step:          {args.rfecv_step}")
+        print(f"  CV Folds:      {args.rfecv_cv_folds}")
     print("=" * 80)
 
     # Load data
@@ -1125,6 +1146,17 @@ def main():
     for w in windows:
         print(f"  Window {w.window_id}: Train {w.train_period} | Test {w.test_period}")
 
+    # Create RFECV config if enabled
+    rfecv_config = None
+    if args.use_rfecv:
+        from src.models.feature_selection import RFECVConfig
+        rfecv_config = RFECVConfig(
+            min_features_to_select=args.rfecv_min_features,
+            step=args.rfecv_step,
+            cv=args.rfecv_cv_folds,
+            verbose=0,  # Less verbose for WFO
+        )
+
     # Create config
     stacking_config = None
     if args.stacking:
@@ -1146,6 +1178,11 @@ def main():
         config = MTFEnsembleConfig.with_sentiment("EURUSD")
     else:
         config = MTFEnsembleConfig.default()
+
+    # Add RFECV config if enabled
+    if args.use_rfecv:
+        config.use_rfecv = True
+        config.rfecv_config = rfecv_config
 
     # Run WFO
     summary = WFOSummary(initial_balance=args.balance)

@@ -233,6 +233,29 @@ def main():
         default=0.0,
         help="Blend factor for stacking: 0=pure stacking, 1=pure weighted avg (default: 0.0)",
     )
+    parser.add_argument(
+        "--use-rfecv",
+        action="store_true",
+        help="Enable RFECV feature selection (Recursive Feature Elimination with Cross-Validation)",
+    )
+    parser.add_argument(
+        "--rfecv-min-features",
+        type=int,
+        default=20,
+        help="Minimum number of features to select with RFECV (default: 20)",
+    )
+    parser.add_argument(
+        "--rfecv-step",
+        type=float,
+        default=0.1,
+        help="Fraction of features to remove per RFECV iteration (default: 0.1)",
+    )
+    parser.add_argument(
+        "--rfecv-cv-folds",
+        type=int,
+        default=5,
+        help="Number of cross-validation folds for RFECV (default: 5)",
+    )
     args = parser.parse_args()
 
     # Parse weights and timeframes first
@@ -282,6 +305,16 @@ def main():
             blend_with_weighted_avg=args.stacking_blend,
         )
 
+    # RFECV configuration
+    rfecv_config = None
+    if args.use_rfecv:
+        from src.models.feature_selection import RFECVConfig
+        rfecv_config = RFECVConfig(
+            step=args.rfecv_step,
+            min_features_to_select=args.rfecv_min_features,
+            cv=args.rfecv_cv_folds,
+        )
+
     print("\n" + "=" * 70)
     print("MTF ENSEMBLE TRAINING")
     if args.stacking:
@@ -312,6 +345,11 @@ def main():
     print(f"Stacking:    {'ENABLED' if args.stacking else 'disabled'}")
     if args.stacking:
         print(f"  Blend:     {args.stacking_blend}")
+    print(f"RFECV:       {'ENABLED' if args.use_rfecv else 'disabled'}")
+    if args.use_rfecv:
+        print(f"  Min feat:  {args.rfecv_min_features}")
+        print(f"  Step:      {args.rfecv_step}")
+        print(f"  CV folds:  {args.rfecv_cv_folds}")
     print("=" * 70)
 
     config = MTFEnsembleConfig(
@@ -324,6 +362,8 @@ def main():
         sentiment_by_timeframe=sentiment_by_tf,
         use_stacking=args.stacking,
         stacking_config=stacking_config,
+        use_rfecv=args.use_rfecv,
+        rfecv_config=rfecv_config,
     )
 
     # Load data
