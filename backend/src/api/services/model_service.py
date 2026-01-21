@@ -424,6 +424,15 @@ class ModelService:
                     # The 1H model will use the pre-calculated features
                     prediction = self._ensemble.predict(df_1h)
 
+            # Extract data timestamp safely (handle NaT or missing isoformat)
+            data_timestamp = None
+            try:
+                last_bar = df_1h.index[-1]
+                if hasattr(last_bar, 'isoformat') and not pd.isna(last_bar):
+                    data_timestamp = last_bar.isoformat()
+            except (IndexError, AttributeError):
+                logger.warning("Could not extract data timestamp from 1H data")
+
             # Convert to dict (clamp values to [0, 1] range for API validation)
             result = {
                 "direction": "long" if prediction.direction == 1 else "short",
@@ -447,6 +456,7 @@ class ModelService:
                 "timestamp": datetime.now().isoformat(),
                 "symbol": symbol,
                 "data_source": "pipeline",
+                "data_timestamp": data_timestamp,
             }
 
             # Cache result (with size limit to prevent memory leak)

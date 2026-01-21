@@ -344,12 +344,12 @@ describe('TradeHistory', () => {
     // Check HOLD text appears
     expect(screen.getByText('HOLD')).toBeInTheDocument();
 
-    // Check gray color class is applied
+    // Check yellow color class is applied (HOLD signals use yellow styling)
     const holdText = screen.getByText('HOLD');
-    expect(holdText).toHaveClass('text-gray-400');
+    expect(holdText).toHaveClass('text-yellow-400');
 
-    // Check gray icon background
-    const iconContainer = container.querySelector('.bg-gray-500\\/20');
+    // Check yellow icon background
+    const iconContainer = container.querySelector('.bg-yellow-500\\/20');
     expect(iconContainer).toBeInTheDocument();
   });
 

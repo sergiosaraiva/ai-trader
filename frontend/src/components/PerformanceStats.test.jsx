@@ -17,13 +17,13 @@ describe('PerformanceStats', () => {
   it('renders default stats when no performance data', () => {
     render(<PerformanceStats />);
 
-    // Check for default values
-    expect(screen.getByText('+8,693')).toBeInTheDocument();
-    expect(screen.getByText('62.1%')).toBeInTheDocument();
-    expect(screen.getByText('2.69')).toBeInTheDocument();
-    expect(screen.getByText('966')).toBeInTheDocument();
-    expect(screen.getByText('7.67')).toBeInTheDocument();
-    expect(screen.getByText('+9.0')).toBeInTheDocument();
+    // Check for default values (75/10/15 weights at 55% confidence)
+    expect(screen.getByText('+7,238')).toBeInTheDocument();
+    expect(screen.getByText('57.1%')).toBeInTheDocument();
+    expect(screen.getByText('2.10')).toBeInTheDocument();
+    expect(screen.getByText('1,078')).toBeInTheDocument();
+    expect(screen.getByText('5.74')).toBeInTheDocument();
+    expect(screen.getByText('+6.7')).toBeInTheDocument();
   });
 
   it('renders custom performance data', () => {

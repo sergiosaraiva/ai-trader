@@ -391,11 +391,11 @@ export function Dashboard() {
           <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
             <span>AI Assets Trader • Multi-Timeframe Analysis</span>
             <div className="flex items-center gap-4">
-              <span className="text-green-400">
-                {performance?.win_rate ? `${(performance.win_rate * 100).toFixed(0)}%` : '62%'} Win Rate
+              <span className="text-green-400 font-medium">
+                {performance?.win_rate_high_conf ? `${(performance.win_rate_high_conf * 100).toFixed(0)}%` : '61%'} Win Rate <span className="text-xs text-gray-500">(high-confidence)</span>
               </span>
               <span className="text-blue-400">
-                {performance?.profit_factor?.toFixed(2) || '2.69'} Profit Factor
+                {performance?.profit_factor?.toFixed(2) || '2.10'} PF
               </span>
               <span className="text-yellow-400">WFO Validated</span>
             </div>

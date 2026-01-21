@@ -1,7 +1,7 @@
 """Prediction endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Depends
@@ -58,6 +58,11 @@ async def get_latest_prediction(
         # Get asset metadata
         asset_metadata = asset_service.get_asset_metadata(symbol)
 
+        # Calculate next prediction time (next hour + 1 minute)
+        now = datetime.now()
+        next_hour = (now + timedelta(hours=1)).replace(minute=1, second=0, microsecond=0)
+        next_prediction_at = next_hour.isoformat()
+
         return PredictionResponse(
             timestamp=prediction["timestamp"],
             symbol=prediction["symbol"],
@@ -76,6 +81,8 @@ async def get_latest_prediction(
             component_confidences=prediction["component_confidences"],
             component_weights=prediction["component_weights"],
             asset_metadata=asset_metadata,
+            data_timestamp=prediction.get("data_timestamp"),
+            next_prediction_at=next_prediction_at,
         )
 
     except HTTPException:
@@ -281,20 +288,13 @@ async def get_prediction_explanation(
         )
 
     try:
-        # Get data for prediction
-        df = data_service.get_data_for_prediction()
-        if df is None or len(df) < 100:
-            raise HTTPException(
-                status_code=503,
-                detail="Insufficient market data",
-            )
-
         # Get current values
         current_price = data_service.get_current_price(symbol)
         vix_value = data_service.get_latest_vix()
 
-        # Make prediction
-        prediction = model_service.predict(df, symbol=symbol)
+        # Use the same prediction source as /predictions/latest endpoint
+        # This ensures the explanation matches the displayed recommendation
+        prediction = model_service.predict_from_pipeline(symbol=symbol)
 
         # Get asset metadata
         asset_metadata = asset_service.get_asset_metadata(symbol)

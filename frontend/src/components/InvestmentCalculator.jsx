@@ -10,10 +10,10 @@ import api from '../api/client';
 const DEFAULT_BACKTEST_PERIODS = {
   '1y': {
     label: 'Last Year',
-    totalPips: 4317,
-    winRate: 0.517,
-    profitFactor: 1.73,
-    totalTrades: 948,
+    totalPips: 7238,
+    winRate: 0.571,
+    profitFactor: 2.10,
+    totalTrades: 1078,
     periodStart: '2024-07-01',
     periodEnd: '2025-06-30',
     periodYears: 1,

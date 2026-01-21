@@ -13,6 +13,57 @@
 
 The user trusts Claude to make good decisions. Act decisively and complete tasks end-to-end.
 
+## Mandatory Agent Workflow
+
+**ALL code changes MUST use the agent pipeline.** This is not optional - the agents enforce quality standards.
+
+### Minimum Required Pipeline (Every Code Change)
+
+```
+code-engineer → quality-guardian → test-automator
+```
+
+1. **`code-engineer`** - Implements the code change following project patterns
+2. **`quality-guardian`** - Reviews code, checks for regressions, security scanning
+3. **`test-automator`** - Generates/updates tests, verifies coverage
+
+### Extended Pipeline (Complex Features)
+
+For features with unclear requirements or architectural decisions, prepend:
+
+```
+requirements-analyst → solution-architect → code-engineer → quality-guardian → test-automator
+```
+
+- **`requirements-analyst`** - When requirements have gaps or ambiguity
+- **`solution-architect`** - When design decisions or multi-file planning needed
+
+### Documentation Updates
+
+For API changes or significant features, append:
+
+```
+... → test-automator → documentation-curator
+```
+
+- **`documentation-curator`** - Updates API docs, deployment guides, release notes
+
+### Pipeline Examples
+
+| Request | Pipeline |
+|---------|----------|
+| "Fix this bug" | `code-engineer` → `quality-guardian` → `test-automator` |
+| "Add a new API endpoint" | `code-engineer` → `quality-guardian` → `test-automator` |
+| "Implement feature X" | `solution-architect` → `code-engineer` → `quality-guardian` → `test-automator` |
+| "Add new trading strategy" | `requirements-analyst` → `solution-architect` → `code-engineer` → `quality-guardian` → `test-automator` |
+
+### Non-Code Tasks (No Agents Required)
+
+- Research/exploration questions
+- Documentation reading
+- Explaining existing code
+- Running existing scripts/tests
+
 ## Project Overview
 
 AI Assets Trader is a **production-ready Multi-Timeframe (MTF) Ensemble trading system** for forex. The system uses XGBoost models across three timeframes (1H, 4H, Daily) combined with sentiment analysis to generate trading predictions. It includes a **web showcase** with a React frontend and FastAPI backend for live demonstration.

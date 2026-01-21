@@ -26,14 +26,19 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
     );
   }
 
-  // Backtest performance defaults (from WFO validation with 70% confidence threshold)
+  // Backtest performance defaults (from backtest with 75/10/15 weights)
+  // Baseline: 55% confidence threshold (all trades)
+  // High-confidence: 70% threshold (filtered to best signals)
   const backtestDefaults = {
-    total_pips: 8693,
-    win_rate: 0.621,
-    profit_factor: 2.69,
-    total_trades: 966,
-    sharpe_ratio: 7.67,
-    avg_pips_per_trade: 9.0,
+    total_pips: 7238,
+    win_rate: 0.571,           // Baseline (55% confidence)
+    win_rate_high_conf: 0.609, // High-confidence (70% threshold)
+    profit_factor: 2.10,
+    profit_factor_high_conf: 2.51,
+    total_trades: 1078,
+    total_trades_high_conf: 984,
+    sharpe_ratio: 5.74,
+    avg_pips_per_trade: 6.7,
   };
 
   // Use backtest defaults if no trades have been made yet
@@ -42,6 +47,10 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
 
   // Get profit unit label
   const profitUnit = getProfitUnitLabel(assetMetadata);
+
+  // High-confidence values (use defaults if not provided)
+  const winRateHighConf = stats.win_rate_high_conf || backtestDefaults.win_rate_high_conf;
+  const profitFactorHighConf = stats.profit_factor_high_conf || backtestDefaults.profit_factor_high_conf;
 
   const metrics = [
     {
@@ -53,8 +62,9 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
       bgColor: 'bg-green-500/10',
     },
     {
-      label: 'Win Rate',
+      label: 'Win Rate (All)',
       value: stats.win_rate ? `${(stats.win_rate * 100).toFixed(1)}%` : 'N/A',
+      subValue: winRateHighConf ? `${(winRateHighConf * 100).toFixed(1)}% high-conf` : null,
       icon: Target,
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
@@ -62,6 +72,7 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
     {
       label: 'Profit Factor',
       value: stats.profit_factor?.toFixed(2) || 'N/A',
+      subValue: profitFactorHighConf ? `${profitFactorHighConf.toFixed(2)} high-conf` : null,
       icon: BarChart3,
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
@@ -93,8 +104,11 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
   return (
     <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="Performance Metrics">
       <h2 className="text-lg font-semibold text-gray-300 mb-4">Performance Metrics</h2>
-      <p className="text-xs text-gray-500 mb-4">
-        Based on backtested results with 70% confidence threshold
+      <p className="text-xs text-gray-500 mb-2">
+        Based on backtested results with 75/10/15 weight configuration
+      </p>
+      <p className="text-xs text-gray-600 mb-4">
+        <span className="text-green-400">High-conf</span> = predictions with ≥70% model confidence (fewer but more accurate trades)
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4" role="list">
@@ -114,6 +128,11 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
               <span className={`text-xl font-bold ${metric.color}`}>
                 {metric.prefix || ''}{metric.value}
               </span>
+              {metric.subValue && (
+                <span className="block text-xs text-green-400 mt-1">
+                  → {metric.subValue}
+                </span>
+              )}
             </div>
           );
         })}

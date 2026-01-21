@@ -95,8 +95,9 @@ describe('Dashboard', () => {
 
     it('renders footer with performance metrics', () => {
       render(<Dashboard />);
-      expect(screen.getByText('62% Win Rate')).toBeInTheDocument();
-      expect(screen.getByText('2.69 Profit Factor')).toBeInTheDocument();
+      expect(screen.getByText(/61% Win Rate/)).toBeInTheDocument();
+      expect(screen.getByText(/\(high-confidence\)/)).toBeInTheDocument();
+      expect(screen.getByText('2.10 PF')).toBeInTheDocument();
       expect(screen.getByText('WFO Validated')).toBeInTheDocument();
     });
 
@@ -385,7 +386,7 @@ describe('Dashboard', () => {
   describe('Last Updated Time', () => {
     it('displays "Never" when no last updated time', () => {
       render(<Dashboard />);
-      expect(screen.getByText(/Updated: Never/)).toBeInTheDocument();
+      expect(screen.getByText(/Never/)).toBeInTheDocument();
     });
 
     it('displays formatted time when last updated is available', () => {

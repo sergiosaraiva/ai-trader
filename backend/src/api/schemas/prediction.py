@@ -60,6 +60,14 @@ class PredictionResponse(BaseModel):
         None, description="Asset-specific metadata (precision, units, formatting)"
     )
 
+    # Timing information
+    data_timestamp: Optional[str] = Field(
+        None, description="Timestamp of the data bar used for prediction (ISO format)"
+    )
+    next_prediction_at: Optional[str] = Field(
+        None, description="When the next prediction will be generated (ISO format)"
+    )
+
     model_config = {
         "json_schema_extra": {
             "example": {

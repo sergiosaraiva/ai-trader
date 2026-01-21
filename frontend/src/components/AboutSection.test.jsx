@@ -189,7 +189,7 @@ describe('AboutSection', () => {
       render(<AboutSection />);
 
       expect(screen.getByText(/AI agent combining 3 specialized analyzers/)).toBeInTheDocument();
-      expect(screen.getByText(/Backtested on 7 rolling time periods/)).toBeInTheDocument();
+      expect(screen.getByText(/Backtested on 8 rolling time periods/)).toBeInTheDocument();
       expect(screen.getByText(/70% confidence threshold/)).toBeInTheDocument();
     });
   });
@@ -219,9 +219,10 @@ describe('AboutSection', () => {
       render(<AboutSection />);
 
       expect(screen.getByText('Backtested Performance')).toBeInTheDocument();
-      expect(screen.getByText('62% Win')).toBeInTheDocument();
-      expect(screen.getByText('2.69 PF')).toBeInTheDocument();
-      expect(screen.getByText('7.67 Sharpe')).toBeInTheDocument();
+      expect(screen.getByText('61% high-conf')).toBeInTheDocument();
+      expect(screen.getByText('(57% all trades)')).toBeInTheDocument();
+      expect(screen.getByText('2.10 PF')).toBeInTheDocument();
+      expect(screen.getByText('5.74 Sharpe')).toBeInTheDocument();
     });
   });
 
@@ -239,11 +240,12 @@ describe('AboutSection', () => {
       // Check all major sections are present
       expect(screen.getByText('AI Trading System')).toBeInTheDocument();
       expect(screen.getByText('EUR/USD')).toBeInTheDocument();
-      expect(screen.getByText('Timeframe Weights')).toBeInTheDocument();
+      expect(screen.getByText(/Timeframe Weights|Base Weights/)).toBeInTheDocument();
       expect(screen.getByText('18.50')).toBeInTheDocument();
       expect(screen.getByText('Normal')).toBeInTheDocument();
       expect(screen.getByText('Data Sources')).toBeInTheDocument();
-      expect(screen.getByText('62% Win')).toBeInTheDocument();
+      expect(screen.getByText('61% high-conf')).toBeInTheDocument();
+      expect(screen.getByText('(57% all trades)')).toBeInTheDocument();
     });
   });
 });

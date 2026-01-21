@@ -368,3 +368,303 @@ class TestPredictionEndpoints:
             assert predictions_list[2]["confidence"] == 0.73
         finally:
             app.dependency_overrides.clear()
+
+
+class TestPredictionEndpointTimestamps:
+    """Test prediction endpoint timestamp fields (data_timestamp and next_prediction_at)."""
+
+    @pytest.fixture(autouse=True)
+    def setup_mocks(self):
+        """Set up service mocks before each test."""
+        self.mock_model_service = Mock()
+        self.mock_model_service.is_loaded = True
+
+        self.mock_data_service = Mock()
+        self.mock_data_service.get_current_price.return_value = 1.08543
+        self.mock_data_service.get_latest_vix.return_value = 15.5
+
+        self.mock_asset_service = Mock()
+        self.mock_asset_service.get_asset_metadata.return_value = None
+
+    def test_latest_prediction_includes_data_timestamp(self):
+        """Test /predictions/latest returns data_timestamp field."""
+        from src.api.routes import predictions
+        from datetime import datetime
+
+        # Mock prediction with data_timestamp
+        mock_prediction = {
+            "timestamp": datetime.now().isoformat(),
+            "symbol": "EURUSD",
+            "direction": "long",
+            "confidence": 0.75,
+            "prob_up": 0.75,
+            "prob_down": 0.25,
+            "should_trade": True,
+            "agreement_count": 3,
+            "agreement_score": 1.0,
+            "all_agree": True,
+            "market_regime": "trending",
+            "component_directions": {"1H": 1, "4H": 1, "D": 1},
+            "component_confidences": {"1H": 0.72, "4H": 0.75, "D": 0.68},
+            "component_weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
+            "data_timestamp": "2024-01-15T14:00:00",
+        }
+
+        self.mock_model_service.predict_from_pipeline.return_value = mock_prediction
+
+        original_model = predictions.model_service
+        original_data = predictions.data_service
+        original_asset = predictions.asset_service
+
+        predictions.model_service = self.mock_model_service
+        predictions.data_service = self.mock_data_service
+        predictions.asset_service = self.mock_asset_service
+
+        try:
+            app = FastAPI()
+            app.include_router(predictions.router)
+            client = TestClient(app)
+
+            response = client.get("/predictions/latest")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            # Assert data_timestamp is present
+            assert "data_timestamp" in data
+            assert data["data_timestamp"] == "2024-01-15T14:00:00"
+
+        finally:
+            predictions.model_service = original_model
+            predictions.data_service = original_data
+            predictions.asset_service = original_asset
+
+    def test_latest_prediction_includes_next_prediction_at(self):
+        """Test /predictions/latest returns next_prediction_at field."""
+        from src.api.routes import predictions
+        from datetime import datetime
+
+        # Mock prediction
+        mock_prediction = {
+            "timestamp": datetime.now().isoformat(),
+            "symbol": "EURUSD",
+            "direction": "long",
+            "confidence": 0.75,
+            "prob_up": 0.75,
+            "prob_down": 0.25,
+            "should_trade": True,
+            "agreement_count": 3,
+            "agreement_score": 1.0,
+            "all_agree": True,
+            "market_regime": "trending",
+            "component_directions": {"1H": 1, "4H": 1, "D": 1},
+            "component_confidences": {"1H": 0.72, "4H": 0.75, "D": 0.68},
+            "component_weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
+        }
+
+        self.mock_model_service.predict_from_pipeline.return_value = mock_prediction
+
+        original_model = predictions.model_service
+        original_data = predictions.data_service
+        original_asset = predictions.asset_service
+
+        predictions.model_service = self.mock_model_service
+        predictions.data_service = self.mock_data_service
+        predictions.asset_service = self.mock_asset_service
+
+        try:
+            app = FastAPI()
+            app.include_router(predictions.router)
+            client = TestClient(app)
+
+            response = client.get("/predictions/latest")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            # Assert next_prediction_at is present
+            assert "next_prediction_at" in data
+            assert data["next_prediction_at"] is not None
+
+            # Parse the timestamp
+            next_pred_time = datetime.fromisoformat(data["next_prediction_at"])
+            assert isinstance(next_pred_time, datetime)
+
+        finally:
+            predictions.model_service = original_model
+            predictions.data_service = original_data
+            predictions.asset_service = original_asset
+
+    def test_latest_prediction_next_prediction_at_is_next_hour_minute_01(self):
+        """Test next_prediction_at is at minute :01 of next hour."""
+        from src.api.routes import predictions
+        from datetime import datetime, timedelta
+
+        # Mock prediction
+        mock_prediction = {
+            "timestamp": datetime.now().isoformat(),
+            "symbol": "EURUSD",
+            "direction": "long",
+            "confidence": 0.75,
+            "prob_up": 0.75,
+            "prob_down": 0.25,
+            "should_trade": True,
+            "agreement_count": 3,
+            "agreement_score": 1.0,
+            "all_agree": True,
+            "market_regime": "trending",
+            "component_directions": {"1H": 1, "4H": 1, "D": 1},
+            "component_confidences": {"1H": 0.72, "4H": 0.75, "D": 0.68},
+            "component_weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
+        }
+
+        self.mock_model_service.predict_from_pipeline.return_value = mock_prediction
+
+        original_model = predictions.model_service
+        original_data = predictions.data_service
+        original_asset = predictions.asset_service
+
+        predictions.model_service = self.mock_model_service
+        predictions.data_service = self.mock_data_service
+        predictions.asset_service = self.mock_asset_service
+
+        try:
+            app = FastAPI()
+            app.include_router(predictions.router)
+            client = TestClient(app)
+
+            # Get current time before request
+            before_request = datetime.now()
+
+            response = client.get("/predictions/latest")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            # Parse next_prediction_at
+            next_pred_time = datetime.fromisoformat(data["next_prediction_at"])
+
+            # Should be at minute :01
+            assert next_pred_time.minute == 1
+            assert next_pred_time.second == 0
+            assert next_pred_time.microsecond == 0
+
+            # Should be in the next hour
+            next_hour = (before_request + timedelta(hours=1)).replace(minute=1, second=0, microsecond=0)
+            assert next_pred_time.hour == next_hour.hour
+
+        finally:
+            predictions.model_service = original_model
+            predictions.data_service = original_data
+            predictions.asset_service = original_asset
+
+    def test_latest_prediction_data_timestamp_optional(self):
+        """Test data_timestamp field is optional (None is valid)."""
+        from src.api.routes import predictions
+        from datetime import datetime
+
+        # Mock prediction without data_timestamp
+        mock_prediction = {
+            "timestamp": datetime.now().isoformat(),
+            "symbol": "EURUSD",
+            "direction": "long",
+            "confidence": 0.75,
+            "prob_up": 0.75,
+            "prob_down": 0.25,
+            "should_trade": True,
+            "agreement_count": 3,
+            "agreement_score": 1.0,
+            "all_agree": True,
+            "market_regime": "trending",
+            "component_directions": {"1H": 1, "4H": 1, "D": 1},
+            "component_confidences": {"1H": 0.72, "4H": 0.75, "D": 0.68},
+            "component_weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
+            # No data_timestamp field
+        }
+
+        self.mock_model_service.predict_from_pipeline.return_value = mock_prediction
+
+        original_model = predictions.model_service
+        original_data = predictions.data_service
+        original_asset = predictions.asset_service
+
+        predictions.model_service = self.mock_model_service
+        predictions.data_service = self.mock_data_service
+        predictions.asset_service = self.mock_asset_service
+
+        try:
+            app = FastAPI()
+            app.include_router(predictions.router)
+            client = TestClient(app)
+
+            response = client.get("/predictions/latest")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            # data_timestamp should be None or not present
+            assert data.get("data_timestamp") is None
+
+        finally:
+            predictions.model_service = original_model
+            predictions.data_service = original_data
+            predictions.asset_service = original_asset
+
+    def test_latest_prediction_both_timestamps_present(self):
+        """Test /predictions/latest returns both timestamp fields when available."""
+        from src.api.routes import predictions
+        from datetime import datetime
+
+        # Mock prediction with data_timestamp
+        mock_prediction = {
+            "timestamp": "2024-01-15T14:05:32",
+            "symbol": "EURUSD",
+            "direction": "long",
+            "confidence": 0.75,
+            "prob_up": 0.75,
+            "prob_down": 0.25,
+            "should_trade": True,
+            "agreement_count": 3,
+            "agreement_score": 1.0,
+            "all_agree": True,
+            "market_regime": "trending",
+            "component_directions": {"1H": 1, "4H": 1, "D": 1},
+            "component_confidences": {"1H": 0.72, "4H": 0.75, "D": 0.68},
+            "component_weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
+            "data_timestamp": "2024-01-15T14:00:00",
+        }
+
+        self.mock_model_service.predict_from_pipeline.return_value = mock_prediction
+
+        original_model = predictions.model_service
+        original_data = predictions.data_service
+        original_asset = predictions.asset_service
+
+        predictions.model_service = self.mock_model_service
+        predictions.data_service = self.mock_data_service
+        predictions.asset_service = self.mock_asset_service
+
+        try:
+            app = FastAPI()
+            app.include_router(predictions.router)
+            client = TestClient(app)
+
+            response = client.get("/predictions/latest")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            # Assert all three timestamps
+            assert "timestamp" in data
+            assert "data_timestamp" in data
+            assert "next_prediction_at" in data
+
+            # Verify values
+            assert data["timestamp"] == "2024-01-15T14:05:32"
+            assert data["data_timestamp"] == "2024-01-15T14:00:00"
+            assert data["next_prediction_at"] is not None
+
+        finally:
+            predictions.model_service = original_model
+            predictions.data_service = original_data
+            predictions.asset_service = original_asset

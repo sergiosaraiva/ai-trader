@@ -216,21 +216,31 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
       </div>
 
       {/* Performance Highlight */}
-      <div className="mt-4 pt-3 border-t border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Zap size={14} className="text-yellow-400" />
-          <span className="text-xs text-gray-400">Backtested Performance</span>
+      <div className="mt-4 pt-3 border-t border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Zap size={14} className="text-yellow-400" />
+            <span className="text-xs text-gray-400">Backtested Performance</span>
+          </div>
+          <div className="flex gap-3 text-xs">
+            <span className="text-blue-400">
+              {performance?.profit_factor?.toFixed(2) || '2.10'} PF
+            </span>
+            <span className="text-yellow-400">
+              {performance?.sharpe_ratio?.toFixed(2) || '5.74'} Sharpe
+            </span>
+          </div>
         </div>
-        <div className="flex gap-3 text-xs">
-          <span className="text-green-400">
-            {performance?.win_rate ? `${(performance.win_rate * 100).toFixed(0)}%` : '62%'} Win
-          </span>
-          <span className="text-blue-400">
-            {performance?.profit_factor?.toFixed(2) || '2.69'} PF
-          </span>
-          <span className="text-yellow-400">
-            {performance?.sharpe_ratio?.toFixed(2) || '7.67'} Sharpe
-          </span>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-gray-500">Win Rate:</span>
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-green-400 font-medium text-base">
+              {performance?.win_rate_high_conf ? `${(performance.win_rate_high_conf * 100).toFixed(0)}%` : '61%'} high-conf
+            </span>
+            <span className="text-gray-500 text-xs">
+              ({performance?.win_rate ? `${(performance.win_rate * 100).toFixed(0)}%` : '57%'} all trades)
+            </span>
+          </div>
         </div>
       </div>
 

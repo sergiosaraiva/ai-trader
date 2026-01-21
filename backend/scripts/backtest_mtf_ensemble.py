@@ -24,7 +24,7 @@ sys.path.insert(0, str(project_root))
 import numpy as np
 import pandas as pd
 
-from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig
+from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig, MTFPrediction
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ class MTFEnsembleBacktester:
         max_holding_bars: int = 12,
         filter_mode: bool = False,
         strict_filter: bool = False,
+        use_dynamic_weights: bool = False,
     ):
         self.ensemble = ensemble
         self.min_confidence = min_confidence
@@ -66,6 +67,7 @@ class MTFEnsembleBacktester:
         self.max_holding_bars = max_holding_bars
         self.filter_mode = filter_mode
         self.strict_filter = strict_filter
+        self.use_dynamic_weights = use_dynamic_weights
         self.trades: List[Trade] = []
 
     def run(self, df_5min: pd.DataFrame, test_start_idx: int) -> Dict:
@@ -155,9 +157,12 @@ class MTFEnsembleBacktester:
             logger.info("Combining predictions using STRICT FILTER MODE (1H primary, 4H must agree)...")
         elif self.filter_mode:
             logger.info("Combining predictions using FILTER MODE (1H primary, 4H/D filters)...")
+        elif self.use_dynamic_weights:
+            logger.info("Combining predictions with DYNAMIC WEIGHTS (adapting based on recent accuracy)...")
         else:
             logger.info("Combining predictions for ensemble...")
 
+        # Get initial weights (will be updated dynamically if enabled)
         weights = self.ensemble._normalize_weights(self.ensemble.config.weights)
         w_1h = weights.get("1H", 0.6)
         w_4h = weights.get("4H", 0.3)
@@ -259,7 +264,14 @@ class MTFEnsembleBacktester:
                     conf = base_conf
 
             else:
-                # WEIGHTED MODE: Original weighted combination
+                # WEIGHTED MODE: Original weighted combination (with optional dynamic weights)
+                # Update weights dynamically if enabled and we have enough history
+                if self.use_dynamic_weights and len(self.ensemble.prediction_history) >= 10:
+                    dyn_weights = self.ensemble._calculate_dynamic_weights()
+                    w_1h = dyn_weights.get("1H", 0.6)
+                    w_4h = dyn_weights.get("4H", 0.3)
+                    w_d = dyn_weights.get("D", 0.1)
+
                 prob_up_1h = c_1h if p_1h == 1 else 1 - c_1h
                 prob_up_4h = c_4h if p_4h == 1 else 1 - c_4h
                 prob_up_d = c_d if p_d == 1 else 1 - c_d
@@ -294,10 +306,64 @@ class MTFEnsembleBacktester:
         n = len(test_directions)
         i = 0
 
+        # Track dynamic weights over time for logging
+        weight_history = []
+
         while i < n - self.max_holding_bars:
-            conf = test_confidences[i]
-            agreement = test_agreements[i]
-            pred = test_directions[i]
+            # For dynamic weights, recompute prediction at trade time
+            if self.use_dynamic_weights and len(self.ensemble.prediction_history) >= 10:
+                dyn_weights = self.ensemble._calculate_dynamic_weights()
+                w_1h = dyn_weights.get("1H", 0.6)
+                w_4h = dyn_weights.get("4H", 0.3)
+                w_d = dyn_weights.get("D", 0.1)
+
+                # Recompute weighted combination with updated weights
+                ts = timestamps[i]
+                p_1h, c_1h = preds_1h[i], confs_1h[i]
+
+                ts_4h = ts.floor("4H")
+                if ts_4h in pred_4h_map:
+                    p_4h, c_4h = pred_4h_map[ts_4h]
+                else:
+                    prev_4h_times = [t for t in pred_4h_map.keys() if t <= ts]
+                    if prev_4h_times:
+                        p_4h, c_4h = pred_4h_map[max(prev_4h_times)]
+                    else:
+                        p_4h, c_4h = p_1h, c_1h
+
+                day = ts.date()
+                if day in pred_d_map:
+                    p_d, c_d = pred_d_map[day]
+                else:
+                    prev_days = [d for d in pred_d_map.keys() if d <= day]
+                    if prev_days:
+                        p_d, c_d = pred_d_map[max(prev_days)]
+                    else:
+                        p_d, c_d = p_1h, c_1h
+
+                prob_up_1h = c_1h if p_1h == 1 else 1 - c_1h
+                prob_up_4h = c_4h if p_4h == 1 else 1 - c_4h
+                prob_up_d = c_d if p_d == 1 else 1 - c_d
+
+                weighted_prob_up = w_1h * prob_up_1h + w_4h * prob_up_4h + w_d * prob_up_d
+                pred = 1 if weighted_prob_up > 0.5 else 0
+                base_conf = abs(weighted_prob_up - 0.5) * 2 + 0.5
+
+                agreement_count = sum([1 for p in [p_1h, p_4h, p_d] if p == pred])
+                agreement = agreement_count / 3.0
+
+                if agreement_count == 3:
+                    conf = min(base_conf + self.ensemble.config.agreement_bonus, 1.0)
+                else:
+                    conf = base_conf
+
+                # Log weight changes periodically
+                if len(weight_history) == 0 or len(self.trades) % 50 == 0:
+                    weight_history.append((len(self.trades), w_1h, w_4h, w_d))
+            else:
+                conf = test_confidences[i]
+                agreement = test_agreements[i]
+                pred = test_directions[i]
 
             # Check entry conditions
             if conf >= self.min_confidence and agreement >= self.min_agreement:
@@ -362,10 +428,58 @@ class MTFEnsembleBacktester:
                     exit_reason=exit_reason,
                 ))
 
+                # Record outcome for dynamic weights if enabled
+                if self.use_dynamic_weights:
+                    # Determine actual direction (1=up, 0=down) based on price movement
+                    actual_direction = 1 if exit_price > entry_price else 0
+
+                    # Get individual model predictions at entry time
+                    entry_idx = i
+                    ts = timestamps[entry_idx]
+                    p_1h_entry, c_1h_entry = preds_1h[entry_idx], confs_1h[entry_idx]
+
+                    ts_4h = ts.floor("4H")
+                    if ts_4h in pred_4h_map:
+                        p_4h_entry, c_4h_entry = pred_4h_map[ts_4h]
+                    else:
+                        prev_4h = [t for t in pred_4h_map.keys() if t <= ts]
+                        p_4h_entry, c_4h_entry = pred_4h_map[max(prev_4h)] if prev_4h else (p_1h_entry, c_1h_entry)
+
+                    day = ts.date()
+                    if day in pred_d_map:
+                        p_d_entry, c_d_entry = pred_d_map[day]
+                    else:
+                        prev_days = [d for d in pred_d_map.keys() if d <= day]
+                        p_d_entry, c_d_entry = pred_d_map[max(prev_days)] if prev_days else (p_1h_entry, c_1h_entry)
+
+                    # Create MTFPrediction object for record_outcome
+                    prob_up = conf if pred == 1 else 1 - conf
+                    mock_prediction = MTFPrediction(
+                        direction=pred,
+                        confidence=conf,
+                        prob_up=prob_up,
+                        prob_down=1 - prob_up,
+                        agreement_score=agreement,
+                        component_directions={"1H": p_1h_entry, "4H": p_4h_entry, "D": p_d_entry},
+                        component_confidences={"1H": c_1h_entry, "4H": c_4h_entry, "D": c_d_entry},
+                        component_weights={"1H": w_1h, "4H": w_4h, "D": w_d},
+                    )
+                    self.ensemble.record_outcome(mock_prediction, actual_direction)
+
                 # Skip to after exit
                 i = exit_idx
 
             i += 1
+
+        # Log dynamic weight evolution if enabled
+        if self.use_dynamic_weights and weight_history:
+            logger.info("Dynamic weight evolution:")
+            for trade_num, w1h, w4h, wd in weight_history:
+                logger.info(f"  After {trade_num} trades: 1H={w1h:.3f}, 4H={w4h:.3f}, D={wd:.3f}")
+            # Log final weights
+            if len(self.ensemble.prediction_history) >= 10:
+                final_weights = self.ensemble._calculate_dynamic_weights()
+                logger.info(f"  Final: 1H={final_weights['1H']:.3f}, 4H={final_weights['4H']:.3f}, D={final_weights['D']:.3f}")
 
         return self._calculate_results()
 
@@ -563,6 +677,7 @@ def main():
     parser.add_argument("--compare", action="store_true", help="Compare to individual models")
     parser.add_argument("--filter-mode", action="store_true", help="Use 1H as primary signal with 4H/D as filters (instead of weighted averaging)")
     parser.add_argument("--strict-filter", action="store_true", help="Require 4H agreement to trade (stricter than --filter-mode)")
+    parser.add_argument("--dynamic-weights", action="store_true", help="Enable dynamic weight adjustment based on recent accuracy")
     args = parser.parse_args()
 
     print("\n" + "=" * 70)
@@ -572,6 +687,9 @@ def main():
     elif args.filter_mode:
         print("MTF ENSEMBLE BACKTEST (FILTER MODE)")
         print("1H = Primary signal | 4H/D = Confirmation filters")
+    elif args.dynamic_weights:
+        print("MTF ENSEMBLE BACKTEST (DYNAMIC WEIGHTS)")
+        print("Weights adapt based on recent model accuracy")
     else:
         print("MTF ENSEMBLE BACKTEST")
     print("=" * 70)
@@ -628,7 +746,11 @@ def main():
         sentiment_source=sentiment_source,
         sentiment_by_timeframe=sentiment_by_timeframe,
         use_stacking=use_stacking,
+        use_dynamic_weights=args.dynamic_weights,
     )
+
+    if args.dynamic_weights:
+        logger.info("Dynamic weights ENABLED - weights will adapt based on recent accuracy")
 
     ensemble = MTFEnsemble(config=config, model_dir=model_dir)
     ensemble.load()
@@ -644,6 +766,7 @@ def main():
         min_agreement=args.agreement,
         filter_mode=args.filter_mode,
         strict_filter=args.strict_filter,
+        use_dynamic_weights=args.dynamic_weights,
     )
     results = backtester.run(df, test_start_idx)
 

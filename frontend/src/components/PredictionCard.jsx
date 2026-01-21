@@ -49,14 +49,15 @@ export function PredictionCard({ prediction, loading, error }) {
     component_confidences,
     component_weights,
     should_trade,
+    data_timestamp,
+    next_prediction_at,
   } = prediction;
 
   // Normalize signal: API returns "long"/"short" in direction field
   const rawSignal = signal || direction;
 
-  // Determine if this is a BUY or SELL based on raw signal
+  // Determine if this is a BUY signal (else SELL)
   const isBuySignal = rawSignal === 'BUY' || rawSignal === 'long' || rawSignal === 1;
-  const isSellSignal = rawSignal === 'SELL' || rawSignal === 'short' || rawSignal === -1 || rawSignal === 0;
 
   // HOLD when confidence is below 70% threshold (should_trade = false)
   const isHold = should_trade === false;
@@ -123,7 +124,13 @@ export function PredictionCard({ prediction, loading, error }) {
 
   const formatTime = (ts) => {
     if (!ts) return 'N/A';
-    return new Date(ts).toLocaleString();
+    try {
+      const date = new Date(ts);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return date.toLocaleString();
+    } catch {
+      return 'Invalid date';
+    }
   };
 
   return (
@@ -133,9 +140,21 @@ export function PredictionCard({ prediction, loading, error }) {
           <h2 className="text-lg font-semibold text-gray-300">Current Recommendation <span className="text-blue-400 font-normal">({primaryTimeframe})</span></h2>
           <p className="text-sm text-gray-500">{getAssetTypeLabel(prediction?.asset_metadata)} • {getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
         </div>
-        <div className="flex items-center gap-1 text-gray-500 text-sm">
-          <Clock size={14} />
-          <span>{formatTime(timestamp)}</span>
+        <div className="flex flex-col items-end gap-1 text-gray-500 text-sm">
+          <div className="flex items-center gap-1">
+            <Clock size={14} />
+            <span>{formatTime(timestamp)}</span>
+          </div>
+          {data_timestamp && (
+            <div className="text-xs text-gray-600">
+              Data from: {formatTime(data_timestamp)}
+            </div>
+          )}
+          {next_prediction_at && (
+            <div className="text-xs text-gray-600">
+              Next update: {formatTime(next_prediction_at)}
+            </div>
+          )}
         </div>
       </div>
 
