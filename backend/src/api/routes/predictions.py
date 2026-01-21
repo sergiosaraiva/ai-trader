@@ -217,6 +217,8 @@ async def get_model_status() -> ModelStatusResponse:
         agreement_bonus=info.get("agreement_bonus"),
         sentiment_enabled=info.get("sentiment_enabled", False),
         sentiment_by_timeframe=info.get("sentiment_by_timeframe", {}),
+        use_stacking=info.get("use_stacking", False),
+        stacking_blend=info.get("stacking_blend"),
         models=models,
         initialized_at=info.get("initialized_at"),
         error=info.get("error"),

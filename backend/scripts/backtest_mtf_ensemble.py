@@ -602,6 +602,7 @@ def main():
     sentiment_by_timeframe = {"1H": False, "4H": False, "D": False}
     sentiment_source = "epu"  # Default to EPU
 
+    use_stacking = False
     if metadata_path.exists():
         with open(metadata_path) as f:
             metadata = json.load(f)
@@ -612,9 +613,12 @@ def main():
             sentiment_by_timeframe = metadata.get("sentiment_by_timeframe", sentiment_by_timeframe)
             sentiment_mode = metadata.get("sentiment_mode", "disabled")
             sentiment_source = metadata.get("sentiment_source", "epu")
+            use_stacking = metadata.get("use_stacking", False)
             if include_sentiment:
                 logger.info(f"Model was trained with sentiment ({sentiment_mode}, source={sentiment_source}) for {trading_pair}")
                 logger.info(f"Sentiment by TF: {sentiment_by_timeframe}")
+            if use_stacking:
+                logger.info("Model was trained with stacking meta-learner")
 
     # Create config with correct settings
     config = MTFEnsembleConfig(
@@ -623,6 +627,7 @@ def main():
         trading_pair=trading_pair,
         sentiment_source=sentiment_source,
         sentiment_by_timeframe=sentiment_by_timeframe,
+        use_stacking=use_stacking,
     )
 
     ensemble = MTFEnsemble(config=config, model_dir=model_dir)

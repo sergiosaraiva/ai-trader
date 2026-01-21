@@ -172,6 +172,8 @@ class ModelStatusResponse(BaseModel):
     sentiment_by_timeframe: Dict[str, bool] = Field(
         default_factory=dict, description="Sentiment enabled per timeframe"
     )
+    use_stacking: bool = Field(False, description="Whether stacking meta-learner is enabled")
+    stacking_blend: Optional[float] = Field(None, description="Blend ratio with weighted average (0.0 = pure stacking)")
     models: Dict[str, ModelInfo] = Field(
         default_factory=dict, description="Individual model status"
     )
@@ -187,6 +189,8 @@ class ModelStatusResponse(BaseModel):
                 "agreement_bonus": 0.05,
                 "sentiment_enabled": True,
                 "sentiment_by_timeframe": {"1H": False, "4H": False, "D": True},
+                "use_stacking": True,
+                "stacking_blend": 0.0,
                 "models": {
                     "1H": {"trained": True, "val_accuracy": 0.67},
                     "4H": {"trained": True, "val_accuracy": 0.65},

@@ -1004,6 +1004,7 @@ class MTFEnsemble:
                 volatility=None,  # Not available in batch mode
                 weights=weights,
             )
+
             return directions, confidences, agreement_scores
 
         # Fallback to weighted averaging

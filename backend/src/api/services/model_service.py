@@ -97,24 +97,63 @@ class ModelService:
             return False
 
     def _load_model(self) -> None:
-        """Load the MTF Ensemble from disk."""
+        """Load the MTF Ensemble from disk.
+
+        Configuration is loaded from training_metadata.json saved with the model.
+        This ensures the service uses the exact configuration the model was trained with.
+        """
+        import json
         from src.models.multi_timeframe.mtf_ensemble import (
             MTFEnsemble,
             MTFEnsembleConfig,
         )
+        from src.models.multi_timeframe.stacking_meta_learner import StackingConfig
 
         logger.info(f"Loading MTF Ensemble from {self._model_dir}")
 
-        # Create config with sentiment on Daily only (research-based)
+        # Load configuration from training metadata
+        metadata_path = self._model_dir / "training_metadata.json"
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                metadata = json.load(f)
+            logger.info("Loaded configuration from training_metadata.json")
+        else:
+            logger.warning("No training_metadata.json found, using defaults")
+            metadata = {}
+
+        # Extract configuration from metadata (with defaults for backwards compatibility)
+        weights = metadata.get("weights", {"1H": 0.6, "4H": 0.3, "D": 0.1})
+        include_sentiment = metadata.get("include_sentiment", True)
+        sentiment_source = metadata.get("sentiment_source", "epu")
+        sentiment_by_timeframe = metadata.get(
+            "sentiment_by_timeframe", {"1H": False, "4H": False, "D": True}
+        )
+        trading_pair = metadata.get("trading_pair", "EURUSD")
+        use_stacking = metadata.get("use_stacking", False)
+        stacking_blend = metadata.get("stacking_blend", 0.0)
+
+        # Create stacking config if stacking is enabled
+        stacking_config = None
+        if use_stacking:
+            stacking_config = StackingConfig(
+                blend_with_weighted_avg=stacking_blend,
+            )
+            logger.info(f"Stacking enabled with blend={stacking_blend}")
+
+        # Create config from loaded metadata
         self._config = MTFEnsembleConfig(
-            weights={"1H": 0.6, "4H": 0.3, "D": 0.1},
+            weights=weights,
             agreement_bonus=0.05,
             use_regime_adjustment=True,
-            include_sentiment=True,
-            sentiment_source="epu",
-            sentiment_by_timeframe={"1H": False, "4H": False, "D": True},
-            trading_pair="EURUSD",
+            include_sentiment=include_sentiment,
+            sentiment_source=sentiment_source,
+            sentiment_by_timeframe=sentiment_by_timeframe,
+            trading_pair=trading_pair,
+            use_stacking=use_stacking,
+            stacking_config=stacking_config,
         )
+
+        logger.info(f"Config: weights={weights}, stacking={use_stacking}, sentiment={include_sentiment}")
 
         # Create and load ensemble
         self._ensemble = MTFEnsemble(
@@ -257,6 +296,12 @@ class ModelService:
             "sentiment_enabled": self._config.include_sentiment if self._config else False,
             "sentiment_by_timeframe": (
                 self._config.sentiment_by_timeframe if self._config else {}
+            ),
+            "use_stacking": self._config.use_stacking if self._config else False,
+            "stacking_blend": (
+                self._config.stacking_config.blend_with_weighted_avg
+                if self._config and self._config.use_stacking and self._config.stacking_config
+                else None
             ),
             "models": {
                 tf: {

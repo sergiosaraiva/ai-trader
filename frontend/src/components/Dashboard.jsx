@@ -171,8 +171,9 @@ export function Dashboard() {
   // Extract signals array from response (API returns 'predictions' not 'signals')
   const signals = signalsData?.predictions || signalsData?.signals || (Array.isArray(signalsData) ? signalsData : []);
 
-  // Extract model weights for AboutSection
+  // Extract model weights and stacking info for AboutSection
   const modelWeights = modelStatus?.weights || null;
+  const useStacking = modelStatus?.use_stacking || false;
 
   // Handle market change
   const handleMarketChange = (e) => {
@@ -339,6 +340,7 @@ export function Dashboard() {
               assetMetadata={assetMetadata}
               marketOpen={marketOpenStatus}
               performance={performance}
+              useStacking={useStacking}
             />
             <AccountStatus
               pipelineStatus={pipelineStatus}

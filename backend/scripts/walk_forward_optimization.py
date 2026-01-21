@@ -39,7 +39,7 @@ sys.path.insert(0, str(project_root))
 import numpy as np
 import pandas as pd
 
-from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig
+from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig, StackingConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,6 +98,17 @@ class WFOWindowResult:
     sl_hits: int = 0
     timeouts: int = 0
 
+    # Balance tracking (with position sizing)
+    initial_balance: float = 0.0
+    final_balance: float = 0.0
+    total_return_pct: float = 0.0
+    max_drawdown_pct: float = 0.0
+    total_pnl_usd: float = 0.0
+
+    # Risk management metrics
+    max_losing_streak: int = 0
+    risk_reductions: int = 0
+
 
 @dataclass
 class WFOSummary:
@@ -106,6 +117,7 @@ class WFOSummary:
     baseline_total_pips: float = 0.0
     baseline_profit_factor: float = 0.0
     baseline_win_rate: float = 0.0
+    initial_balance: float = 10000.0  # Starting balance for position sizing
 
     @property
     def total_windows(self) -> int:
@@ -159,6 +171,27 @@ class WFOSummary:
     @property
     def max_pips_window(self) -> float:
         return max(w.total_pips for w in self.windows) if self.windows else 0.0
+
+    @property
+    def total_return_pct(self) -> float:
+        """Calculate total return across all windows (compounded)."""
+        if not self.windows:
+            return 0.0
+        # Each window starts fresh with initial_balance, so sum the returns
+        total_pnl = sum(w.total_pnl_usd for w in self.windows)
+        return (total_pnl / self.initial_balance) * 100
+
+    @property
+    def avg_return_per_window(self) -> float:
+        """Average return per window."""
+        if not self.windows:
+            return 0.0
+        return sum(w.total_return_pct for w in self.windows) / len(self.windows)
+
+    @property
+    def max_drawdown(self) -> float:
+        """Maximum drawdown across all windows."""
+        return max(w.max_drawdown_pct for w in self.windows) if self.windows else 0.0
 
 
 def create_wfo_windows(
@@ -218,19 +251,25 @@ def load_data(data_path: Path) -> pd.DataFrame:
     if data_path.suffix == ".parquet":
         df = pd.read_parquet(data_path)
     else:
-        df = pd.read_csv(data_path)
+        # Try reading with index_col=0 first (for CSV with unnamed index column)
+        df = pd.read_csv(data_path, index_col=0, parse_dates=True)
 
     df.columns = [c.lower() for c in df.columns]
 
-    time_col = None
-    for col in ["timestamp", "time", "date", "datetime"]:
-        if col in df.columns:
-            time_col = col
-            break
+    # If index is not datetime, try to find a time column
+    if not isinstance(df.index, pd.DatetimeIndex):
+        time_col = None
+        for col in ["timestamp", "time", "date", "datetime"]:
+            if col in df.columns:
+                time_col = col
+                break
 
-    if time_col:
-        df[time_col] = pd.to_datetime(df[time_col])
-        df = df.set_index(time_col)
+        if time_col:
+            df[time_col] = pd.to_datetime(df[time_col])
+            df = df.set_index(time_col)
+        else:
+            # Try to convert the index to datetime
+            df.index = pd.to_datetime(df.index)
 
     df = df.sort_index()
     logger.info(f"Loaded {len(df)} bars from {df.index[0]} to {df.index[-1]}")
@@ -246,12 +285,41 @@ def run_window_backtest(
     tp_pips: float = 25.0,
     sl_pips: float = 15.0,
     max_holding_bars: int = 12,
+    initial_balance: float = 10000.0,
+    risk_per_trade: float = 0.02,
+    reduce_risk_on_losses: bool = True,
+    spread_pips: float = 1.0,
+    slippage_pips: float = 0.5,
 ) -> Dict:
-    """Run backtest on test data using the ensemble.
+    """Run backtest on test data using the ensemble with proper position sizing.
 
-    This is a simplified version of the backtest that uses the entire
-    provided dataframe as the test set (training has already been done
-    on separate data).
+    Position sizing uses fixed fractional risk:
+    - Risk amount = Balance × Risk%
+    - Position size (lots) = Risk amount / (SL pips × $10 per pip per lot)
+    - Profits/losses compound into subsequent trades
+
+    Risk Management (reduce_risk_on_losses):
+    - After 1 loss: reduce risk to 75% of base
+    - After 2 losses: reduce risk to 50% of base
+    - After 3+ losses: reduce risk to 25% of base
+    - After a win: reset to 100% of base risk
+
+    Args:
+        ensemble: Trained MTF Ensemble model
+        df_5min: 5-minute OHLCV data for testing
+        min_confidence: Minimum confidence to enter trade (HOLD if below)
+        min_agreement: Minimum agreement score between timeframes
+        tp_pips: Take profit in pips
+        sl_pips: Stop loss in pips
+        max_holding_bars: Maximum bars to hold before timeout
+        initial_balance: Starting account balance in USD
+        risk_per_trade: Fraction of balance to risk per trade (e.g., 0.02 = 2%)
+        reduce_risk_on_losses: If True, reduce position size after consecutive losses
+        spread_pips: Spread cost in pips (realistic trading cost)
+        slippage_pips: Slippage in pips (realistic execution cost)
+
+    Returns:
+        Dict with trading metrics including balance tracking
     """
     from src.features.technical.calculator import TechnicalIndicatorCalculator
 
@@ -357,9 +425,20 @@ def run_window_backtest(
     test_confidences = np.array(test_confidences)
     test_agreements = np.array(test_agreements)
 
-    # Simulate trading
-    pip_value = 0.0001
+    # Simulate trading with proper position sizing
+    pip_price_value = 0.0001  # Price movement per pip for EUR/USD
+    pip_dollar_value = 10.0   # USD per pip per standard lot (100,000 units)
+
     trades = []
+    balance = initial_balance
+    peak_balance = initial_balance
+    max_drawdown = 0.0
+    equity_curve = [initial_balance]
+
+    # Risk management: track consecutive losses
+    consecutive_losses = 0
+    risk_reductions = 0  # Count how many times risk was reduced
+
     i = 0
     n = len(test_directions)
 
@@ -368,17 +447,48 @@ def run_window_backtest(
         agreement = test_agreements[i]
         pred = test_directions[i]
 
+        # Only trade if confidence meets threshold (otherwise HOLD)
         if conf >= min_confidence and agreement >= min_agreement:
             entry_price = closes[i]
             entry_time = timestamps[i]
             direction = "long" if pred == 1 else "short"
 
-            if direction == "long":
-                tp_price = entry_price + tp_pips * pip_value
-                sl_price = entry_price - sl_pips * pip_value
+            # Calculate current risk based on consecutive losses
+            if reduce_risk_on_losses:
+                if consecutive_losses == 0:
+                    current_risk = risk_per_trade  # 100% of base risk
+                elif consecutive_losses == 1:
+                    current_risk = risk_per_trade * 0.75  # 75% of base risk
+                    risk_reductions += 1
+                elif consecutive_losses == 2:
+                    current_risk = risk_per_trade * 0.50  # 50% of base risk
+                    risk_reductions += 1
+                else:  # 3+ consecutive losses
+                    current_risk = risk_per_trade * 0.25  # 25% of base risk
+                    risk_reductions += 1
             else:
-                tp_price = entry_price - tp_pips * pip_value
-                sl_price = entry_price + sl_pips * pip_value
+                current_risk = risk_per_trade
+
+            # Calculate position size based on risk
+            # Risk amount = Balance × Risk%
+            risk_amount = balance * current_risk
+
+            # Position size (lots) = Risk amount / (SL pips × $ per pip per lot)
+            # This ensures we lose exactly risk_amount if stopped out
+            position_lots = risk_amount / (sl_pips * pip_dollar_value)
+
+            # Cap position size to reasonable limits (max 5 lots for realistic trading)
+            position_lots = min(position_lots, 5.0)
+
+            # Apply spread cost on entry
+            if direction == "long":
+                entry_price += spread_pips * pip_price_value  # Pay spread on entry
+                tp_price = entry_price + tp_pips * pip_price_value
+                sl_price = entry_price - sl_pips * pip_price_value
+            else:
+                entry_price -= spread_pips * pip_price_value
+                tp_price = entry_price - tp_pips * pip_price_value
+                sl_price = entry_price + sl_pips * pip_price_value
 
             exit_price = None
             exit_reason = None
@@ -387,20 +497,25 @@ def run_window_backtest(
             for j in range(i + 1, min(i + max_holding_bars + 1, n)):
                 if direction == "long":
                     if highs[j] >= tp_price:
-                        exit_price, exit_reason = tp_price, "take_profit"
+                        # Apply slippage on exit
+                        exit_price = tp_price - slippage_pips * pip_price_value
+                        exit_reason = "take_profit"
                         exit_idx = j
                         break
                     if lows[j] <= sl_price:
-                        exit_price, exit_reason = sl_price, "stop_loss"
+                        exit_price = sl_price - slippage_pips * pip_price_value
+                        exit_reason = "stop_loss"
                         exit_idx = j
                         break
                 else:
                     if lows[j] <= tp_price:
-                        exit_price, exit_reason = tp_price, "take_profit"
+                        exit_price = tp_price + slippage_pips * pip_price_value
+                        exit_reason = "take_profit"
                         exit_idx = j
                         break
                     if highs[j] >= sl_price:
-                        exit_price, exit_reason = sl_price, "stop_loss"
+                        exit_price = sl_price + slippage_pips * pip_price_value
+                        exit_reason = "stop_loss"
                         exit_idx = j
                         break
 
@@ -409,16 +524,40 @@ def run_window_backtest(
                 exit_price = closes[exit_idx]
                 exit_reason = "timeout"
 
+            # Calculate PnL in pips and USD
             if direction == "long":
-                pnl_pips = (exit_price - entry_price) / pip_value
+                pnl_pips = (exit_price - entry_price) / pip_price_value
             else:
-                pnl_pips = (entry_price - exit_price) / pip_value
+                pnl_pips = (entry_price - exit_price) / pip_price_value
+
+            # PnL in USD = pips × position_lots × pip_dollar_value
+            pnl_usd = pnl_pips * position_lots * pip_dollar_value
+
+            # Update balance (compound profits/losses)
+            balance += pnl_usd
+            equity_curve.append(balance)
+
+            # Track consecutive losses for risk management
+            if pnl_pips > 0:
+                consecutive_losses = 0  # Reset on win
+            else:
+                consecutive_losses += 1
+
+            # Track peak and drawdown
+            if balance > peak_balance:
+                peak_balance = balance
+            current_drawdown = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
+            max_drawdown = max(max_drawdown, current_drawdown)
 
             trades.append({
                 "direction": direction,
                 "confidence": conf,
                 "pnl_pips": pnl_pips,
+                "pnl_usd": pnl_usd,
+                "position_lots": position_lots,
+                "balance_after": balance,
                 "exit_reason": exit_reason,
+                "risk_used": current_risk,
             })
 
             i = exit_idx
@@ -434,17 +573,37 @@ def run_window_backtest(
             "total_pips": 0,
             "profit_factor": 0,
             "avg_pips": 0,
+            "initial_balance": initial_balance,
+            "final_balance": initial_balance,
+            "total_return_pct": 0,
+            "max_drawdown_pct": 0,
+            "max_losing_streak": 0,
+            "risk_reductions": 0,
         }
 
     trades_df = pd.DataFrame(trades)
     wins = trades_df[trades_df["pnl_pips"] > 0]
     losses = trades_df[trades_df["pnl_pips"] <= 0]
 
-    total_profit = wins["pnl_pips"].sum() if len(wins) > 0 else 0
-    total_loss = abs(losses["pnl_pips"].sum()) if len(losses) > 0 else 0
-    profit_factor = total_profit / total_loss if total_loss > 0 else float("inf")
+    total_profit_pips = wins["pnl_pips"].sum() if len(wins) > 0 else 0
+    total_loss_pips = abs(losses["pnl_pips"].sum()) if len(losses) > 0 else 0
+    profit_factor = total_profit_pips / total_loss_pips if total_loss_pips > 0 else float("inf")
 
     high_conf = trades_df[trades_df["confidence"] >= 0.60]
+
+    # Calculate max losing streak
+    max_losing_streak = 0
+    current_streak = 0
+    for pnl in trades_df["pnl_pips"]:
+        if pnl <= 0:
+            current_streak += 1
+            max_losing_streak = max(max_losing_streak, current_streak)
+        else:
+            current_streak = 0
+
+    # Calculate return metrics
+    final_balance = balance
+    total_return_pct = ((final_balance - initial_balance) / initial_balance) * 100
 
     return {
         "total_trades": len(trades_df),
@@ -463,6 +622,16 @@ def run_window_backtest(
         "tp_hits": len(trades_df[trades_df["exit_reason"] == "take_profit"]),
         "sl_hits": len(trades_df[trades_df["exit_reason"] == "stop_loss"]),
         "timeouts": len(trades_df[trades_df["exit_reason"] == "timeout"]),
+        # Balance tracking metrics
+        "initial_balance": initial_balance,
+        "final_balance": final_balance,
+        "total_return_pct": total_return_pct,
+        "max_drawdown_pct": max_drawdown * 100,
+        "avg_position_lots": trades_df["position_lots"].mean(),
+        "total_pnl_usd": trades_df["pnl_usd"].sum(),
+        # Risk management metrics
+        "max_losing_streak": max_losing_streak,
+        "risk_reductions": risk_reductions,
     }
 
 
@@ -472,6 +641,9 @@ def run_wfo_window(
     config: MTFEnsembleConfig,
     output_dir: Path,
     min_confidence: float = 0.55,
+    initial_balance: float = 10000.0,
+    risk_per_trade: float = 0.02,
+    reduce_risk_on_losses: bool = True,
 ) -> WFOWindowResult:
     """Run walk-forward optimization on a single window.
 
@@ -481,6 +653,9 @@ def run_wfo_window(
         config: MTF Ensemble configuration
         output_dir: Directory to save window models
         min_confidence: Minimum confidence for trading
+        initial_balance: Starting account balance in USD
+        risk_per_trade: Fraction of balance to risk per trade (e.g., 0.02 = 2%)
+        reduce_risk_on_losses: If True, reduce position size after consecutive losses
 
     Returns:
         WFOWindowResult with all metrics
@@ -529,12 +704,17 @@ def run_wfo_window(
     # Save the window's model
     ensemble.save()
 
-    # Run backtest on test period
+    # Run backtest on test period with position sizing
     logger.info(f"Running backtest on test period...")
+    logger.info(f"  Initial balance: ${initial_balance:,.0f}, Risk per trade: {risk_per_trade:.1%}")
+    logger.info(f"  Risk reduction on losses: {'ON' if reduce_risk_on_losses else 'OFF'}")
     backtest_results = run_window_backtest(
         ensemble=ensemble,
         df_5min=df_test,
         min_confidence=min_confidence,
+        initial_balance=initial_balance,
+        risk_per_trade=risk_per_trade,
+        reduce_risk_on_losses=reduce_risk_on_losses,
     )
 
     # Create result object
@@ -559,6 +739,15 @@ def run_wfo_window(
         tp_hits=backtest_results["tp_hits"],
         sl_hits=backtest_results["sl_hits"],
         timeouts=backtest_results["timeouts"],
+        # Balance tracking metrics
+        initial_balance=backtest_results["initial_balance"],
+        final_balance=backtest_results["final_balance"],
+        total_return_pct=backtest_results["total_return_pct"],
+        max_drawdown_pct=backtest_results["max_drawdown_pct"],
+        total_pnl_usd=backtest_results["total_pnl_usd"],
+        # Risk management metrics
+        max_losing_streak=backtest_results["max_losing_streak"],
+        risk_reductions=backtest_results["risk_reductions"],
     )
 
     # Print window summary
@@ -567,6 +756,8 @@ def run_wfo_window(
     logger.info(f"  Win Rate:      {result.win_rate:.1f}%")
     logger.info(f"  Total Pips:    {result.total_pips:+.1f}")
     logger.info(f"  Profit Factor: {result.profit_factor:.2f}")
+    logger.info(f"  Balance:       ${result.initial_balance:,.0f} → ${result.final_balance:,.0f} ({result.total_return_pct:+.1f}%)")
+    logger.info(f"  Max Drawdown:  {result.max_drawdown_pct:.1f}%")
     logger.info(f"  Model Accuracies: 1H={result.model_accuracies.get('1H', 0):.1%}, "
                 f"4H={result.model_accuracies.get('4H', 0):.1%}, "
                 f"D={result.model_accuracies.get('D', 0):.1%}")
@@ -576,22 +767,24 @@ def run_wfo_window(
 
 def print_wfo_summary(summary: WFOSummary):
     """Print comprehensive WFO summary."""
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 100)
     print("WALK-FORWARD OPTIMIZATION SUMMARY")
-    print("=" * 80)
+    print("=" * 100)
 
-    print(f"\n{'WINDOW RESULTS':^80}")
-    print("-" * 80)
-    print(f"{'Window':<10} {'Period':<25} {'Trades':>8} {'Win%':>8} {'PF':>8} {'Pips':>10}")
-    print("-" * 80)
+    print(f"\n{'WINDOW RESULTS':^100}")
+    print("-" * 100)
+    print(f"{'Window':<8} {'Period':<20} {'Trades':>7} {'Win%':>7} {'PF':>6} {'Pips':>9} {'Return':>10} {'Max DD':>8}")
+    print("-" * 100)
 
     for w in summary.windows:
         status = "+" if w.total_pips > 0 else "-"
-        print(f"{w.window.window_id:<10} {w.window.test_period:<25} "
-              f"{w.total_trades:>8} {w.win_rate:>7.1f}% {w.profit_factor:>7.2f} "
-              f"{status}{abs(w.total_pips):>9.1f}")
+        return_str = f"{w.total_return_pct:+.1f}%" if w.total_return_pct != 0 else "0.0%"
+        dd_str = f"{w.max_drawdown_pct:.1f}%"
+        print(f"{w.window.window_id:<8} {w.window.test_period:<20} "
+              f"{w.total_trades:>7} {w.win_rate:>6.1f}% {w.profit_factor:>6.2f} "
+              f"{status}{abs(w.total_pips):>8.0f} {return_str:>10} {dd_str:>8}")
 
-    print("-" * 80)
+    print("-" * 100)
 
     print(f"\n{'AGGREGATED METRICS':^80}")
     print("-" * 80)
@@ -609,6 +802,13 @@ def print_wfo_summary(summary: WFOSummary):
     print(f"  Pips Std Dev:              {summary.pips_std:.1f}")
     print(f"  Best Window:               {summary.max_pips_window:+.1f}")
     print(f"  Worst Window:              {summary.min_pips_window:+.1f}")
+
+    print(f"\n{'BALANCE ANALYSIS (Position Sizing)':^80}")
+    print("-" * 80)
+    print(f"  Initial Balance per Window: ${summary.initial_balance:,.0f}")
+    print(f"  Avg Return per Window:      {summary.avg_return_per_window:+.1f}%")
+    print(f"  Total Return (sum):         {summary.total_return_pct:+.1f}%")
+    print(f"  Max Drawdown (worst):       {summary.max_drawdown:.1f}%")
 
     print(f"\n{'BASELINE COMPARISON':^80}")
     print("-" * 80)
@@ -698,11 +898,18 @@ def generate_api_backtest_results(
         avg_win_rate = total_wins / total_trades if total_trades > 0 else 0
         # Simple average for profit factor (weighted would need gross profit/loss)
         avg_pf = sum(w["profit_factor"] for w in window_list) / len(window_list)
+        # Aggregate return metrics
+        total_return = sum(w.get("total_return_pct", 0) for w in window_list)
+        max_dd = max(w.get("max_drawdown_pct", 0) for w in window_list)
+        total_pnl = sum(w.get("total_pnl_usd", 0) for w in window_list)
         return {
             "total_pips": round(total_pips),
             "win_rate": round(avg_win_rate, 3),
             "profit_factor": round(avg_pf, 2),
             "total_trades": total_trades,
+            "total_return_pct": round(total_return, 2),
+            "max_drawdown_pct": round(max_dd, 2),
+            "total_pnl_usd": round(total_pnl, 2),
         }
 
     # Parse test period dates from windows
@@ -778,6 +985,11 @@ def generate_api_backtest_results(
             "period_months": total_months,
         }
 
+    # Get position sizing config from results_data
+    config = results_data.get("config", {})
+    initial_balance = config.get("initial_balance", 10000.0)
+    risk_per_trade = config.get("risk_per_trade", 0.02)
+
     # Build the API response structure
     api_data = {
         "metadata": {
@@ -786,6 +998,11 @@ def generate_api_backtest_results(
             "confidence_threshold": confidence_threshold,
             "model_version": "mtf_ensemble_v1",
             "total_windows": len(windows),
+            "position_sizing": {
+                "initial_balance": initial_balance,
+                "risk_per_trade": risk_per_trade,
+                "method": "fixed_fractional",
+            },
         },
         "periods": periods,
         "leverage_options": [
@@ -847,6 +1064,26 @@ def main():
         default="models/mtf_ensemble",
         help="Directory of baseline model for comparison"
     )
+    parser.add_argument(
+        "--balance", type=float, default=10000.0,
+        help="Initial account balance in USD for position sizing (default: 10000)"
+    )
+    parser.add_argument(
+        "--risk", type=float, default=0.02,
+        help="Risk per trade as fraction (e.g., 0.02 = 2%%, default: 2%%)"
+    )
+    parser.add_argument(
+        "--no-risk-reduction", action="store_true",
+        help="Disable reducing risk after consecutive losses (default: enabled)"
+    )
+    parser.add_argument(
+        "--stacking", action="store_true",
+        help="Enable stacking meta-learner (replaces fixed weighted averaging)"
+    )
+    parser.add_argument(
+        "--stacking-blend", type=float, default=0.0,
+        help="Blend ratio between stacking and weighted avg (0=pure stacking, 1=pure weighted, default: 0)"
+    )
     args = parser.parse_args()
 
     print("\n" + "=" * 80)
@@ -859,6 +1096,12 @@ def main():
     print(f"Step Size:      {args.step_months} months")
     print(f"Min Confidence: {args.confidence}")
     print(f"Sentiment:      {'ON (Daily only)' if args.sentiment else 'OFF'}")
+    print(f"Initial Balance: ${args.balance:,.0f}")
+    print(f"Risk per Trade:  {args.risk:.1%}")
+    print(f"Risk Reduction:  {'OFF' if args.no_risk_reduction else 'ON (reduce after losses)'}")
+    print(f"Stacking:        {'ON' if args.stacking else 'OFF'}")
+    if args.stacking:
+        print(f"Stacking Blend:  {args.stacking_blend}")
     print("=" * 80)
 
     # Load data
@@ -883,13 +1126,29 @@ def main():
         print(f"  Window {w.window_id}: Train {w.train_period} | Test {w.test_period}")
 
     # Create config
-    if args.sentiment:
+    stacking_config = None
+    if args.stacking:
+        # For WFO, use smaller min_train_size since daily data is limited
+        stacking_config = StackingConfig(
+            blend_with_weighted_avg=args.stacking_blend,
+            n_folds=3,  # Reduce folds for smaller sample sizes in WFO
+            min_train_size=100,  # Reduce min samples for WFO windows
+        )
+
+    if args.stacking and args.sentiment:
+        config = MTFEnsembleConfig.with_stacking_and_sentiment(
+            trading_pair="EURUSD",
+            stacking_config=stacking_config,
+        )
+    elif args.stacking:
+        config = MTFEnsembleConfig.with_stacking(stacking_config=stacking_config)
+    elif args.sentiment:
         config = MTFEnsembleConfig.with_sentiment("EURUSD")
     else:
         config = MTFEnsembleConfig.default()
 
     # Run WFO
-    summary = WFOSummary()
+    summary = WFOSummary(initial_balance=args.balance)
 
     for window in windows:
         try:
@@ -899,6 +1158,9 @@ def main():
                 config=config,
                 output_dir=output_dir,
                 min_confidence=args.confidence,
+                initial_balance=args.balance,
+                risk_per_trade=args.risk,
+                reduce_risk_on_losses=not args.no_risk_reduction,
             )
             summary.windows.append(result)
         except Exception as e:
@@ -933,6 +1195,10 @@ def main():
             "step_months": args.step_months,
             "min_confidence": args.confidence,
             "sentiment": args.sentiment,
+            "stacking": args.stacking,
+            "stacking_blend": args.stacking_blend if args.stacking else None,
+            "initial_balance": args.balance,
+            "risk_per_trade": args.risk,
         },
         "windows": [
             {
@@ -944,6 +1210,11 @@ def main():
                 "total_pips": w.total_pips,
                 "profit_factor": w.profit_factor,
                 "model_accuracies": w.model_accuracies,
+                "initial_balance": w.initial_balance,
+                "final_balance": w.final_balance,
+                "total_return_pct": w.total_return_pct,
+                "max_drawdown_pct": w.max_drawdown_pct,
+                "total_pnl_usd": w.total_pnl_usd,
             }
             for w in summary.windows
         ],
@@ -959,6 +1230,10 @@ def main():
             "pips_std": summary.pips_std,
             "min_pips_window": summary.min_pips_window,
             "max_pips_window": summary.max_pips_window,
+            "initial_balance": summary.initial_balance,
+            "total_return_pct": summary.total_return_pct,
+            "avg_return_per_window": summary.avg_return_per_window,
+            "max_drawdown": summary.max_drawdown,
         },
         "baseline_comparison": {
             "baseline_total_pips": summary.baseline_total_pips,

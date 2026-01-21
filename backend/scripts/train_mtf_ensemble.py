@@ -29,6 +29,7 @@ import pandas as pd
 from src.models.multi_timeframe import (
     MTFEnsemble,
     MTFEnsembleConfig,
+    StackingConfig,
 )
 
 logging.basicConfig(
@@ -221,6 +222,17 @@ def main():
         choices=["epu", "gdelt", "both"],
         help="Sentiment data source: 'epu' (daily VIX/EPU), 'gdelt' (hourly news), or 'both'",
     )
+    parser.add_argument(
+        "--stacking",
+        action="store_true",
+        help="Enable stacking meta-learner (learns optimal way to combine base model predictions)",
+    )
+    parser.add_argument(
+        "--stacking-blend",
+        type=float,
+        default=0.0,
+        help="Blend factor for stacking: 0=pure stacking, 1=pure weighted avg (default: 0.0)",
+    )
     args = parser.parse_args()
 
     # Parse weights and timeframes first
@@ -263,9 +275,18 @@ def main():
         "both": "EPU/VIX + GDELT (combined)",
     }.get(sentiment_source, sentiment_source)
 
+    # Stacking configuration
+    stacking_config = None
+    if args.stacking:
+        stacking_config = StackingConfig(
+            blend_with_weighted_avg=args.stacking_blend,
+        )
+
     print("\n" + "=" * 70)
     print("MTF ENSEMBLE TRAINING")
-    if args.sentiment_tf:
+    if args.stacking:
+        print("(3-Timeframe Ensemble + STACKING META-LEARNER)")
+    elif args.sentiment_tf:
         print(f"(3-Timeframe Ensemble + CUSTOM SENTIMENT: {args.sentiment_tf})")
     elif args.sentiment_all:
         print("(3-Timeframe Ensemble + FULL SENTIMENT - all timeframes)")
@@ -288,6 +309,9 @@ def main():
         print(f"  - {tf}: {status}")
     if include_sentiment:
         print(f"Pair:        {args.pair}")
+    print(f"Stacking:    {'ENABLED' if args.stacking else 'disabled'}")
+    if args.stacking:
+        print(f"  Blend:     {args.stacking_blend}")
     print("=" * 70)
 
     config = MTFEnsembleConfig(
@@ -298,11 +322,16 @@ def main():
         trading_pair=args.pair,
         sentiment_source=sentiment_source,
         sentiment_by_timeframe=sentiment_by_tf,
+        use_stacking=args.stacking,
+        stacking_config=stacking_config,
     )
 
     # Load data
     data_path = project_root / args.data
     df_5min = load_data(data_path)
+
+    # Use all data for training
+    df_train_val = df_5min
 
     # Create ensemble
     model_dir = project_root / args.output
@@ -314,7 +343,7 @@ def main():
     print("=" * 70)
 
     results = ensemble.train(
-        df_5min,
+        df_train_val,
         train_ratio=args.train_ratio,
         val_ratio=args.val_ratio,
         timeframes=timeframe_list,
@@ -326,6 +355,8 @@ def main():
     print("=" * 70)
 
     for tf, metrics in results.items():
+        if tf == "stacking":  # Skip stacking here, shown separately
+            continue
         print(f"\n{tf} Model:")
         print(f"  Train Samples:  {metrics.get('train_samples', 'N/A')}")
         print(f"  Val Samples:    {metrics.get('val_samples', 'N/A')}")
@@ -343,6 +374,7 @@ def main():
     print("ENSEMBLE VALIDATION")
     print("=" * 70)
 
+    # Use standard test split from full data
     test_start_idx = int(len(df_5min) * (args.train_ratio + args.val_ratio))
     ensemble_results = validate_ensemble(ensemble, df_5min, test_start_idx)
 
@@ -387,11 +419,18 @@ def main():
         "sentiment_source": sentiment_source if include_sentiment else None,
         "sentiment_by_timeframe": sentiment_by_tf,
         "trading_pair": args.pair if include_sentiment else None,
+        "use_stacking": args.stacking,
+        "stacking_blend": args.stacking_blend if args.stacking else None,
         "individual_results": {
             k: {kk: float(vv) if isinstance(vv, (np.integer, np.floating)) else vv
                 for kk, vv in v.items()}
             for k, v in results.items()
+            if k != "stacking"  # Stacking results stored separately
         },
+        "stacking_results": {
+            k: float(v) if isinstance(v, (np.integer, np.floating)) else v
+            for k, v in results.get("stacking", {}).items()
+        } if args.stacking else None,
         "ensemble_results": {
             k: float(v) if isinstance(v, (np.integer, np.floating)) else v
             for k, v in ensemble_results.items()
@@ -413,7 +452,7 @@ def main():
     print("-" * 45)
 
     for tf in timeframe_list:
-        if tf in results:
+        if tf in results and tf != "stacking":
             weight = weights.get(tf, 0)
             val_acc = results[tf]["val_accuracy"]
             acc_60 = results[tf].get("val_acc_conf_60", 0)
@@ -421,6 +460,19 @@ def main():
 
     print("-" * 45)
     print(f"{'ENSEMBLE':<12} {'100%':>8} {ensemble_results['accuracy']:>9.2%} {ensemble_results.get('acc_conf_60', 0):>9.2%}")
+
+    # Print stacking results if enabled
+    if args.stacking and "stacking" in results:
+        stacking_res = results["stacking"]
+        print("\n" + "-" * 45)
+        print("STACKING META-LEARNER:")
+        print(f"  Meta Train Acc: {stacking_res.get('meta_train_accuracy', 0):.2%}")
+        print(f"  Meta Val Acc:   {stacking_res.get('meta_val_accuracy', 0):.2%}")
+        for thresh in [55, 60, 65, 70]:
+            key = f"meta_val_acc_conf_{thresh}"
+            samples_key = f"meta_val_samples_conf_{thresh}"
+            if key in stacking_res:
+                print(f"  Val Acc @ {thresh}%:  {stacking_res[key]:.2%} ({stacking_res.get(samples_key, 0)} samples)")
 
     # Compare to 1H alone
     print("\n" + "=" * 70)

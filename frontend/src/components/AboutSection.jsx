@@ -48,8 +48,9 @@ const getMarketClosedMessage = (assetType) => {
  * - assetMetadata: Asset metadata from API (optional)
  * - marketOpen: Whether the market is currently open
  * - performance: Performance stats from API (optional)
+ * - useStacking: Whether stacking meta-learner is enabled
  */
-export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, assetMetadata, marketOpen = true, performance }) {
+export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, assetMetadata, marketOpen = true, performance, useStacking = false }) {
   // Use provided metadata or infer from trading pair
   const metadata = assetMetadata || inferAssetMetadata(tradingPair);
   const profitUnit = getProfitUnitLabel(metadata);
@@ -68,13 +69,15 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
   const features = [
     {
       icon: Brain,
-      title: 'Multi-Timeframe AI',
-      description: 'AI agent combining 3 specialized analyzers for 1H, 4H, and Daily patterns',
+      title: useStacking ? 'Stacking Meta-Learner' : 'Multi-Timeframe AI',
+      description: useStacking
+        ? 'Meta-model learns optimal combination of 1H, 4H, and Daily analyzers'
+        : 'AI agent combining 3 specialized analyzers for 1H, 4H, and Daily patterns',
     },
     {
       icon: TrendingUp,
       title: 'Walk-Forward Validated',
-      description: 'Backtested on 7 rolling time periods (2022-2025) with consistent profitability',
+      description: 'Backtested on 8 rolling time periods (2022-2025) with 100% consistency',
     },
     {
       icon: Shield,
@@ -167,9 +170,18 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
       {/* Model Weights if available */}
       {modelWeights && Object.keys(modelWeights).length > 0 && (
         <div className="mb-4 pt-3 border-t border-gray-700">
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart3 size={14} className="text-gray-500" />
-            <span className="text-xs text-gray-500">Timeframe Weights</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <BarChart3 size={14} className="text-gray-500" />
+              <span className="text-xs text-gray-500">
+                {useStacking ? 'Base Weights (Meta-Learner Adapts)' : 'Timeframe Weights'}
+              </span>
+            </div>
+            {useStacking && (
+              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded-full">
+                Stacking
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             {Object.entries(modelWeights).map(([tf, weight]) => (
@@ -179,6 +191,11 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
               </div>
             ))}
           </div>
+          {useStacking && (
+            <p className="text-xs text-gray-500 mt-2 italic">
+              Meta-learner dynamically adjusts weights based on market conditions
+            </p>
+          )}
         </div>
       )}
 
