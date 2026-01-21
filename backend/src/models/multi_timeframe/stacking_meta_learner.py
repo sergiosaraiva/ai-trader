@@ -64,6 +64,10 @@ class StackingConfig:
     # Blending with weighted average (0=pure stacking, 1=pure weighted avg)
     blend_with_weighted_avg: float = 0.0
 
+    # Enhanced meta-features (OPTIONAL - disabled by default)
+    use_enhanced_meta_features: bool = False  # Enable 12 additional meta-features
+    enhanced_meta_lookback: int = 50  # Lookback window for rolling calculations
+
     @classmethod
     def default(cls) -> "StackingConfig":
         """Default configuration."""
@@ -129,6 +133,11 @@ class StackingMetaFeatures:
 
         if config.use_volatility_features:
             names.extend(["volatility", "volatility_regime"])
+
+        # Add enhanced meta-feature names if enabled
+        if config.use_enhanced_meta_features:
+            from .enhanced_meta_features import get_enhanced_feature_names
+            names.extend(get_enhanced_feature_names())
 
         return names
 
@@ -272,51 +281,35 @@ class StackingMetaLearner:
             # Mark validation indices as valid
             valid_mask[val_idx] = True
 
-        # Now create meta-features from OOF predictions
-        meta_features_list = []
+        # Filter valid indices where all models have predictions
         valid_indices = []
-
         for i in range(n_samples):
-            if not valid_mask[i]:
-                continue
+            if valid_mask[i] and not any(np.isnan(oof_probs[tf][i]) for tf in models.keys()):
+                valid_indices.append(i)
 
-            # Check if we have predictions from all models
-            if any(np.isnan(oof_probs[tf][i]) for tf in models.keys()):
-                continue
-
-            # Create meta-features
-            prob_1h = oof_probs["1H"][i]
-            prob_4h = oof_probs["4H"][i]
-            prob_d = oof_probs["D"][i]
-
-            probs = [prob_1h, prob_4h, prob_d]
-            dirs = [1 if p > 0.5 else 0 for p in probs]
-            confs = [oof_confs["1H"][i], oof_confs["4H"][i], oof_confs["D"][i]]
-
-            # Majority direction
-            majority_dir = 1 if sum(dirs) >= 2 else 0
-            agreement_count = sum(1 for d in dirs if d == majority_dir)
-
-            meta_feat = StackingMetaFeatures(
-                prob_1h=prob_1h,
-                prob_4h=prob_4h,
-                prob_d=prob_d,
-                agreement_ratio=agreement_count / 3.0,
-                direction_spread=np.std(dirs),
-                confidence_spread=np.std(confs),
-                prob_range=max(probs) - min(probs),
-                volatility=volatility_data[i] if volatility_data is not None else 0.0,
-                volatility_regime=self._get_volatility_regime(volatility_data[i]) if volatility_data is not None else 1,
-            )
-
-            meta_features_list.append(meta_feat.to_array(self.config))
-            valid_indices.append(i)
-
-        if len(meta_features_list) == 0:
+        if len(valid_indices) == 0:
             raise ValueError("No valid OOF predictions generated. Check fold sizes and data alignment.")
 
-        meta_features = np.array(meta_features_list)
         valid_indices = np.array(valid_indices)
+
+        # Extract valid OOF predictions
+        valid_oof_probs = {tf: oof_probs[tf][valid_indices] for tf in models.keys()}
+        valid_oof_confs = {tf: oof_confs[tf][valid_indices] for tf in models.keys()}
+        valid_oof_preds = {tf: (valid_oof_probs[tf] > 0.5).astype(int) for tf in models.keys()}
+
+        # Extract valid volatility if available
+        valid_volatility = volatility_data[valid_indices] if volatility_data is not None else None
+
+        # Create meta-features using helper method (supports enhanced features)
+        # Note: price_data not available in OOF generation, so enhanced market context features will be zeros
+        meta_features = self._create_meta_features(
+            predictions=valid_oof_preds,
+            probabilities=valid_oof_probs,
+            confidences=valid_oof_confs,
+            price_data=None,  # Not available during OOF generation
+            volatility=valid_volatility,
+        )
+
         oof_labels = y[valid_indices]
 
         logger.info(f"Generated {len(valid_indices)} OOF predictions ({len(valid_indices)/n_samples*100:.1f}% of data)")
@@ -334,6 +327,99 @@ class StackingMetaLearner:
             return 2  # High volatility
         else:
             return 1  # Normal
+
+    def _create_meta_features(
+        self,
+        predictions: Dict[str, np.ndarray],
+        probabilities: Dict[str, np.ndarray],
+        confidences: Dict[str, np.ndarray],
+        price_data: Optional[pd.DataFrame] = None,
+        volatility: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Create meta-features from base model predictions.
+
+        This method creates the standard 9 meta-features (probabilities, agreement,
+        confidence, volatility) and optionally appends 12 enhanced meta-features
+        if enabled in config.
+
+        Args:
+            predictions: Dict mapping timeframe to prediction arrays (0/1)
+            probabilities: Dict mapping timeframe to probability arrays (prob of UP)
+            confidences: Dict mapping timeframe to confidence arrays
+            price_data: Optional DataFrame with OHLC data for enhanced features
+            volatility: Optional volatility array for standard features
+
+        Returns:
+            Array of meta-features with shape (n_samples, n_features)
+        """
+        # Create standard meta-features (9 features)
+        n_samples = len(next(iter(predictions.values())))
+        meta_features_list = []
+
+        for i in range(n_samples):
+            prob_1h = probabilities["1H"][i]
+            prob_4h = probabilities["4H"][i]
+            prob_d = probabilities["D"][i]
+
+            probs = [prob_1h, prob_4h, prob_d]
+            dirs = [predictions[tf][i] for tf in ["1H", "4H", "D"]]
+            confs = [confidences[tf][i] for tf in ["1H", "4H", "D"]]
+
+            # Majority direction
+            majority_dir = 1 if sum(dirs) >= 2 else 0
+            agreement_count = sum(1 for d in dirs if d == majority_dir)
+
+            meta_feat = StackingMetaFeatures(
+                prob_1h=prob_1h,
+                prob_4h=prob_4h,
+                prob_d=prob_d,
+                agreement_ratio=agreement_count / 3.0,
+                direction_spread=np.std(dirs),
+                confidence_spread=np.std(confs),
+                prob_range=max(probs) - min(probs),
+                volatility=volatility[i] if volatility is not None else 0.0,
+                volatility_regime=self._get_volatility_regime(volatility[i]) if volatility is not None else 1,
+            )
+
+            meta_features_list.append(meta_feat.to_array(self.config))
+
+        meta_features = np.array(meta_features_list)
+
+        # Add enhanced meta-features if enabled
+        if self.config.use_enhanced_meta_features:
+            from .enhanced_meta_features import EnhancedMetaFeatureCalculator
+
+            logger.info("Calculating enhanced meta-features...")
+            enhanced_calc = EnhancedMetaFeatureCalculator(self.config.enhanced_meta_lookback)
+
+            enhanced = enhanced_calc.calculate_all(
+                predictions=predictions,
+                probabilities=probabilities,
+                price_data=price_data,
+            )
+
+            # Stack enhanced features in consistent order
+            from .enhanced_meta_features import get_enhanced_feature_names
+            enhanced_names = get_enhanced_feature_names()
+
+            enhanced_arrays = []
+            for name in enhanced_names:
+                if name in enhanced:
+                    enhanced_arrays.append(enhanced[name])
+                else:
+                    # Fill missing features with zeros
+                    logger.warning(f"Enhanced feature '{name}' not available, using zeros")
+                    enhanced_arrays.append(np.zeros(n_samples))
+
+            # Stack as columns
+            enhanced_features = np.column_stack(enhanced_arrays)
+
+            # Concatenate with standard features
+            meta_features = np.concatenate([meta_features, enhanced_features], axis=1)
+
+            logger.info(f"Meta-features shape: {meta_features.shape} (standard + enhanced)")
+
+        return meta_features
 
     def train(
         self,
@@ -515,6 +601,7 @@ class StackingMetaLearner:
         confs_d: np.ndarray,
         volatility: Optional[np.ndarray] = None,
         weights: Optional[Dict[str, float]] = None,
+        price_data: Optional[pd.DataFrame] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Batch prediction using the meta-model.
 
@@ -527,6 +614,7 @@ class StackingMetaLearner:
             confs_d: Array of confidences from Daily model
             volatility: Array of volatility values
             weights: Base model weights for blending
+            price_data: Optional DataFrame with OHLC for enhanced features
 
         Returns:
             Tuple of (directions, confidences, agreement_scores)
@@ -562,6 +650,38 @@ class StackingMetaLearner:
             meta_features.append(meta_feat.to_array(self.config))
 
         X = np.array(meta_features)
+
+        # Add enhanced features if enabled
+        if self.config.use_enhanced_meta_features:
+            from .enhanced_meta_features import EnhancedMetaFeatureCalculator, get_enhanced_feature_names
+
+            # Convert probabilities to predictions (0/1)
+            predictions = {
+                "1H": (probs_1h > 0.5).astype(int),
+                "4H": (probs_4h > 0.5).astype(int),
+                "D": (probs_d > 0.5).astype(int),
+            }
+            probabilities = {"1H": probs_1h, "4H": probs_4h, "D": probs_d}
+
+            enhanced_calc = EnhancedMetaFeatureCalculator(self.config.enhanced_meta_lookback)
+            enhanced = enhanced_calc.calculate_all(
+                predictions=predictions,
+                probabilities=probabilities,
+                price_data=price_data,
+            )
+
+            # Stack enhanced features in consistent order
+            enhanced_names = get_enhanced_feature_names()
+            enhanced_arrays = []
+            for name in enhanced_names:
+                if name in enhanced:
+                    enhanced_arrays.append(enhanced[name])
+                else:
+                    enhanced_arrays.append(np.zeros(n))
+
+            enhanced_features = np.column_stack(enhanced_arrays)
+            X = np.concatenate([X, enhanced_features], axis=1)
+
         X_scaled = self.meta_scaler.transform(X)
 
         # Get predictions
@@ -643,6 +763,7 @@ class StackingMetaLearner:
             f"  Agreement Features: {self.config.use_agreement_features}",
             f"  Confidence Features: {self.config.use_confidence_features}",
             f"  Volatility Features: {self.config.use_volatility_features}",
+            f"  Enhanced Meta-Features: {self.config.use_enhanced_meta_features}",
             "",
         ]
 

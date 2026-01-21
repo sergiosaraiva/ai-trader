@@ -1085,6 +1085,10 @@ def main():
         help="Blend ratio between stacking and weighted avg (0=pure stacking, 1=pure weighted, default: 0)"
     )
     parser.add_argument(
+        "--enhanced-meta-features", action="store_true",
+        help="Enable 12 additional meta-features for stacking meta-learner"
+    )
+    parser.add_argument(
         "--use-rfecv", action="store_true",
         help="Enable RFECV feature selection for all timeframes"
     )
@@ -1117,7 +1121,8 @@ def main():
     print(f"Risk Reduction:  {'OFF' if args.no_risk_reduction else 'ON (reduce after losses)'}")
     print(f"Stacking:        {'ON' if args.stacking else 'OFF'}")
     if args.stacking:
-        print(f"Stacking Blend:  {args.stacking_blend}")
+        print(f"  Blend:         {args.stacking_blend}")
+        print(f"  Enhanced:      {'ON (21 meta-features)' if args.enhanced_meta_features else 'OFF (9 meta-features)'}")
     print(f"RFECV:           {'ON' if args.use_rfecv else 'OFF'}")
     if args.use_rfecv:
         print(f"  Min Features:  {args.rfecv_min_features}")
@@ -1165,6 +1170,7 @@ def main():
             blend_with_weighted_avg=args.stacking_blend,
             n_folds=3,  # Reduce folds for smaller sample sizes in WFO
             min_train_size=100,  # Reduce min samples for WFO windows
+            use_enhanced_meta_features=args.enhanced_meta_features,
         )
 
     if args.stacking and args.sentiment:

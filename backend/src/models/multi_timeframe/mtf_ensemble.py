@@ -962,11 +962,13 @@ class MTFEnsemble:
     def predict_batch(
         self,
         X_dict: Dict[str, np.ndarray],
+        price_data: Optional[pd.DataFrame] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Batch prediction for backtesting.
 
         Args:
             X_dict: Dict mapping timeframe to feature arrays (aligned by index)
+            price_data: Optional OHLC data for enhanced meta-features
 
         Returns:
             Tuple of (directions, confidences, agreement_scores)
@@ -1014,6 +1016,7 @@ class MTFEnsemble:
                 confs_d=all_confs["D"][:n_samples],
                 volatility=None,  # Not available in batch mode
                 weights=weights,
+                price_data=price_data,  # For enhanced meta-features
             )
 
             return directions, confidences, agreement_scores

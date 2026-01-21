@@ -119,8 +119,16 @@ def validate_ensemble(
         X_dict[tf] = X_dict[tf][:min_len]
         y_dict[tf] = y_dict[tf][:min_len]
 
+    # Get price data for enhanced meta-features (use 1H resampled)
+    df_1h = ensemble.resample_data(df_5min, "1H")
+    n_total_1h = len(df_1h)
+    n_train_1h = int(n_total_1h * 0.6)
+    n_val_1h = int(n_total_1h * 0.2)
+    test_start_1h = n_train_1h + n_val_1h
+    price_data = df_1h.iloc[test_start_1h:test_start_1h + min_len].reset_index(drop=True)
+
     # Get ensemble predictions
-    directions, confidences, agreement_scores = ensemble.predict_batch(X_dict)
+    directions, confidences, agreement_scores = ensemble.predict_batch(X_dict, price_data=price_data)
 
     # Use 1H labels as ground truth (since we're predicting short-term)
     y_test = y_dict["1H"][:len(directions)]
@@ -234,6 +242,11 @@ def main():
         help="Blend factor for stacking: 0=pure stacking, 1=pure weighted avg (default: 0.0)",
     )
     parser.add_argument(
+        "--enhanced-meta-features",
+        action="store_true",
+        help="Enable 12 additional meta-features for stacking meta-learner (prediction quality, cross-TF patterns, market context, stability)",
+    )
+    parser.add_argument(
         "--use-rfecv",
         action="store_true",
         help="Enable RFECV feature selection (Recursive Feature Elimination with Cross-Validation)",
@@ -303,6 +316,7 @@ def main():
     if args.stacking:
         stacking_config = StackingConfig(
             blend_with_weighted_avg=args.stacking_blend,
+            use_enhanced_meta_features=args.enhanced_meta_features,
         )
 
     # RFECV configuration
@@ -345,6 +359,7 @@ def main():
     print(f"Stacking:    {'ENABLED' if args.stacking else 'disabled'}")
     if args.stacking:
         print(f"  Blend:     {args.stacking_blend}")
+        print(f"  Enhanced:  {'ON (12 meta-features)' if args.enhanced_meta_features else 'OFF (9 meta-features)'}")
     print(f"RFECV:       {'ENABLED' if args.use_rfecv else 'disabled'}")
     if args.use_rfecv:
         print(f"  Min feat:  {args.rfecv_min_features}")
