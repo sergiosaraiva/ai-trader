@@ -39,25 +39,29 @@ export function ModelHighlights({ performance, loading, error }) {
       type: "agreement",
       title: "Model Agreement",
       value: "82%",
-      description: "Accuracy when all 3 timeframes align"
+      description: "Accuracy when all 3 timeframes align",
+      status: "excellent"
     },
     {
       type: "validation",
       title: "Fully Validated",
       value: "7/7",
-      description: "Profitable across all test periods"
+      description: "Profitable across all test periods",
+      status: "excellent"
     },
     {
       type: "robustness",
       title: "All Conditions",
       value: "6/6",
-      description: "Works in any market regime"
+      description: "Works in any market regime",
+      status: "excellent"
     },
     {
       type: "returns",
       title: "Profit Factor",
       value: "2.26x",
-      description: "Returns $2.26 for every $1 risked"
+      description: "Returns $2.26 for every $1 risked",
+      status: "good"
     }
   ];
 
@@ -66,35 +70,36 @@ export function ModelHighlights({ performance, loading, error }) {
     description: "The MTF Ensemble model demonstrates solid performance with 58.6% overall win rate and 2.26x profit factor. High-confidence predictions (≥70%) achieve 62.1% accuracy. Walk-forward optimization confirms 100% consistency across all test periods."
   };
 
-  // Icon mapping
-  const getIcon = (type) => {
-    switch (type) {
-      case 'agreement':
-        return <Target size={24} className="text-green-400" />;
-      case 'validation':
-        return <CheckCircle size={24} className="text-blue-400" />;
-      case 'robustness':
-        return <Shield size={24} className="text-purple-400" />;
-      case 'returns':
-        return <DollarSign size={24} className="text-orange-400" />;
+  // Status-based color mapping (semantic colors)
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'excellent':
+        return 'text-green-400';
+      case 'good':
+        return 'text-blue-400';
+      case 'moderate':
+        return 'text-yellow-400';
+      case 'poor':
+        return 'text-red-400';
       default:
-        return <TrendingUp size={24} className="text-gray-400" />;
+        return 'text-gray-400';
     }
   };
 
-  // Color mapping for values
-  const getValueColor = (type) => {
+  // Icon mapping by type, colored by status
+  const getIcon = (type, status) => {
+    const colorClass = getStatusColor(status);
     switch (type) {
       case 'agreement':
-        return 'text-green-400';
+        return <Target size={24} className={colorClass} />;
       case 'validation':
-        return 'text-blue-400';
+        return <CheckCircle size={24} className={colorClass} />;
       case 'robustness':
-        return 'text-purple-400';
+        return <Shield size={24} className={colorClass} />;
       case 'returns':
-        return 'text-orange-400';
+        return <DollarSign size={24} className={colorClass} />;
       default:
-        return 'text-gray-400';
+        return <TrendingUp size={24} className={colorClass} />;
     }
   };
 
@@ -116,7 +121,7 @@ export function ModelHighlights({ performance, loading, error }) {
             {/* Icon and Title */}
             <div className="flex items-start gap-3 mb-3">
               <div className="flex-shrink-0 mt-0.5">
-                {getIcon(highlight.type)}
+                {getIcon(highlight.type, highlight.status)}
               </div>
               <div className="flex-grow">
                 <h3 className="text-sm font-medium text-gray-300 leading-tight">
@@ -126,7 +131,7 @@ export function ModelHighlights({ performance, loading, error }) {
             </div>
 
             {/* Value */}
-            <div className={`text-3xl font-bold mb-2 ${getValueColor(highlight.type)}`}>
+            <div className={`text-3xl font-bold mb-2 ${getStatusColor(highlight.status)}`}>
               {highlight.value}
             </div>
 

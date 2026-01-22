@@ -215,10 +215,34 @@ class PerformanceService:
             },
         }
 
+    def _get_status(self, metric_type: str, value: float) -> str:
+        """Determine status based on metric type and value.
+
+        Returns: 'excellent', 'good', 'moderate', or 'poor'
+        """
+        thresholds = {
+            "agreement": {"excellent": 75, "good": 60, "moderate": 50},
+            "validation": {"excellent": 100, "good": 80, "moderate": 60},
+            "robustness": {"excellent": 100, "good": 80, "moderate": 60},
+            "profit_factor": {"excellent": 2.5, "good": 2.0, "moderate": 1.5},
+        }
+
+        t = thresholds.get(metric_type, {"excellent": 80, "good": 60, "moderate": 40})
+
+        if value >= t["excellent"]:
+            return "excellent"
+        elif value >= t["good"]:
+            return "good"
+        elif value >= t["moderate"]:
+            return "moderate"
+        else:
+            return "poor"
+
     def _generate_highlights(self) -> None:
         """Generate highlights based on loaded metrics.
 
         Ordered by impact: strongest metrics first.
+        Each highlight includes a 'status' field for semantic coloring.
         """
         if not self._metrics:
             self._highlights = []
@@ -228,33 +252,39 @@ class PerformanceService:
 
         # 1. Model Agreement (strongest - 82% accuracy)
         full_agreement = self._metrics.get("full_agreement", {})
-        accuracy_pct = (full_agreement.get("accuracy", 0) * 100)
+        accuracy_pct = full_agreement.get("accuracy", 0) * 100
         highlights.append({
             "type": "agreement",
             "title": "Model Agreement",
             "value": f"{accuracy_pct:.0f}%",
             "description": "Accuracy when all 3 timeframes align",
+            "status": self._get_status("agreement", accuracy_pct),
         })
 
         # 2. Walk-Forward Validation (7/7 profitable)
         wfo = self._metrics.get("wfo_validation", {})
         profitable = wfo.get("windows_profitable", 0)
         total = wfo.get("total_windows", 0)
+        validation_pct = (profitable / total * 100) if total > 0 else 0
         highlights.append({
             "type": "validation",
             "title": "Fully Validated",
             "value": f"{profitable}/{total}",
             "description": "Profitable across all test periods",
+            "status": self._get_status("validation", validation_pct),
         })
 
         # 3. Regime Robustness (6/6 conditions)
         regime = self._metrics.get("regime_performance", {})
         regimes_count = regime.get("regimes_count", 0)
+        all_profitable = regime.get("all_profitable", False)
+        robustness_pct = 100 if all_profitable else (regimes_count / 6 * 100)
         highlights.append({
             "type": "robustness",
             "title": "All Conditions",
             "value": f"{regimes_count}/{regimes_count}",
             "description": "Works in any market regime",
+            "status": self._get_status("robustness", robustness_pct),
         })
 
         # 4. Profit Factor (2.26x returns)
@@ -264,6 +294,7 @@ class PerformanceService:
             "title": "Profit Factor",
             "value": f"{profit_factor:.2f}x",
             "description": f"Returns ${profit_factor:.2f} for every $1 risked",
+            "status": self._get_status("profit_factor", profit_factor),
         })
 
         self._highlights = highlights
