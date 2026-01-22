@@ -8,7 +8,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import predictions, trading, health, market, pipeline, cron
+from .routes import predictions, trading, health, market, pipeline, cron, performance
 from .database.session import init_db
 from .services.data_service import data_service
 from .services.model_service import model_service
@@ -182,6 +182,7 @@ def create_app() -> FastAPI:
     app.include_router(market.router, prefix="/api/v1", tags=["Market"])
     app.include_router(pipeline.router, prefix="/api/v1", tags=["Pipeline"])
     app.include_router(cron.router, prefix="/api/v1", tags=["Cron"])
+    app.include_router(performance.router, prefix="/api/v1", tags=["Performance"])
 
     return app
 

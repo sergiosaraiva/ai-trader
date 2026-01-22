@@ -24,6 +24,7 @@ import { TradeHistory } from './TradeHistory';
 import { AboutSection } from './AboutSection';
 import { InvestmentCalculator } from './InvestmentCalculator';
 import { ExplanationCard } from './ExplanationCard';
+import { ModelHighlights } from './ModelHighlights';
 
 // Polling intervals (in milliseconds)
 const INTERVALS = {
@@ -112,7 +113,7 @@ export function Dashboard() {
     INTERVALS.signals
   );
 
-  // Performance metrics (using mock data for now as endpoint may not exist)
+  // Trading performance metrics for PerformanceStats
   const {
     data: performance,
     loading: performanceLoading,
@@ -121,6 +122,23 @@ export function Dashboard() {
     useCallback(async () => {
       try {
         return await api.getPerformance();
+      } catch {
+        // Return null if endpoint doesn't exist, component will use defaults
+        return null;
+      }
+    }, []),
+    INTERVALS.performance
+  );
+
+  // Model performance highlights
+  const {
+    data: modelPerformance,
+    loading: modelPerformanceLoading,
+    error: modelPerformanceError,
+  } = usePolling(
+    useCallback(async () => {
+      try {
+        return await api.getModelPerformance();
       } catch {
         // Return null if endpoint doesn't exist, component will use defaults
         return null;
@@ -322,6 +340,15 @@ export function Dashboard() {
             loading={explanationLoading}
             error={explanationError}
             onRefresh={() => refetchExplanation()}
+          />
+        </div>
+
+        {/* Model Highlights - Full Width */}
+        <div className="mb-6">
+          <ModelHighlights
+            performance={modelPerformance}
+            loading={modelPerformanceLoading}
+            error={modelPerformanceError}
           />
         </div>
 

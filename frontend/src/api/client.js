@@ -68,7 +68,8 @@ export const api = {
   getVix: () => request('/market/vix'),
 
   // Performance metrics
-  getPerformance: () => request('/performance'),
+  getPerformance: () => request('/trading/performance'),
+  getModelPerformance: () => request('/model/performance'),
   getTradingPerformance: () => request('/trading/performance'),
 
   // Trading signals (using prediction history)
