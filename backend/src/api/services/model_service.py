@@ -135,10 +135,26 @@ class ModelService:
         # Create stacking config if stacking is enabled
         stacking_config = None
         if use_stacking:
+            # Load use_enhanced_meta_features from the saved meta-learner config
+            use_enhanced_meta_features = False
+            stacking_pkl_path = self._model_dir / "stacking_meta_learner.pkl"
+            if stacking_pkl_path.exists():
+                import pickle
+                try:
+                    with open(stacking_pkl_path, "rb") as f:
+                        saved_meta_learner = pickle.load(f)
+                    if isinstance(saved_meta_learner, dict) and "config" in saved_meta_learner:
+                        saved_config = saved_meta_learner["config"]
+                        use_enhanced_meta_features = getattr(saved_config, "use_enhanced_meta_features", False)
+                        logger.info(f"Loaded use_enhanced_meta_features={use_enhanced_meta_features} from saved model")
+                except Exception as e:
+                    logger.warning(f"Could not load stacking config from pickle: {e}")
+
             stacking_config = StackingConfig(
                 blend_with_weighted_avg=stacking_blend,
+                use_enhanced_meta_features=use_enhanced_meta_features,
             )
-            logger.info(f"Stacking enabled with blend={stacking_blend}")
+            logger.info(f"Stacking enabled with blend={stacking_blend}, enhanced_features={use_enhanced_meta_features}")
 
         # Create config from loaded metadata
         self._config = MTFEnsembleConfig(
