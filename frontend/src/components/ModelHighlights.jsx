@@ -1,4 +1,4 @@
-import { TrendingUp, Target, CheckCircle, Shield, AlertCircle } from 'lucide-react';
+import { TrendingUp, Target, CheckCircle, Shield, AlertCircle, DollarSign } from 'lucide-react';
 
 /**
  * ModelHighlights - Displays key model performance highlights
@@ -33,31 +33,31 @@ export function ModelHighlights({ performance, loading, error }) {
     );
   }
 
-  // Use performance data or defaults
+  // Use performance data or defaults (ordered by impact)
   const highlights = performance?.highlights || [
     {
-      type: "confidence",
-      title: "High-Confidence Trading",
-      value: "62.1%",
-      description: "Win rate when model confidence exceeds 70%"
-    },
-    {
       type: "agreement",
-      title: "Model Consensus",
+      title: "Model Agreement",
       value: "82%",
-      description: "Accuracy when all 3 timeframes agree"
+      description: "Accuracy when all 3 timeframes align"
     },
     {
       type: "validation",
-      title: "Walk-Forward Validated",
+      title: "Fully Validated",
       value: "7/7",
       description: "Profitable across all test periods"
     },
     {
       type: "robustness",
-      title: "All-Regime Profitable",
+      title: "All Conditions",
       value: "6/6",
-      description: "Works in trending and ranging markets"
+      description: "Works in any market regime"
+    },
+    {
+      type: "returns",
+      title: "Profit Factor",
+      value: "2.26x",
+      description: "Returns $2.26 for every $1 risked"
     }
   ];
 
@@ -69,14 +69,14 @@ export function ModelHighlights({ performance, loading, error }) {
   // Icon mapping
   const getIcon = (type) => {
     switch (type) {
-      case 'confidence':
-        return <TrendingUp size={24} className="text-green-400" />;
       case 'agreement':
-        return <Target size={24} className="text-blue-400" />;
+        return <Target size={24} className="text-green-400" />;
       case 'validation':
-        return <CheckCircle size={24} className="text-purple-400" />;
+        return <CheckCircle size={24} className="text-blue-400" />;
       case 'robustness':
-        return <Shield size={24} className="text-orange-400" />;
+        return <Shield size={24} className="text-purple-400" />;
+      case 'returns':
+        return <DollarSign size={24} className="text-orange-400" />;
       default:
         return <TrendingUp size={24} className="text-gray-400" />;
     }
@@ -85,13 +85,13 @@ export function ModelHighlights({ performance, loading, error }) {
   // Color mapping for values
   const getValueColor = (type) => {
     switch (type) {
-      case 'confidence':
-        return 'text-green-400';
       case 'agreement':
-        return 'text-blue-400';
+        return 'text-green-400';
       case 'validation':
-        return 'text-purple-400';
+        return 'text-blue-400';
       case 'robustness':
+        return 'text-purple-400';
+      case 'returns':
         return 'text-orange-400';
       default:
         return 'text-gray-400';

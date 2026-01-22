@@ -216,52 +216,54 @@ class PerformanceService:
         }
 
     def _generate_highlights(self) -> None:
-        """Generate highlights based on loaded metrics."""
+        """Generate highlights based on loaded metrics.
+
+        Ordered by impact: strongest metrics first.
+        """
         if not self._metrics:
             self._highlights = []
             return
 
         highlights = []
 
-        # High-Confidence Trading
-        high_conf = self._metrics.get("high_confidence", {})
-        win_rate_pct = (high_conf.get("win_rate", 0) * 100)
-        highlights.append({
-            "type": "confidence",
-            "title": "High-Confidence Trading",
-            "value": f"{win_rate_pct:.1f}%",
-            "description": "Win rate when model confidence exceeds 70%",
-        })
-
-        # Model Consensus
+        # 1. Model Agreement (strongest - 82% accuracy)
         full_agreement = self._metrics.get("full_agreement", {})
         accuracy_pct = (full_agreement.get("accuracy", 0) * 100)
         highlights.append({
             "type": "agreement",
-            "title": "Model Consensus",
+            "title": "Model Agreement",
             "value": f"{accuracy_pct:.0f}%",
-            "description": "Accuracy when all 3 timeframes agree",
+            "description": "Accuracy when all 3 timeframes align",
         })
 
-        # Walk-Forward Validation
+        # 2. Walk-Forward Validation (7/7 profitable)
         wfo = self._metrics.get("wfo_validation", {})
         profitable = wfo.get("windows_profitable", 0)
         total = wfo.get("total_windows", 0)
         highlights.append({
             "type": "validation",
-            "title": "Walk-Forward Validated",
+            "title": "Fully Validated",
             "value": f"{profitable}/{total}",
             "description": "Profitable across all test periods",
         })
 
-        # Regime Robustness
+        # 3. Regime Robustness (6/6 conditions)
         regime = self._metrics.get("regime_performance", {})
         regimes_count = regime.get("regimes_count", 0)
         highlights.append({
             "type": "robustness",
-            "title": "All-Regime Profitable",
+            "title": "All Conditions",
             "value": f"{regimes_count}/{regimes_count}",
-            "description": "Works in trending and ranging markets",
+            "description": "Works in any market regime",
+        })
+
+        # 4. Profit Factor (2.26x returns)
+        profit_factor = self._metrics.get("profit_factor", 0)
+        highlights.append({
+            "type": "returns",
+            "title": "Profit Factor",
+            "value": f"{profit_factor:.2f}x",
+            "description": f"Returns ${profit_factor:.2f} for every $1 risked",
         })
 
         self._highlights = highlights
