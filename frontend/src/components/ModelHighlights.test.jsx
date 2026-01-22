@@ -24,9 +24,9 @@ describe('ModelHighlights', () => {
     expect(screen.getByText('Performance data unavailable')).toBeInTheDocument();
   });
 
-  it('renders error state with default message', () => {
+  it('renders error state with error message', () => {
     render(<ModelHighlights error="Test error" />);
-    expect(screen.getByText('Using default highlights')).toBeInTheDocument();
+    expect(screen.getByText('Test error')).toBeInTheDocument();
   });
 
   it('renders error state with AlertCircle icon', () => {
@@ -36,39 +36,32 @@ describe('ModelHighlights', () => {
     expect(errorElement).toBeInTheDocument();
   });
 
-  // Default Highlights Tests
-  it('renders default highlights when no performance data provided', () => {
+  // Empty State Tests (no data)
+  it('renders empty state when no performance data provided', () => {
     render(<ModelHighlights />);
 
-    // Check for default highlights
-    expect(screen.getByText('High-Confidence Trading')).toBeInTheDocument();
-    expect(screen.getByText('Model Consensus')).toBeInTheDocument();
-    expect(screen.getByText('Walk-Forward Validated')).toBeInTheDocument();
-    expect(screen.getByText('All-Regime Profitable')).toBeInTheDocument();
+    // Should show empty state message
+    expect(screen.getByText('No performance highlights available')).toBeInTheDocument();
+    expect(screen.getByText('Performance metrics are being generated. Please check back shortly.')).toBeInTheDocument();
   });
 
-  it('renders default highlight values', () => {
-    render(<ModelHighlights />);
+  it('renders empty state when performance is null', () => {
+    render(<ModelHighlights performance={null} />);
 
-    expect(screen.getByText('62.1%')).toBeInTheDocument();
-    expect(screen.getByText('82%')).toBeInTheDocument();
-    expect(screen.getByText('7/7')).toBeInTheDocument();
-    expect(screen.getByText('6/6')).toBeInTheDocument();
+    // Should render empty state
+    expect(screen.getByText('No performance highlights available')).toBeInTheDocument();
   });
 
-  it('renders default summary headline', () => {
-    render(<ModelHighlights />);
+  it('renders empty state when highlights array is empty', () => {
+    const performance = {
+      highlights: [],
+      summary: { headline: 'Test', description: 'Test' },
+    };
 
-    expect(screen.getByText('Solid Performance')).toBeInTheDocument();
-  });
+    render(<ModelHighlights performance={performance} />);
 
-  it('renders default summary description', () => {
-    render(<ModelHighlights />);
-
-    const description = screen.getByText(/The MTF Ensemble model demonstrates solid performance/);
-    expect(description).toBeInTheDocument();
-    expect(description.textContent).toContain('58.6%');
-    expect(description.textContent).toContain('2.26x profit factor');
+    // Should show empty state
+    expect(screen.getByText('No performance highlights available')).toBeInTheDocument();
   });
 
   // Custom Performance Data Tests
@@ -80,12 +73,14 @@ describe('ModelHighlights', () => {
           title: 'Custom Confidence',
           value: '75.0%',
           description: 'Custom confidence description',
+          status: 'excellent',
         },
         {
           type: 'agreement',
           title: 'Custom Agreement',
           value: '90%',
           description: 'Custom agreement description',
+          status: 'excellent',
         },
       ],
       summary: {
@@ -104,7 +99,9 @@ describe('ModelHighlights', () => {
 
   it('renders custom summary headline and description', () => {
     const performance = {
-      highlights: [],
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
       summary: {
         headline: 'Excellent Performance',
         description: 'Model is performing exceptionally well with 65% win rate.',
@@ -118,8 +115,18 @@ describe('ModelHighlights', () => {
   });
 
   // Highlight Card Structure Tests
-  it('renders all 4 highlight cards', () => {
-    render(<ModelHighlights />);
+  it('renders correct number of highlight cards based on data', () => {
+    const performance = {
+      highlights: [
+        { type: 'agreement', title: 'Model Agreement', value: '82%', description: 'Test', status: 'excellent' },
+        { type: 'validation', title: 'WFO Validation', value: '8/8', description: 'Test', status: 'excellent' },
+        { type: 'robustness', title: 'All Conditions', value: '6/6', description: 'Test', status: 'excellent' },
+        { type: 'returns', title: 'Profit Factor', value: '1.57x', description: 'Test', status: 'moderate' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    render(<ModelHighlights performance={performance} />);
 
     // Grid should have 4 cards
     const highlightCards = document.querySelectorAll('.bg-gray-700\\/50.rounded-lg');
@@ -127,72 +134,125 @@ describe('ModelHighlights', () => {
   });
 
   it('renders highlight descriptions', () => {
-    render(<ModelHighlights />);
-
-    expect(screen.getByText('Win rate when model confidence exceeds 70%')).toBeInTheDocument();
-    expect(screen.getByText('Accuracy when all 3 timeframes agree')).toBeInTheDocument();
-    expect(screen.getByText('Profitable across all test periods')).toBeInTheDocument();
-    expect(screen.getByText('Works in trending and ranging markets')).toBeInTheDocument();
-  });
-
-  // Icon Color Tests
-  it('renders confidence highlight with green color', () => {
-    const { container } = render(<ModelHighlights />);
-
-    // Check for green-400 text (TrendingUp icon for confidence)
-    const greenIcons = container.querySelectorAll('.text-green-400');
-    expect(greenIcons.length).toBeGreaterThan(0);
-  });
-
-  it('renders agreement highlight with blue color', () => {
-    const { container } = render(<ModelHighlights />);
-
-    // Check for blue-400 text (Target icon for agreement)
-    const blueIcons = container.querySelectorAll('.text-blue-400');
-    expect(blueIcons.length).toBeGreaterThan(0);
-  });
-
-  it('renders validation highlight with purple color', () => {
-    const { container } = render(<ModelHighlights />);
-
-    // Check for purple-400 text (CheckCircle icon for validation)
-    const purpleIcons = container.querySelectorAll('.text-purple-400');
-    expect(purpleIcons.length).toBeGreaterThan(0);
-  });
-
-  it('renders robustness highlight with orange color', () => {
-    const { container } = render(<ModelHighlights />);
-
-    // Check for orange-400 text (Shield icon for robustness)
-    const orangeIcons = container.querySelectorAll('.text-orange-400');
-    expect(orangeIcons.length).toBeGreaterThan(0);
-  });
-
-  // Footer Tests
-  it('renders footer with trade count', () => {
-    render(<ModelHighlights />);
-
-    expect(screen.getByText(/Metrics based on/)).toBeInTheDocument();
-    expect(screen.getByText(/1,093 trades/)).toBeInTheDocument();
-  });
-
-  it('renders footer with custom trade count from performance', () => {
     const performance = {
-      metrics: {
-        total_trades: 2500,
-      },
-      highlights: [],
+      highlights: [
+        { type: 'agreement', title: 'Model Agreement', value: '82%', description: 'Accuracy when all 3 timeframes align', status: 'excellent' },
+        { type: 'validation', title: 'WFO Validation', value: '8/8', description: 'Profitable across all test periods', status: 'excellent' },
+        { type: 'robustness', title: 'All Conditions', value: '6/6', description: 'Works in any market regime', status: 'excellent' },
+        { type: 'returns', title: 'Profit Factor', value: '1.57x', description: 'Returns $1.57 for every $1 risked', status: 'moderate' },
+      ],
       summary: { headline: 'Test', description: 'Test' },
     };
 
     render(<ModelHighlights performance={performance} />);
 
-    // The component displays numbers without comma formatting
-    expect(screen.getByText(/2500 trades/)).toBeInTheDocument();
+    expect(screen.getByText('Accuracy when all 3 timeframes align')).toBeInTheDocument();
+    expect(screen.getByText('Profitable across all test periods')).toBeInTheDocument();
+    expect(screen.getByText('Works in any market regime')).toBeInTheDocument();
+  });
+
+  // Semantic Color Tests (based on status)
+  it('renders excellent status highlights with green color', () => {
+    const performance = {
+      highlights: [
+        { type: 'agreement', title: 'Model Agreement', value: '82%', description: 'Test', status: 'excellent' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
+
+    // Check for green-400 text (excellent status)
+    const greenIcons = container.querySelectorAll('.text-green-400');
+    expect(greenIcons.length).toBeGreaterThan(0);
+  });
+
+  it('renders good status highlights with blue color', () => {
+    const performance = {
+      highlights: [
+        { type: 'agreement', title: 'Model Agreement', value: '65%', description: 'Test', status: 'good' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
+
+    // Check for blue-400 text (good status)
+    const blueIcons = container.querySelectorAll('.text-blue-400');
+    expect(blueIcons.length).toBeGreaterThan(0);
+  });
+
+  it('renders moderate status highlights with yellow color', () => {
+    const performance = {
+      highlights: [
+        { type: 'returns', title: 'Profit Factor', value: '1.57x', description: 'Test', status: 'moderate' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
+
+    // Check for yellow-400 text (moderate status)
+    const yellowIcons = container.querySelectorAll('.text-yellow-400');
+    expect(yellowIcons.length).toBeGreaterThan(0);
+  });
+
+  it('renders poor status highlights with red color', () => {
+    const performance = {
+      highlights: [
+        { type: 'returns', title: 'Profit Factor', value: '0.9x', description: 'Test', status: 'poor' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
+
+    // Check for red-400 text (poor status)
+    const redIcons = container.querySelectorAll('.text-red-400');
+    expect(redIcons.length).toBeGreaterThan(0);
+  });
+
+  // Footer Tests
+  it('renders footer with N/A when no metrics available', () => {
+    const performance = {
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    render(<ModelHighlights performance={performance} />);
+
+    expect(screen.getByText(/Metrics based on/)).toBeInTheDocument();
+    expect(screen.getByText(/N\/A/)).toBeInTheDocument();
+  });
+
+  it('renders footer with formatted trade count from performance', () => {
+    const performance = {
+      metrics: {
+        total_trades: 3821,
+      },
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    render(<ModelHighlights performance={performance} />);
+
+    // The component formats with toLocaleString()
+    expect(screen.getByText(/3,821 trades/)).toBeInTheDocument();
   });
 
   it('renders confidence threshold in footer', () => {
-    render(<ModelHighlights />);
+    const performance = {
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    render(<ModelHighlights performance={performance} />);
 
     expect(screen.getByText(/70% confidence threshold/)).toBeInTheDocument();
   });
@@ -200,7 +260,9 @@ describe('ModelHighlights', () => {
   // Dynamic Summary Tests
   it('displays different summary headlines based on performance', () => {
     const excellentPerformance = {
-      highlights: [],
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
       summary: {
         headline: 'Excellent Performance',
         description: 'Test',
@@ -211,7 +273,9 @@ describe('ModelHighlights', () => {
     expect(screen.getByText('Excellent Performance')).toBeInTheDocument();
 
     const moderatePerformance = {
-      highlights: [],
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
       summary: {
         headline: 'Moderate Performance',
         description: 'Test',
@@ -224,7 +288,17 @@ describe('ModelHighlights', () => {
 
   // Hover Effects Tests
   it('applies hover effect classes to highlight cards', () => {
-    const { container } = render(<ModelHighlights />);
+    const performance = {
+      highlights: [
+        { type: 'agreement', title: 'Model Agreement', value: '82%', description: 'Test', status: 'excellent' },
+        { type: 'validation', title: 'WFO Validation', value: '8/8', description: 'Test', status: 'excellent' },
+        { type: 'robustness', title: 'All Conditions', value: '6/6', description: 'Test', status: 'excellent' },
+        { type: 'returns', title: 'Profit Factor', value: '1.57x', description: 'Test', status: 'moderate' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
 
     // Check for hover:bg-gray-700/70 transition-colors classes
     const hoverCards = container.querySelectorAll('.hover\\:bg-gray-700\\/70');
@@ -232,35 +306,16 @@ describe('ModelHighlights', () => {
   });
 
   // Edge Cases
-  it('handles empty highlights array', () => {
+  it('handles empty highlights array without crash', () => {
     const performance = {
       highlights: [],
       summary: { headline: 'Test', description: 'Test' },
     };
 
-    // Should not crash and render defaults
+    // Should not crash and render empty state
     expect(() => {
       render(<ModelHighlights performance={performance} />);
     }).not.toThrow();
-  });
-
-  it('handles null performance gracefully', () => {
-    render(<ModelHighlights performance={null} />);
-
-    // Should render defaults
-    expect(screen.getByText('High-Confidence Trading')).toBeInTheDocument();
-  });
-
-  it('handles undefined summary', () => {
-    const performance = {
-      highlights: [],
-      summary: undefined,
-    };
-
-    render(<ModelHighlights performance={performance} />);
-
-    // Should render default summary
-    expect(screen.getByText('Solid Performance')).toBeInTheDocument();
   });
 
   it('handles partial performance data', () => {
@@ -271,9 +326,10 @@ describe('ModelHighlights', () => {
           title: 'Custom Test Title',
           value: '70%',
           description: 'Custom test description',
+          status: 'good',
         },
       ],
-      // Missing summary
+      // Missing summary - should use default
     };
 
     render(<ModelHighlights performance={performance} />);
@@ -283,68 +339,79 @@ describe('ModelHighlights', () => {
     expect(screen.getByText('70%')).toBeInTheDocument();
 
     // Should render default summary
-    expect(screen.getByText('Solid Performance')).toBeInTheDocument();
+    expect(screen.getByText('Model Performance')).toBeInTheDocument();
   });
 
   // Integration Tests
   it('renders complete component with all sections', () => {
     const performance = {
       metrics: {
-        total_pips: 8693,
-        win_rate: 0.621,
-        profit_factor: 2.69,
-        total_trades: 966,
+        total_pips: 14837,
+        win_rate: 0.5064,
+        profit_factor: 1.57,
+        total_trades: 3821,
       },
       highlights: [
         {
-          type: 'confidence',
-          title: 'High-Confidence Trading',
-          value: '62.1%',
-          description: 'Win rate when model confidence exceeds 70%',
-        },
-        {
           type: 'agreement',
-          title: 'Model Consensus',
+          title: 'Model Agreement',
           value: '82%',
-          description: 'Accuracy when all 3 timeframes agree',
+          description: 'Accuracy when all 3 timeframes align',
+          status: 'excellent',
         },
         {
           type: 'validation',
-          title: 'Walk-Forward Validated',
-          value: '7/7',
+          title: 'WFO Validation',
+          value: '8/8 Windows Profitable',
           description: 'Profitable across all test periods',
+          status: 'excellent',
         },
         {
           type: 'robustness',
-          title: 'All-Regime Profitable',
-          value: '6/6',
-          description: 'Works in trending and ranging markets',
+          title: 'All Conditions',
+          value: '6/6 Regimes',
+          description: 'Works in any market regime',
+          status: 'excellent',
+        },
+        {
+          type: 'returns',
+          title: 'Profit Factor',
+          value: '1.57x',
+          description: 'Returns $1.57 for every $1 risked',
+          status: 'moderate',
         },
       ],
       summary: {
-        headline: 'Excellent Performance',
-        description: 'The MTF Ensemble model demonstrates excellent performance with 62.1% overall win rate and 2.69x profit factor. High-confidence predictions (≥70%) achieve 62.1% accuracy. Walk-forward optimization confirms 100% consistency across all test periods.',
+        headline: 'Solid Performance',
+        description: 'The MTF Ensemble model demonstrates solid performance with 50.6% overall win rate and 1.57x profit factor.',
       },
     };
 
     render(<ModelHighlights performance={performance} />);
 
     // Verify header section
-    expect(screen.getByText('Excellent Performance')).toBeInTheDocument();
-    expect(screen.getByText(/62.1% overall win rate/)).toBeInTheDocument();
+    expect(screen.getByText('Solid Performance')).toBeInTheDocument();
+    expect(screen.getByText(/50.6% overall win rate/)).toBeInTheDocument();
 
     // Verify all 4 highlights
-    expect(screen.getByText('High-Confidence Trading')).toBeInTheDocument();
-    expect(screen.getByText('Model Consensus')).toBeInTheDocument();
-    expect(screen.getByText('Walk-Forward Validated')).toBeInTheDocument();
-    expect(screen.getByText('All-Regime Profitable')).toBeInTheDocument();
+    expect(screen.getByText('Model Agreement')).toBeInTheDocument();
+    expect(screen.getByText('WFO Validation')).toBeInTheDocument();
+    expect(screen.getByText('All Conditions')).toBeInTheDocument();
+    expect(screen.getByText('Profit Factor')).toBeInTheDocument();
 
     // Verify footer
-    expect(screen.getByText(/966 trades/)).toBeInTheDocument();
+    expect(screen.getByText(/3,821 trades/)).toBeInTheDocument();
   });
 
   it('renders with card-hover class for animation', () => {
-    const { container } = render(<ModelHighlights />);
+    const performance = {
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
 
     // Check for card-hover class on main container
     const mainCard = container.querySelector('.card-hover');
@@ -353,7 +420,14 @@ describe('ModelHighlights', () => {
 
   // Accessibility Tests
   it('renders semantic HTML structure', () => {
-    const { container } = render(<ModelHighlights />);
+    const performance = {
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
 
     // Check for h2 heading
     const heading = container.querySelector('h2');
@@ -365,7 +439,17 @@ describe('ModelHighlights', () => {
   });
 
   it('renders highlight titles with proper hierarchy', () => {
-    const { container } = render(<ModelHighlights />);
+    const performance = {
+      highlights: [
+        { type: 'agreement', title: 'Model Agreement', value: '82%', description: 'Test', status: 'excellent' },
+        { type: 'validation', title: 'WFO Validation', value: '8/8', description: 'Test', status: 'excellent' },
+        { type: 'robustness', title: 'All Conditions', value: '6/6', description: 'Test', status: 'excellent' },
+        { type: 'returns', title: 'Profit Factor', value: '1.57x', description: 'Test', status: 'moderate' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    const { container } = render(<ModelHighlights performance={performance} />);
 
     // Check for h3 headings in highlights
     const h3Headings = container.querySelectorAll('h3');

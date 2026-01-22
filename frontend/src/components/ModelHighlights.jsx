@@ -28,47 +28,32 @@ export function ModelHighlights({ performance, loading, error }) {
           <AlertCircle size={20} />
           <span>Performance data unavailable</span>
         </div>
-        <p className="text-gray-500 text-sm mt-2">Using default highlights</p>
+        <p className="text-gray-500 text-sm mt-2">{error}</p>
       </div>
     );
   }
 
-  // Use performance data or defaults (ordered by impact)
-  const highlights = performance?.highlights || [
-    {
-      type: "agreement",
-      title: "Model Agreement",
-      value: "82%",
-      description: "Accuracy when all 3 timeframes align",
-      status: "excellent"
-    },
-    {
-      type: "validation",
-      title: "Fully Validated",
-      value: "7/7",
-      description: "Profitable across all test periods",
-      status: "excellent"
-    },
-    {
-      type: "robustness",
-      title: "All Conditions",
-      value: "6/6",
-      description: "Works in any market regime",
-      status: "excellent"
-    },
-    {
-      type: "returns",
-      title: "Profit Factor",
-      value: "2.26x",
-      description: "Returns $2.26 for every $1 risked",
-      status: "good"
-    }
-  ];
-
+  // Use performance data directly from backend (no fallbacks)
+  const highlights = performance?.highlights || [];
   const summary = performance?.summary || {
-    headline: "Solid Performance",
-    description: "The MTF Ensemble model demonstrates solid performance with 58.6% overall win rate and 2.26x profit factor. High-confidence predictions (≥70%) achieve 62.1% accuracy. Walk-forward optimization confirms 100% consistency across all test periods."
+    headline: "Model Performance",
+    description: "Performance data is loading..."
   };
+
+  // Show empty state if no highlights are available
+  if (!performance || highlights.length === 0) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6">
+        <div className="flex items-center gap-2 text-gray-400">
+          <AlertCircle size={20} />
+          <span>No performance highlights available</span>
+        </div>
+        <p className="text-gray-500 text-sm mt-2">
+          Performance metrics are being generated. Please check back shortly.
+        </p>
+      </div>
+    );
+  }
 
   // Status-based color mapping (semantic colors)
   const getStatusColor = (status) => {
@@ -146,7 +131,7 @@ export function ModelHighlights({ performance, loading, error }) {
       {/* Footer Note */}
       <div className="mt-4 pt-4 border-t border-gray-700">
         <p className="text-xs text-gray-500 text-center">
-          Metrics based on {performance?.metrics?.total_trades || '1,093'} trades with 70% confidence threshold
+          Metrics based on {performance?.metrics?.total_trades?.toLocaleString() ?? 'N/A'} trades with 70% confidence threshold
         </p>
       </div>
     </div>

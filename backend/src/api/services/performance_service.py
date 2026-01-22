@@ -36,24 +36,10 @@ DEFAULT_HIGH_CONF_METRICS = {
     "SAMPLE_SIZE": 966,          # Number of high-confidence predictions
 }
 
-# Walk-forward optimization results (7 windows, 2022-2025)
-DEFAULT_WFO_METRICS = {
-    "WINDOWS_PROFITABLE": 7,     # All 7 windows profitable
-    "TOTAL_WINDOWS": 7,          # Total validation windows
-    "TOTAL_PIPS": 18136,         # Cumulative pips across all windows
-    "CONSISTENCY_SCORE": 1.0,    # 100% consistency (7/7)
-}
-
-# Full model agreement metrics
+# Full model agreement metrics (used when training metadata unavailable)
 DEFAULT_AGREEMENT_METRICS = {
     "ACCURACY": 0.82,            # 82% accuracy when all 3 timeframes agree
     "SAMPLE_SIZE": 50,           # Number of full agreement samples
-}
-
-# Regime performance (all 6 regimes profitable)
-DEFAULT_REGIME_METRICS = {
-    "ALL_PROFITABLE": True,      # Profitable in all market conditions
-    "REGIMES_COUNT": 6,          # Ranging/Trending x Low/Normal/High volatility
 }
 
 
@@ -102,6 +88,74 @@ class PerformanceService:
             logger.error(f"Failed to initialize PerformanceService: {e}")
             return False
 
+    def _load_wfo_metrics(self) -> Optional[Dict[str, Any]]:
+        """Load WFO validation metrics from wfo_results.json.
+
+        Returns:
+            Dict with WFO metrics or None if unavailable
+        """
+        wfo_path = PROJECT_ROOT / "models" / "wfo_validation" / "wfo_results.json"
+        if not wfo_path.exists():
+            logger.warning(f"WFO results not found at {wfo_path}")
+            return None
+
+        try:
+            with open(wfo_path) as f:
+                wfo_data = json.load(f)
+
+            summary = wfo_data.get("summary", {})
+            profitable_windows = summary.get("profitable_windows", 0)
+            total_windows = summary.get("total_windows", 0)
+            total_pips = summary.get("total_pips", 0)
+            consistency_score = (profitable_windows / total_windows) if total_windows > 0 else 0
+
+            return {
+                "windows_profitable": profitable_windows,
+                "total_windows": total_windows,
+                "total_pips": total_pips,
+                "consistency_score": consistency_score,
+            }
+        except Exception as e:
+            logger.warning(f"Could not load WFO metrics: {e}")
+            return None
+
+    def _load_regime_metrics(self) -> Optional[Dict[str, Any]]:
+        """Load regime performance metrics from backtest_results.json.
+
+        Returns:
+            Dict with regime metrics or None if unavailable
+        """
+        backtest_path = self.DEFAULT_DATA_DIR / "backtest_results.json"
+        if not backtest_path.exists():
+            logger.warning(f"Backtest results not found at {backtest_path}")
+            return None
+
+        try:
+            with open(backtest_path) as f:
+                backtest_data = json.load(f)
+
+            # Check if regime data exists in backtest results
+            regime_data = backtest_data.get("regimes")
+            if not regime_data:
+                logger.info("Regime data not found in backtest_results.json")
+                return None
+
+            # Count profitable regimes
+            total_regimes = len(regime_data)
+            profitable_regimes = sum(
+                1 for regime in regime_data.values()
+                if regime.get("profit_factor", 0) > 1.0 or regime.get("total_pips", 0) > 0
+            )
+
+            return {
+                "all_profitable": profitable_regimes == total_regimes,
+                "regimes_count": total_regimes,
+                "profitable_regimes": profitable_regimes,
+            }
+        except Exception as e:
+            logger.warning(f"Could not load regime metrics: {e}")
+            return None
+
     def _load_metrics(self) -> None:
         """Load metrics from training_metadata.json and backtest_results.json."""
         with self._lock:
@@ -124,6 +178,10 @@ class PerformanceService:
                         backtest_data = json.load(f)
                 except Exception as e:
                     logger.warning(f"Could not load backtest results: {e}")
+
+            # Load WFO and regime metrics dynamically
+            wfo_metrics = self._load_wfo_metrics()
+            regime_metrics = self._load_regime_metrics()
 
             # Extract key metrics
             ensemble_results = training_data.get("ensemble_results", {})
@@ -165,19 +223,11 @@ class PerformanceService:
                     "sample_size": ensemble_results.get("samples_full_agreement", DEFAULT_AGREEMENT_METRICS["SAMPLE_SIZE"]),
                 },
 
-                # WFO validation results
-                "wfo_validation": {
-                    "windows_profitable": DEFAULT_WFO_METRICS["WINDOWS_PROFITABLE"],
-                    "total_windows": DEFAULT_WFO_METRICS["TOTAL_WINDOWS"],
-                    "total_pips": DEFAULT_WFO_METRICS["TOTAL_PIPS"],
-                    "consistency_score": DEFAULT_WFO_METRICS["CONSISTENCY_SCORE"],
-                },
+                # WFO validation results (dynamically loaded, may be None)
+                "wfo_validation": wfo_metrics,
 
-                # Regime performance
-                "regime_performance": {
-                    "all_profitable": DEFAULT_REGIME_METRICS["ALL_PROFITABLE"],
-                    "regimes_count": DEFAULT_REGIME_METRICS["REGIMES_COUNT"],
-                },
+                # Regime performance (dynamically loaded, may be None)
+                "regime_performance": regime_metrics,
             }
 
             logger.info("Performance metrics loaded successfully")
@@ -187,6 +237,10 @@ class PerformanceService:
 
         Uses documented constants from validated backtest results.
         """
+        # Try to load dynamic metrics even when training metadata is unavailable
+        wfo_metrics = self._load_wfo_metrics()
+        regime_metrics = self._load_regime_metrics()
+
         return {
             "total_pips": DEFAULT_BASELINE_METRICS["TOTAL_PIPS"],
             "win_rate": DEFAULT_BASELINE_METRICS["WIN_RATE"],
@@ -203,16 +257,9 @@ class PerformanceService:
                 "accuracy": DEFAULT_AGREEMENT_METRICS["ACCURACY"],
                 "sample_size": DEFAULT_AGREEMENT_METRICS["SAMPLE_SIZE"],
             },
-            "wfo_validation": {
-                "windows_profitable": DEFAULT_WFO_METRICS["WINDOWS_PROFITABLE"],
-                "total_windows": DEFAULT_WFO_METRICS["TOTAL_WINDOWS"],
-                "total_pips": DEFAULT_WFO_METRICS["TOTAL_PIPS"],
-                "consistency_score": DEFAULT_WFO_METRICS["CONSISTENCY_SCORE"],
-            },
-            "regime_performance": {
-                "all_profitable": DEFAULT_REGIME_METRICS["ALL_PROFITABLE"],
-                "regimes_count": DEFAULT_REGIME_METRICS["REGIMES_COUNT"],
-            },
+            # Use dynamically loaded values or None
+            "wfo_validation": wfo_metrics,
+            "regime_performance": regime_metrics,
         }
 
     def _get_status(self, metric_type: str, value: float) -> str:
@@ -243,6 +290,7 @@ class PerformanceService:
 
         Ordered by impact: strongest metrics first.
         Each highlight includes a 'status' field for semantic coloring.
+        Only includes highlights where data is available.
         """
         if not self._metrics:
             self._highlights = []
@@ -252,50 +300,54 @@ class PerformanceService:
 
         # 1. Model Agreement (strongest - 82% accuracy)
         full_agreement = self._metrics.get("full_agreement", {})
-        accuracy_pct = full_agreement.get("accuracy", 0) * 100
-        highlights.append({
-            "type": "agreement",
-            "title": "Model Agreement",
-            "value": f"{accuracy_pct:.0f}%",
-            "description": "Accuracy when all 3 timeframes align",
-            "status": self._get_status("agreement", accuracy_pct),
-        })
+        if full_agreement:
+            accuracy_pct = full_agreement.get("accuracy", 0) * 100
+            highlights.append({
+                "type": "agreement",
+                "title": "Model Agreement",
+                "value": f"{accuracy_pct:.0f}%",
+                "description": "Accuracy when all 3 timeframes align",
+                "status": self._get_status("agreement", accuracy_pct),
+            })
 
-        # 2. Walk-Forward Validation (7/7 profitable)
-        wfo = self._metrics.get("wfo_validation", {})
-        profitable = wfo.get("windows_profitable", 0)
-        total = wfo.get("total_windows", 0)
-        validation_pct = (profitable / total * 100) if total > 0 else 0
-        highlights.append({
-            "type": "validation",
-            "title": "Fully Validated",
-            "value": f"{profitable}/{total}",
-            "description": "Profitable across all test periods",
-            "status": self._get_status("validation", validation_pct),
-        })
+        # 2. Walk-Forward Validation (dynamically loaded from wfo_results.json)
+        wfo = self._metrics.get("wfo_validation")
+        if wfo:
+            profitable = wfo.get("windows_profitable", 0)
+            total = wfo.get("total_windows", 0)
+            validation_pct = (profitable / total * 100) if total > 0 else 0
+            highlights.append({
+                "type": "validation",
+                "title": "WFO Validation",
+                "value": f"{profitable}/{total} Windows Profitable",
+                "description": "Profitable across all test periods",
+                "status": self._get_status("validation", validation_pct),
+            })
 
-        # 3. Regime Robustness (6/6 conditions)
-        regime = self._metrics.get("regime_performance", {})
-        regimes_count = regime.get("regimes_count", 0)
-        all_profitable = regime.get("all_profitable", False)
-        robustness_pct = 100 if all_profitable else (regimes_count / 6 * 100)
-        highlights.append({
-            "type": "robustness",
-            "title": "All Conditions",
-            "value": f"{regimes_count}/{regimes_count}",
-            "description": "Works in any market regime",
-            "status": self._get_status("robustness", robustness_pct),
-        })
+        # 3. Regime Robustness (dynamically loaded from backtest_results.json)
+        regime = self._metrics.get("regime_performance")
+        if regime:
+            regimes_count = regime.get("regimes_count", 0)
+            all_profitable = regime.get("all_profitable", False)
+            robustness_pct = 100 if all_profitable else 0
+            highlights.append({
+                "type": "robustness",
+                "title": "All Conditions",
+                "value": f"{regimes_count}/{regimes_count} Regimes",
+                "description": "Works in any market regime",
+                "status": self._get_status("robustness", robustness_pct),
+            })
 
-        # 4. Profit Factor (2.26x returns)
+        # 4. Profit Factor (from backtest results)
         profit_factor = self._metrics.get("profit_factor", 0)
-        highlights.append({
-            "type": "returns",
-            "title": "Profit Factor",
-            "value": f"{profit_factor:.2f}x",
-            "description": f"Returns ${profit_factor:.2f} for every $1 risked",
-            "status": self._get_status("profit_factor", profit_factor),
-        })
+        if profit_factor > 0:
+            highlights.append({
+                "type": "returns",
+                "title": "Profit Factor",
+                "value": f"{profit_factor:.2f}x",
+                "description": f"Returns ${profit_factor:.2f} for every $1 risked",
+                "status": self._get_status("profit_factor", profit_factor),
+            })
 
         self._highlights = highlights
 
