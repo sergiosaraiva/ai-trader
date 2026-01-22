@@ -209,12 +209,15 @@ class PerformanceService:
                     ensemble_results.get("test_samples", DEFAULT_BASELINE_METRICS["TOTAL_TRADES"])),
 
                 # High confidence metrics (70% threshold)
+                # Use 1H model's high-conf accuracy (largest sample size, most representative)
                 "high_confidence": {
                     "threshold": DEFAULT_HIGH_CONF_METRICS["THRESHOLD"],
-                    "win_rate": ensemble_results.get("acc_conf_70", DEFAULT_HIGH_CONF_METRICS["WIN_RATE"]),
+                    "win_rate": training_data.get("individual_results", {}).get("1H", {}).get(
+                        "val_acc_conf_70", DEFAULT_HIGH_CONF_METRICS["WIN_RATE"]),
                     "profit_factor": DEFAULT_HIGH_CONF_METRICS["PROFIT_FACTOR"],
                     "total_pips": DEFAULT_HIGH_CONF_METRICS["TOTAL_PIPS"],
-                    "sample_size": ensemble_results.get("samples_conf_70", DEFAULT_HIGH_CONF_METRICS["SAMPLE_SIZE"]),
+                    "sample_size": training_data.get("individual_results", {}).get("1H", {}).get(
+                        "val_samples_conf_70", DEFAULT_HIGH_CONF_METRICS["SAMPLE_SIZE"]),
                 },
 
                 # Full agreement metrics
