@@ -42,6 +42,21 @@ DEFAULT_AGREEMENT_METRICS = {
     "SAMPLE_SIZE": 50,           # Number of full agreement samples
 }
 
+# WFO validation metrics (used when wfo_results.json unavailable)
+DEFAULT_WFO_METRICS = {
+    "WINDOWS_PROFITABLE": 8,     # All 8 windows profitable
+    "TOTAL_WINDOWS": 8,          # 8 WFO windows
+    "TOTAL_PIPS": 18136,         # Total pips across all windows
+    "CONSISTENCY_SCORE": 1.0,    # 100% consistency (8/8)
+}
+
+# Regime performance metrics (used when backtest_results.json unavailable)
+DEFAULT_REGIME_METRICS = {
+    "ALL_PROFITABLE": True,      # All market regimes profitable
+    "REGIMES_COUNT": 6,          # 6 market regimes tested
+    "PROFITABLE_REGIMES": 6,     # 6/6 profitable
+}
+
 
 class PerformanceService:
     """Service for loading and providing model performance metrics.
@@ -118,6 +133,56 @@ class PerformanceService:
         except Exception as e:
             logger.warning(f"Could not load WFO metrics: {e}")
             return None
+
+    def _build_high_confidence_metrics(
+        self,
+        backtest_data: Optional[Dict],
+        training_data: Dict,
+    ) -> Dict[str, Any]:
+        """Build high-confidence metrics from backtest by_threshold data.
+
+        Loads profit_factor and total_pips from backtest results at 70% threshold,
+        with fallback to training data for win_rate and defaults for missing values.
+
+        Args:
+            backtest_data: Loaded backtest_results.json data (may be None)
+            training_data: Loaded training_metadata.json data
+
+        Returns:
+            Dict with high confidence metrics
+        """
+        # Try to get by_threshold data from backtest results
+        by_threshold = {}
+        if backtest_data:
+            by_threshold = backtest_data.get("by_threshold", {})
+
+        threshold_70 = by_threshold.get("0.70", {})
+
+        # Get win_rate from training data (more granular validation data)
+        # or from backtest threshold data, with fallback to default
+        win_rate_from_training = training_data.get("individual_results", {}).get("1H", {}).get(
+            "val_acc_conf_70", None
+        )
+        win_rate_from_backtest = threshold_70.get("win_rate", 0) / 100 if threshold_70.get("win_rate") else None
+
+        # Prefer training data win rate (validation accuracy), fall back to backtest, then default
+        if win_rate_from_training is not None:
+            win_rate = win_rate_from_training
+        elif win_rate_from_backtest is not None:
+            win_rate = win_rate_from_backtest
+        else:
+            win_rate = DEFAULT_HIGH_CONF_METRICS["WIN_RATE"]
+
+        return {
+            "threshold": DEFAULT_HIGH_CONF_METRICS["THRESHOLD"],
+            "win_rate": win_rate,
+            # Load from backtest by_threshold, with fallback to defaults
+            "profit_factor": threshold_70.get("profit_factor", DEFAULT_HIGH_CONF_METRICS["PROFIT_FACTOR"]),
+            "total_pips": threshold_70.get("total_pips", DEFAULT_HIGH_CONF_METRICS["TOTAL_PIPS"]),
+            "sample_size": training_data.get("individual_results", {}).get("1H", {}).get(
+                "val_samples_conf_70", DEFAULT_HIGH_CONF_METRICS["SAMPLE_SIZE"]
+            ),
+        }
 
     def _load_regime_metrics(self) -> Optional[Dict[str, Any]]:
         """Load regime performance metrics from backtest_results.json.
@@ -209,16 +274,10 @@ class PerformanceService:
                     ensemble_results.get("test_samples", DEFAULT_BASELINE_METRICS["TOTAL_TRADES"])),
 
                 # High confidence metrics (70% threshold)
-                # Use 1H model's high-conf accuracy (largest sample size, most representative)
-                "high_confidence": {
-                    "threshold": DEFAULT_HIGH_CONF_METRICS["THRESHOLD"],
-                    "win_rate": training_data.get("individual_results", {}).get("1H", {}).get(
-                        "val_acc_conf_70", DEFAULT_HIGH_CONF_METRICS["WIN_RATE"]),
-                    "profit_factor": DEFAULT_HIGH_CONF_METRICS["PROFIT_FACTOR"],
-                    "total_pips": DEFAULT_HIGH_CONF_METRICS["TOTAL_PIPS"],
-                    "sample_size": training_data.get("individual_results", {}).get("1H", {}).get(
-                        "val_samples_conf_70", DEFAULT_HIGH_CONF_METRICS["SAMPLE_SIZE"]),
-                },
+                # Load from backtest by_threshold data, with fallback to training data and defaults
+                "high_confidence": self._build_high_confidence_metrics(
+                    backtest_data, training_data
+                ),
 
                 # Full agreement metrics
                 "full_agreement": {
@@ -244,6 +303,17 @@ class PerformanceService:
         wfo_metrics = self._load_wfo_metrics()
         regime_metrics = self._load_regime_metrics()
 
+        # Try to load backtest by_threshold data for high-confidence metrics
+        backtest_path = self.DEFAULT_DATA_DIR / "backtest_results.json"
+        by_threshold_70 = {}
+        if backtest_path.exists():
+            try:
+                with open(backtest_path) as f:
+                    backtest_data = json.load(f)
+                by_threshold_70 = backtest_data.get("by_threshold", {}).get("0.70", {})
+            except Exception:
+                pass
+
         return {
             "total_pips": DEFAULT_BASELINE_METRICS["TOTAL_PIPS"],
             "win_rate": DEFAULT_BASELINE_METRICS["WIN_RATE"],
@@ -251,10 +321,11 @@ class PerformanceService:
             "total_trades": DEFAULT_BASELINE_METRICS["TOTAL_TRADES"],
             "high_confidence": {
                 "threshold": DEFAULT_HIGH_CONF_METRICS["THRESHOLD"],
-                "win_rate": DEFAULT_HIGH_CONF_METRICS["WIN_RATE"],
-                "profit_factor": DEFAULT_HIGH_CONF_METRICS["PROFIT_FACTOR"],
-                "total_pips": DEFAULT_HIGH_CONF_METRICS["TOTAL_PIPS"],
-                "sample_size": DEFAULT_HIGH_CONF_METRICS["SAMPLE_SIZE"],
+                "win_rate": by_threshold_70.get("win_rate", DEFAULT_HIGH_CONF_METRICS["WIN_RATE"] * 100) / 100
+                    if by_threshold_70.get("win_rate") else DEFAULT_HIGH_CONF_METRICS["WIN_RATE"],
+                "profit_factor": by_threshold_70.get("profit_factor", DEFAULT_HIGH_CONF_METRICS["PROFIT_FACTOR"]),
+                "total_pips": by_threshold_70.get("total_pips", DEFAULT_HIGH_CONF_METRICS["TOTAL_PIPS"]),
+                "sample_size": by_threshold_70.get("total_trades", DEFAULT_HIGH_CONF_METRICS["SAMPLE_SIZE"]),
             },
             "full_agreement": {
                 "accuracy": DEFAULT_AGREEMENT_METRICS["ACCURACY"],

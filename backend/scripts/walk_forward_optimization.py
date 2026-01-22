@@ -277,6 +277,61 @@ def load_data(data_path: Path) -> pd.DataFrame:
     return df
 
 
+# Standard confidence thresholds for multi-threshold analysis
+CONFIDENCE_THRESHOLDS = [0.55, 0.60, 0.65, 0.70, 0.75]
+
+
+def calculate_threshold_metrics(trades_df: pd.DataFrame, thresholds: List[float] = None) -> Dict[str, Dict]:
+    """Calculate performance metrics at multiple confidence thresholds.
+
+    This filters the trades DataFrame to only include trades that meet each
+    threshold, then calculates metrics. This is an approximation since it
+    doesn't account for trade timing changes, but is reasonable for analysis.
+
+    Args:
+        trades_df: DataFrame with columns including 'confidence' and 'pnl_pips'
+        thresholds: List of confidence thresholds to analyze (default: CONFIDENCE_THRESHOLDS)
+
+    Returns:
+        Dict mapping threshold (as string like "0.70") to metrics dict
+    """
+    if thresholds is None:
+        thresholds = CONFIDENCE_THRESHOLDS
+
+    results = {}
+
+    for threshold in thresholds:
+        filtered = trades_df[trades_df["confidence"] >= threshold]
+
+        if len(filtered) == 0:
+            results[f"{threshold:.2f}"] = {
+                "total_trades": 0,
+                "win_rate": 0,
+                "total_pips": 0,
+                "profit_factor": 0,
+            }
+            continue
+
+        wins = filtered[filtered["pnl_pips"] > 0]
+        losses = filtered[filtered["pnl_pips"] <= 0]
+
+        total_profit = wins["pnl_pips"].sum() if len(wins) > 0 else 0
+        total_loss = abs(losses["pnl_pips"].sum()) if len(losses) > 0 else 0
+        profit_factor = total_profit / total_loss if total_loss > 0 else float("inf")
+
+        results[f"{threshold:.2f}"] = {
+            "total_trades": len(filtered),
+            "winning_trades": len(wins),
+            "losing_trades": len(losses),
+            "win_rate": len(wins) / len(filtered) * 100 if len(filtered) > 0 else 0,
+            "total_pips": filtered["pnl_pips"].sum(),
+            "avg_pips": filtered["pnl_pips"].mean(),
+            "profit_factor": profit_factor if profit_factor != float("inf") else 99.99,
+        }
+
+    return results
+
+
 def run_window_backtest(
     ensemble: MTFEnsemble,
     df_5min: pd.DataFrame,
@@ -632,6 +687,8 @@ def run_window_backtest(
         # Risk management metrics
         "max_losing_streak": max_losing_streak,
         "risk_reductions": risk_reductions,
+        # Multi-threshold metrics (for dynamic loading by performance service)
+        "by_threshold": calculate_threshold_metrics(trades_df),
     }
 
 
@@ -990,6 +1047,33 @@ def generate_api_backtest_results(
     initial_balance = config.get("initial_balance", 10000.0)
     risk_per_trade = config.get("risk_per_trade", 0.02)
 
+    # Aggregate multi-threshold metrics across all windows
+    by_threshold = {}
+    for threshold in ["0.55", "0.60", "0.65", "0.70", "0.75"]:
+        threshold_windows = []
+        for w in windows:
+            if "by_threshold" in w and threshold in w["by_threshold"]:
+                threshold_windows.append(w["by_threshold"][threshold])
+
+        if threshold_windows:
+            total_trades = sum(tw.get("total_trades", 0) for tw in threshold_windows)
+            total_pips = sum(tw.get("total_pips", 0) for tw in threshold_windows)
+            total_wins = sum(tw.get("winning_trades", 0) for tw in threshold_windows)
+
+            # Weighted average profit factor (by trade count)
+            pf_sum = sum(
+                tw.get("profit_factor", 1.0) * tw.get("total_trades", 0)
+                for tw in threshold_windows
+            )
+            avg_pf = pf_sum / total_trades if total_trades > 0 else 0
+
+            by_threshold[threshold] = {
+                "total_trades": total_trades,
+                "total_pips": round(total_pips, 1),
+                "win_rate": round(total_wins / total_trades * 100, 1) if total_trades > 0 else 0,
+                "profit_factor": round(avg_pf, 2),
+            }
+
     # Build the API response structure
     api_data = {
         "metadata": {
@@ -1016,6 +1100,8 @@ def generate_api_backtest_results(
             "standard_lot_size": 100000,
             "pip_value_per_lot": 10,
         },
+        # Multi-threshold metrics for dynamic performance loading
+        "by_threshold": by_threshold,
     }
 
     # Save to file

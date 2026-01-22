@@ -91,6 +91,12 @@ class TestMetricsLoading:
                 "acc_full_agreement": 0.84,
                 "samples_full_agreement": 52,
             },
+            "individual_results": {
+                "1H": {
+                    "val_acc_conf_70": 0.63,
+                    "val_samples_conf_70": 970,
+                }
+            },
         }
 
     @pytest.fixture
