@@ -338,7 +338,29 @@ class PerformanceService:
                 "status": self._get_status("robustness", robustness_pct),
             })
 
-        # 4. Profit Factor (from backtest results)
+        # 4. Total Pips (from backtest results)
+        total_pips = self._metrics.get("total_pips", 0)
+        if total_pips > 0:
+            # Format with comma separator
+            pips_formatted = f"+{total_pips:,.0f}" if total_pips > 0 else f"{total_pips:,.0f}"
+            # Status based on pips (excellent: >10k, good: >5k, moderate: >0)
+            if total_pips >= 10000:
+                pips_status = "excellent"
+            elif total_pips >= 5000:
+                pips_status = "good"
+            elif total_pips > 0:
+                pips_status = "moderate"
+            else:
+                pips_status = "poor"
+            highlights.append({
+                "type": "pips",
+                "title": "Total Profit",
+                "value": f"{pips_formatted} pips",
+                "description": "Cumulative profit over 4 years",
+                "status": pips_status,
+            })
+
+        # 5. Profit Factor (from backtest results)
         profit_factor = self._metrics.get("profit_factor", 0)
         if profit_factor > 0:
             highlights.append({
@@ -349,7 +371,8 @@ class PerformanceService:
                 "status": self._get_status("profit_factor", profit_factor),
             })
 
-        self._highlights = highlights
+        # Limit to 4 highlights for UI layout
+        self._highlights = highlights[:4]
 
     def _generate_summary(self) -> None:
         """Generate dynamic summary based on metrics."""

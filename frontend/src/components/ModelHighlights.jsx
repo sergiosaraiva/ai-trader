@@ -81,6 +81,8 @@ export function ModelHighlights({ performance, loading, error }) {
         return <CheckCircle size={24} className={colorClass} />;
       case 'robustness':
         return <Shield size={24} className={colorClass} />;
+      case 'pips':
+        return <TrendingUp size={24} className={colorClass} />;
       case 'returns':
         return <DollarSign size={24} className={colorClass} />;
       default:
