@@ -399,7 +399,7 @@ describe('ModelHighlights', () => {
       ],
       summary: {
         headline: 'Solid Performance',
-        description: 'The MTF Ensemble model demonstrates solid performance with 50.6% overall win rate and 1.57x profit factor.',
+        description: 'The Multi-Timeframe model demonstrates solid performance with 50.6% overall win rate and 1.57x profit factor.',
       },
     };
 

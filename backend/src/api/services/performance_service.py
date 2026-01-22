@@ -407,7 +407,7 @@ class PerformanceService:
         high_conf_wr = self._metrics.get("high_confidence", {}).get("win_rate", 0) * 100
 
         description = (
-            f"The MTF Ensemble model demonstrates {headline.lower()} with "
+            f"The Multi-Timeframe model demonstrates {headline.lower()} with "
             f"{win_rate_pct:.1f}% overall win rate and {profit_factor:.2f}x profit factor. "
             f"High-confidence predictions (≥70%) achieve {high_conf_wr:.1f}% accuracy. "
             f"Walk-forward optimization confirms {consistency*100:.0f}% consistency across all test periods."
