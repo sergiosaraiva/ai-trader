@@ -1104,6 +1104,10 @@ def main():
         "--rfecv-cv-folds", type=int, default=3,
         help="Number of CV folds for RFECV (default: 3)"
     )
+    parser.add_argument(
+        "--calibration", action="store_true",
+        help="Enable isotonic regression calibration for probability outputs (disabled by default)"
+    )
     args = parser.parse_args()
 
     print("\n" + "=" * 80)
@@ -1128,6 +1132,7 @@ def main():
         print(f"  Min Features:  {args.rfecv_min_features}")
         print(f"  Step:          {args.rfecv_step}")
         print(f"  CV Folds:      {args.rfecv_cv_folds}")
+    print(f"Calibration:     {'ON (isotonic regression)' if args.calibration else 'OFF'}")
     print("=" * 80)
 
     # Load data
@@ -1190,6 +1195,10 @@ def main():
         config.use_rfecv = True
         config.rfecv_config = rfecv_config
 
+    # Add calibration if enabled
+    if args.calibration:
+        config.use_calibration = True
+
     # Run WFO
     summary = WFOSummary(initial_balance=args.balance)
 
@@ -1242,6 +1251,7 @@ def main():
             "stacking_blend": args.stacking_blend if args.stacking else None,
             "initial_balance": args.balance,
             "risk_per_trade": args.risk,
+            "use_calibration": args.calibration,
         },
         "windows": [
             {

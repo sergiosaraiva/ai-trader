@@ -87,14 +87,15 @@ class FeatureSelectionManager:
         config_hash = self._compute_config_hash()
         return self.cache_dir / f"{timeframe}_rfecv_{config_hash}.json"
 
-    def _load_from_cache(self, timeframe: str) -> Optional[Dict]:
-        """Load selection from cache if available.
+    def _load_from_cache(self, timeframe: str, n_features: int) -> Optional[Dict]:
+        """Load selection from cache if available and valid.
 
         Args:
             timeframe: Timeframe identifier
+            n_features: Current number of features (for validation)
 
         Returns:
-            Cached selection dict or None if not found
+            Cached selection dict or None if not found/invalid
         """
         if not self.config.cache_enabled:
             return None
@@ -106,6 +107,18 @@ class FeatureSelectionManager:
         try:
             with open(cache_path, "r") as f:
                 cached = json.load(f)
+
+            # CRITICAL: Validate that cached selection matches current feature count
+            cached_n_features = cached.get("n_original_features", 0)
+            if cached_n_features != n_features:
+                logger.warning(
+                    f"Cache invalidated for {timeframe}: cached n_features={cached_n_features}, "
+                    f"current n_features={n_features}. Recomputing selection."
+                )
+                # Delete invalid cache file
+                cache_path.unlink()
+                return None
+
             logger.info(f"Loaded cached selection for {timeframe} from {cache_path}")
             return cached
         except Exception as e:
@@ -151,10 +164,11 @@ class FeatureSelectionManager:
             Tuple of (selected_features, selected_indices, cv_scores)
         """
         logger.info(f"Selecting features for {timeframe} timeframe")
+        n_features = len(feature_names)
 
-        # Check cache first
+        # Check cache first (with feature count validation)
         if not force_recompute:
-            cached = self._load_from_cache(timeframe)
+            cached = self._load_from_cache(timeframe, n_features)
             if cached is not None:
                 selected_features = cached["selected_features"]
                 selected_indices = np.array(cached["selected_indices"])

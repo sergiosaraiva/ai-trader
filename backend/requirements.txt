@@ -36,6 +36,12 @@ pydantic-settings>=2.0.0
 # ML Tracking
 mlflow>=2.8.0
 
+# Hyperparameter Optimization
+optuna>=3.5.0
+
+# Explainability
+shap>=0.43.0
+
 # Visualization
 matplotlib>=3.7.0
 plotly>=5.15.0

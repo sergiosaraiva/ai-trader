@@ -84,6 +84,12 @@ class MTFEnsembleConfig:
     use_rfecv: bool = False  # Disabled by default for backward compatibility
     rfecv_config: Optional["RFECVConfig"] = None  # Uses defaults if None
 
+    # Probability calibration settings
+    use_calibration: bool = False  # Disabled by default for backward compatibility
+
+    # Optimized hyperparameters (from Optuna optimization)
+    optimized_hyperparams: Optional[Dict[str, Dict[str, Any]]] = None  # Dict[timeframe, hyperparams]
+
     @classmethod
     def default(cls) -> "MTFEnsembleConfig":
         """Default configuration with 60/30/10 weights."""
@@ -241,6 +247,19 @@ class MTFEnsemble:
                 cfg.use_rfecv = True
                 cfg.rfecv_config = self.config.rfecv_config
             logger.info("RFECV feature selection enabled for all timeframes")
+
+        # Apply calibration settings if enabled
+        if self.config.use_calibration:
+            for tf, cfg in self.model_configs.items():
+                cfg.use_calibration = True
+            logger.info("Probability calibration (isotonic regression) enabled for all timeframes")
+
+        # Apply optimized hyperparameters if provided
+        if self.config.optimized_hyperparams:
+            for tf, cfg in self.model_configs.items():
+                if tf in self.config.optimized_hyperparams:
+                    cfg.hyperparams = self.config.optimized_hyperparams[tf]
+                    logger.info(f"{tf} model: Using optimized hyperparameters from Optuna")
 
         # Create model instances
         for tf, cfg in self.model_configs.items():
@@ -503,9 +522,34 @@ class MTFEnsemble:
 
             logger.info(f"Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X) - n_train - n_val}")
 
-            # Train
-            tf_results = model.train(X_train, y_train, X_val, y_val, feature_cols)
-            results[tf] = tf_results
+            # Fit calibrator if enabled (CRITICAL: using chronologically held-out data)
+            if self.config.use_calibration:
+                # Split training data: first 90% for model training, last 10% for calibration
+                # This ensures calibration set is chronologically AFTER training set
+                # and the model has NEVER seen the calibration data
+                n_train_for_model = int(len(X_train) * 0.9)
+
+                # Train model on first 90% only
+                X_train_model = X_train[:n_train_for_model]
+                y_train_model = y_train[:n_train_for_model]
+
+                # Reserve last 10% for calibration (truly held-out)
+                X_calib = X_train[n_train_for_model:]
+                y_calib = y_train[n_train_for_model:]
+
+                logger.info(f"Train (for model): {len(X_train_model)}, Calibration: {len(X_calib)}")
+
+                # Train model on reduced training set
+                tf_results = model.train(X_train_model, y_train_model, X_val, y_val, feature_cols)
+                results[tf] = tf_results
+
+                # Fit calibrator on truly held-out data (model never saw this)
+                logger.info(f"Fitting calibrator for {tf} with {len(X_calib)} samples (truly held-out)")
+                model.fit_calibrator(X_calib, y_calib)
+            else:
+                # Train on full training set when calibration disabled
+                tf_results = model.train(X_train, y_train, X_val, y_val, feature_cols)
+                results[tf] = tf_results
 
         self.training_results = results
         self.is_trained = all(m.is_trained for m in self.models.values())

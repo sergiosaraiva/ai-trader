@@ -60,6 +60,9 @@ from .stacking_meta_learner import (
     StackingMetaLearner,
     StackingMetaFeatures,
 )
+from .shap_analyzer import (
+    SHAPAnalyzer,
+)
 
 __all__ = [
     # Original model
@@ -97,4 +100,6 @@ __all__ = [
     "StackingConfig",
     "StackingMetaLearner",
     "StackingMetaFeatures",
+    # SHAP Analysis
+    "SHAPAnalyzer",
 ]
