@@ -1,5 +1,7 @@
 """Stacking Meta-Learner for MTF Ensemble.
 
+Version: 1.1.0 - Fixed enhanced meta-features in predict() method (2026-01-22)
+
 This module implements a stacking ensemble that learns the optimal way to combine
 base model predictions instead of using fixed weighted averaging.
 
@@ -562,6 +564,7 @@ class StackingMetaLearner:
 
         # Add enhanced features if enabled (to match training feature count)
         if self.config.use_enhanced_meta_features:
+            logger.info(f"Adding enhanced meta-features (standard features: {X.shape[1]})")
             try:
                 from .enhanced_meta_features import EnhancedMetaFeatureCalculator, get_enhanced_feature_names
 
@@ -600,6 +603,7 @@ class StackingMetaLearner:
                 # Concatenate with standard features
                 enhanced_features = np.array(enhanced_arrays, dtype=np.float32).reshape(1, -1)
                 X = np.concatenate([X, enhanced_features], axis=1)
+                logger.info(f"Enhanced meta-features added: {enhanced_features.shape[1]} -> total {X.shape[1]} features")
 
             except Exception as e:
                 # Graceful fallback: if enhanced feature calculation fails, log warning and use zeros
