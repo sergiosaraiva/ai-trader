@@ -1,5 +1,5 @@
 /**
- * API Client for AI Assets Trader Backend
+ * API Client for AI Trading Agent Backend
  */
 
 // Use environment variable if set, otherwise use relative URL (for nginx proxy)

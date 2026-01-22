@@ -229,9 +229,9 @@ export function Dashboard() {
           <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
             {/* Logo and Title */}
             <div className="flex items-center gap-3">
-              <img src="/favicon.svg" alt="AI Assets Trader" className="w-8 h-8" />
+              <img src="/favicon.svg" alt="AI Trading Agent" className="w-8 h-8" />
               <div>
-                <h1 className="text-lg md:text-xl font-bold">AI Assets Trader</h1>
+                <h1 className="text-lg md:text-xl font-bold">AI Trading Agent</h1>
                 <p className="text-xs text-gray-500">
                   {getAssetTypeLabel(assetMetadata)} • <span className="text-blue-400">{getFormattedSymbol(tradingPair, assetMetadata)}</span>
                 </p>
@@ -416,7 +416,7 @@ export function Dashboard() {
         <div className="max-w-[1600px] mx-auto px-4 py-4">
           {/* Stats Row */}
           <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-            <span>AI Assets Trader • Multi-Timeframe Analysis</span>
+            <span>AI Trading Agent • Multi-Timeframe Analysis</span>
             <div className="flex items-center gap-4">
               <span className="text-green-400 font-medium">
                 {performance?.win_rate_high_conf ? `${(performance.win_rate_high_conf * 100).toFixed(0)}%` : '61%'} Win Rate <span className="text-xs text-gray-500">(high-confidence)</span>
