@@ -133,7 +133,7 @@ export function ModelHighlights({ performance, loading, error }) {
       {/* Footer Note */}
       <div className="mt-4 pt-4 border-t border-gray-700">
         <p className="text-xs text-gray-500 text-center">
-          Metrics based on {performance?.metrics?.total_trades?.toLocaleString() ?? 'N/A'} trades with 70% confidence threshold
+          Metrics based on {performance?.metrics?.total_trades?.toLocaleString() ?? 'N/A'} trades with {performance?.metrics?.high_confidence?.threshold ? `${(performance.metrics.high_confidence.threshold * 100).toFixed(0)}%` : 'high'} confidence threshold
         </p>
       </div>
     </div>

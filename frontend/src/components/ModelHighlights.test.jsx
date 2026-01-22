@@ -244,8 +244,11 @@ describe('ModelHighlights', () => {
     expect(screen.getByText(/3,821 trades/)).toBeInTheDocument();
   });
 
-  it('renders confidence threshold in footer', () => {
+  it('renders confidence threshold in footer from metrics', () => {
     const performance = {
+      metrics: {
+        high_confidence: { threshold: 0.70 },
+      },
       highlights: [
         { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
       ],
@@ -255,6 +258,19 @@ describe('ModelHighlights', () => {
     render(<ModelHighlights performance={performance} />);
 
     expect(screen.getByText(/70% confidence threshold/)).toBeInTheDocument();
+  });
+
+  it('renders "high" when threshold not available', () => {
+    const performance = {
+      highlights: [
+        { type: 'test', title: 'Test', value: '100%', description: 'Test', status: 'excellent' },
+      ],
+      summary: { headline: 'Test', description: 'Test' },
+    };
+
+    render(<ModelHighlights performance={performance} />);
+
+    expect(screen.getByText(/high confidence threshold/)).toBeInTheDocument();
   });
 
   // Dynamic Summary Tests
