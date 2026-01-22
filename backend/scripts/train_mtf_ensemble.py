@@ -269,6 +269,16 @@ def main():
         default=5,
         help="Number of cross-validation folds for RFECV (default: 5)",
     )
+    parser.add_argument(
+        "--calibration",
+        action="store_true",
+        help="Enable isotonic regression calibration for probability outputs (disabled by default)",
+    )
+    parser.add_argument(
+        "--use-optimized-params",
+        action="store_true",
+        help="Use hyperparameters optimized by optimize_hyperparameters.py (from configs/optimized_hyperparams.json)",
+    )
     args = parser.parse_args()
 
     # Parse weights and timeframes first
@@ -365,7 +375,41 @@ def main():
         print(f"  Min feat:  {args.rfecv_min_features}")
         print(f"  Step:      {args.rfecv_step}")
         print(f"  CV folds:  {args.rfecv_cv_folds}")
+    print(f"Calibration: {'ENABLED (isotonic regression)' if args.calibration else 'disabled'}")
+    print(f"Optimized:   {'USING OPTIMIZED HYPERPARAMETERS' if args.use_optimized_params else 'using defaults'}")
     print("=" * 70)
+
+    # Load optimized hyperparameters if requested
+    optimized_hyperparams = None
+    if args.use_optimized_params:
+        hyperparams_path = project_root / "configs" / "optimized_hyperparams.json"
+        if hyperparams_path.exists():
+            logger.info(f"Loading optimized hyperparameters from {hyperparams_path}")
+            try:
+                with open(hyperparams_path, "r") as f:
+                    hyperparams_data = json.load(f)
+                    optimized_hyperparams = {}
+                    for tf in ["1H", "4H", "D"]:
+                        if tf in hyperparams_data.get("results", {}):
+                            params = hyperparams_data["results"][tf].get("best_params", {})
+                            # Validate required parameters exist
+                            if params and "n_estimators" in params:
+                                optimized_hyperparams[tf] = params
+                                logger.info(f"Loaded optimized params for {tf} model")
+                            else:
+                                logger.warning(f"Invalid or missing params for {tf}, using defaults")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse hyperparameters file: {e}")
+                logger.warning("Falling back to default hyperparameters")
+                optimized_hyperparams = None
+            except (KeyError, TypeError) as e:
+                logger.error(f"Invalid hyperparameters file structure: {e}")
+                logger.warning("Falling back to default hyperparameters")
+                optimized_hyperparams = None
+        else:
+            logger.warning(f"Optimized hyperparameters file not found: {hyperparams_path}")
+            logger.warning("Run optimize_hyperparameters.py first to generate optimized parameters")
+            logger.warning("Falling back to default hyperparameters")
 
     config = MTFEnsembleConfig(
         weights=weights,
@@ -379,6 +423,8 @@ def main():
         stacking_config=stacking_config,
         use_rfecv=args.use_rfecv,
         rfecv_config=rfecv_config,
+        use_calibration=args.calibration,
+        optimized_hyperparams=optimized_hyperparams,
     )
 
     # Load data
@@ -476,6 +522,7 @@ def main():
         "trading_pair": args.pair if include_sentiment else None,
         "use_stacking": args.stacking,
         "stacking_blend": args.stacking_blend if args.stacking else None,
+        "use_calibration": args.calibration,
         "individual_results": {
             k: {kk: float(vv) if isinstance(vv, (np.integer, np.floating)) else vv
                 for kk, vv in v.items()}

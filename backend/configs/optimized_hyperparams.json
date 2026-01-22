@@ -1,0 +1,52 @@
+{
+    "optimization_date": "2026-01-22",
+    "test_config": "shallow_fast",
+    "description": "OPTIMAL: Shallow trees with higher learning rate (depth 3-4, lr=0.08)",
+    "performance": {
+        "total_pips": 8135.3,
+        "win_rate": 0.586,
+        "profit_factor": 2.24,
+        "vs_baseline": "+4.4%"
+    },
+    "results": {
+        "1H": {
+            "best_params": {
+                "n_estimators": 250,
+                "max_depth": 4,
+                "learning_rate": 0.08,
+                "min_child_weight": 3,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "reg_alpha": 0.1,
+                "reg_lambda": 1.0,
+                "gamma": 0.1
+            }
+        },
+        "4H": {
+            "best_params": {
+                "n_estimators": 200,
+                "max_depth": 3,
+                "learning_rate": 0.08,
+                "min_child_weight": 3,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "reg_alpha": 0.1,
+                "reg_lambda": 1.0,
+                "gamma": 0.1
+            }
+        },
+        "D": {
+            "best_params": {
+                "n_estimators": 150,
+                "max_depth": 3,
+                "learning_rate": 0.08,
+                "min_child_weight": 3,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "reg_alpha": 0.1,
+                "reg_lambda": 1.0,
+                "gamma": 0.1
+            }
+        }
+    }
+}

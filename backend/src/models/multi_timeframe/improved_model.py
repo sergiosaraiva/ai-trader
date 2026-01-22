@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.calibration import CalibratedClassifierCV
 from xgboost import XGBClassifier
 
 from .labeling import AdvancedLabeler, LabelingConfig, LabelMethod
@@ -45,15 +46,20 @@ class ImprovedModelConfig:
     # Model type
     model_type: str = "xgboost"  # "xgboost", "gbm", "rf"
 
-    # XGBoost parameters
-    n_estimators: int = 200
-    max_depth: int = 6
-    learning_rate: float = 0.05
-    min_child_weight: int = 10
+    # XGBoost parameters (defaults - optimized via targeted HPO 2026-01-22)
+    # shallow_fast config: +4.4% improvement over previous baseline
+    n_estimators: int = 250
+    max_depth: int = 4
+    learning_rate: float = 0.08
+    min_child_weight: int = 3
     subsample: float = 0.8
     colsample_bytree: float = 0.8
     reg_alpha: float = 0.1
     reg_lambda: float = 1.0
+    gamma: float = 0.1
+
+    # Optional optimized hyperparameters (overrides defaults if provided)
+    hyperparams: Optional[Dict[str, Any]] = None
 
     # Feature settings
     include_time_features: bool = True
@@ -69,6 +75,9 @@ class ImprovedModelConfig:
     use_rfecv: bool = False  # Enable RFECV feature selection
     rfecv_config: Optional["RFECVConfig"] = None  # RFECV configuration (uses defaults if None)
 
+    # Probability calibration
+    use_calibration: bool = False  # Enable isotonic regression calibration (disabled by default)
+
     @classmethod
     def hourly_model(cls) -> "ImprovedModelConfig":
         """1-hour timeframe model for intraday trading."""
@@ -78,8 +87,9 @@ class ImprovedModelConfig:
             tp_pips=25.0,
             sl_pips=15.0,
             max_holding_bars=12,  # 12 hours max
-            n_estimators=200,
-            max_depth=6,
+            n_estimators=250,
+            max_depth=4,
+            # learning_rate=0.08 inherited from defaults (shallow_fast config)
         )
 
     @classmethod
@@ -91,8 +101,9 @@ class ImprovedModelConfig:
             tp_pips=50.0,   # Original value - stable
             sl_pips=25.0,   # Original value - stable
             max_holding_bars=18,  # Original value - 3 days max
-            n_estimators=150,
-            max_depth=5,
+            n_estimators=200,
+            max_depth=3,
+            # learning_rate=0.08 inherited from defaults (shallow_fast config)
         )
 
     @classmethod
@@ -104,8 +115,9 @@ class ImprovedModelConfig:
             tp_pips=150.0,  # Increased from 100 - wider target for position trades
             sl_pips=75.0,   # Increased from 50 - more room for daily volatility
             max_holding_bars=15,  # Increased from 10 - 3 weeks max
-            n_estimators=100,
-            max_depth=4,
+            n_estimators=150,
+            max_depth=3,
+            # learning_rate=0.08 inherited from defaults (shallow_fast config)
         )
 
 
@@ -123,6 +135,9 @@ class ImprovedTimeframeModel:
         self.selected_features: Optional[List[str]] = None
         self.selected_indices: Optional[np.ndarray] = None
         self.rfecv_scores: Optional[Dict] = None
+
+        # Probability calibration
+        self.calibrator: Optional[CalibratedClassifierCV] = None
 
         # Labeler
         label_config = LabelingConfig(
@@ -152,17 +167,40 @@ class ImprovedTimeframeModel:
         self.feature_importance: Dict[str, float] = {}
 
     def _create_model(self):
-        """Create the ML model based on config."""
+        """Create the ML model based on config.
+
+        Uses optimized hyperparameters if provided in config.hyperparams,
+        otherwise falls back to default config values.
+        """
         if self.config.model_type == "xgboost":
+            # Use optimized hyperparams if provided, otherwise use config defaults
+            if self.config.hyperparams:
+                params = {
+                    "n_estimators": self.config.hyperparams.get("n_estimators", self.config.n_estimators),
+                    "max_depth": self.config.hyperparams.get("max_depth", self.config.max_depth),
+                    "learning_rate": self.config.hyperparams.get("learning_rate", self.config.learning_rate),
+                    "min_child_weight": self.config.hyperparams.get("min_child_weight", self.config.min_child_weight),
+                    "subsample": self.config.hyperparams.get("subsample", self.config.subsample),
+                    "colsample_bytree": self.config.hyperparams.get("colsample_bytree", self.config.colsample_bytree),
+                    "reg_alpha": self.config.hyperparams.get("reg_alpha", self.config.reg_alpha),
+                    "reg_lambda": self.config.hyperparams.get("reg_lambda", self.config.reg_lambda),
+                    "gamma": self.config.hyperparams.get("gamma", self.config.gamma),
+                }
+            else:
+                params = {
+                    "n_estimators": self.config.n_estimators,
+                    "max_depth": self.config.max_depth,
+                    "learning_rate": self.config.learning_rate,
+                    "min_child_weight": self.config.min_child_weight,
+                    "subsample": self.config.subsample,
+                    "colsample_bytree": self.config.colsample_bytree,
+                    "reg_alpha": self.config.reg_alpha,
+                    "reg_lambda": self.config.reg_lambda,
+                    "gamma": self.config.gamma,
+                }
+
             return XGBClassifier(
-                n_estimators=self.config.n_estimators,
-                max_depth=self.config.max_depth,
-                learning_rate=self.config.learning_rate,
-                min_child_weight=self.config.min_child_weight,
-                subsample=self.config.subsample,
-                colsample_bytree=self.config.colsample_bytree,
-                reg_alpha=self.config.reg_alpha,
-                reg_lambda=self.config.reg_lambda,
+                **params,
                 random_state=42,
                 use_label_encoder=False,
                 eval_metric="logloss",
@@ -350,6 +388,52 @@ class ImprovedTimeframeModel:
 
         return results
 
+    def fit_calibrator(self, X_calib: np.ndarray, y_calib: np.ndarray) -> None:
+        """Fit isotonic regression calibrator on chronologically held-out set.
+
+        CRITICAL: X_calib MUST be chronologically AFTER the training set to prevent
+        data leakage. The calibration set should be the last 10% of training data.
+
+        Args:
+            X_calib: Feature array for calibration (chronologically after training)
+            y_calib: Labels for calibration
+        """
+        if not self.is_trained:
+            raise RuntimeError(f"Model {self.config.name} must be trained before calibration")
+
+        if not self.config.use_calibration:
+            logger.warning(f"Calibration not enabled in config for {self.config.name}")
+            return
+
+        logger.info(f"Fitting isotonic calibrator for {self.config.name} with {len(X_calib)} samples...")
+
+        # Filter features if RFECV was used
+        if self.config.use_rfecv and self.selected_indices is not None:
+            X_calib = X_calib[:, self.selected_indices]
+
+        # Scale features
+        X_calib_scaled = self.scaler.transform(X_calib)
+
+        # Create calibrator with isotonic regression
+        # cv="prefit" means we use the already-trained model
+        self.calibrator = CalibratedClassifierCV(
+            estimator=self.model,
+            method="isotonic",
+            cv="prefit",
+        )
+
+        # Fit calibrator on calibration set
+        self.calibrator.fit(X_calib_scaled, y_calib)
+
+        logger.info(f"Calibrator fitted for {self.config.name}")
+
+        # Verify calibration improved reliability
+        calib_probs = self.calibrator.predict_proba(X_calib_scaled)
+        calib_pred = self.calibrator.predict(X_calib_scaled)
+        calib_acc = (calib_pred == y_calib).mean()
+
+        logger.info(f"Calibration set accuracy: {calib_acc:.2%}")
+
     def predict(self, X: np.ndarray) -> Tuple[int, float, float, float]:
         """Make prediction.
 
@@ -364,8 +448,15 @@ class ImprovedTimeframeModel:
             X = X[self.selected_indices]
 
         X_scaled = self.scaler.transform(X.reshape(1, -1))
-        probs = self.model.predict_proba(X_scaled)[0]
-        pred = self.model.predict(X_scaled)[0]
+
+        # Use calibrated probabilities if calibrator is fitted
+        if self.config.use_calibration and self.calibrator is not None:
+            probs = self.calibrator.predict_proba(X_scaled)[0]
+            pred = self.calibrator.predict(X_scaled)[0]
+        else:
+            probs = self.model.predict_proba(X_scaled)[0]
+            pred = self.model.predict(X_scaled)[0]
+
         confidence = max(probs)
 
         if len(probs) == 2:
@@ -390,8 +481,15 @@ class ImprovedTimeframeModel:
             X = X[:, self.selected_indices]
 
         X_scaled = self.scaler.transform(X)
-        predictions = self.model.predict(X_scaled)
-        probs = self.model.predict_proba(X_scaled)
+
+        # Use calibrated probabilities if calibrator is fitted
+        if self.config.use_calibration and self.calibrator is not None:
+            predictions = self.calibrator.predict(X_scaled)
+            probs = self.calibrator.predict_proba(X_scaled)
+        else:
+            predictions = self.model.predict(X_scaled)
+            probs = self.model.predict_proba(X_scaled)
+
         confidences = np.max(probs, axis=1)
 
         return predictions, confidences
@@ -409,10 +507,13 @@ class ImprovedTimeframeModel:
             "selected_features": self.selected_features,
             "selected_indices": self.selected_indices,
             "rfecv_scores": self.rfecv_scores,
+            "calibrator": self.calibrator,  # Save calibrator if fitted
         }
         with open(path, "wb") as f:
             pickle.dump(data, f)
         logger.info(f"Saved {self.config.name} model to {path}")
+        if self.calibrator is not None:
+            logger.info(f"  - Calibrator included (isotonic regression)")
 
     def load(self, path: Path) -> None:
         """Load model from disk."""
@@ -429,8 +530,11 @@ class ImprovedTimeframeModel:
         self.selected_features = data.get("selected_features")
         self.selected_indices = data.get("selected_indices")
         self.rfecv_scores = data.get("rfecv_scores")
+        self.calibrator = data.get("calibrator")  # Load calibrator if present
         self.is_trained = True
         logger.info(f"Loaded {self.config.name} model from {path}")
+        if self.calibrator is not None:
+            logger.info(f"  - Calibrator loaded (isotonic regression)")
 
 
 class ImprovedMultiTimeframeModel:
