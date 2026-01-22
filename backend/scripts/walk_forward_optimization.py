@@ -109,6 +109,9 @@ class WFOWindowResult:
     max_losing_streak: int = 0
     risk_reductions: int = 0
 
+    # Multi-threshold metrics
+    by_threshold: Dict[str, Dict] = field(default_factory=dict)
+
 
 @dataclass
 class WFOSummary:
@@ -805,6 +808,8 @@ def run_wfo_window(
         # Risk management metrics
         max_losing_streak=backtest_results["max_losing_streak"],
         risk_reductions=backtest_results["risk_reductions"],
+        # Multi-threshold metrics
+        by_threshold=backtest_results.get("by_threshold", {}),
     )
 
     # Print window summary
@@ -1354,6 +1359,7 @@ def main():
                 "total_return_pct": w.total_return_pct,
                 "max_drawdown_pct": w.max_drawdown_pct,
                 "total_pnl_usd": w.total_pnl_usd,
+                "by_threshold": w.by_threshold,
             }
             for w in summary.windows
         ],
