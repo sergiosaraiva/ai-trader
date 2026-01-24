@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Calculator, TrendingUp, Info, DollarSign, Calendar, Scale, AlertCircle, Loader2 } from 'lucide-react';
+import { Calculator, TrendingUp, Info, DollarSign, Calendar, Scale, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import api from '../api/client';
 
 /**
@@ -106,6 +106,10 @@ export function InvestmentCalculator({ assetMetadata }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // What-If simulation state (last month)
+  const [whatIfData, setWhatIfData] = useState(null);
+  const [whatIfLoading, setWhatIfLoading] = useState(false);
+
   // Fetch backtest data from API
   useEffect(() => {
     let isMounted = true;
@@ -152,10 +156,65 @@ export function InvestmentCalculator({ assetMetadata }) {
     };
   }, []);
 
+  // Fetch what-if simulation data (last month with agreement filter)
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchWhatIfData() {
+      try {
+        setWhatIfLoading(true);
+        const response = await api.getWhatIfPerformance(30, 0.70);
+
+        if (isMounted && response.summary.total_trades > 0) {
+          // Calculate period dates from daily_performance
+          const days = response.daily_performance;
+          const periodStart = days.length > 0 ? days[0].date : null;
+          const periodEnd = days.length > 0 ? days[days.length - 1].date : null;
+
+          setWhatIfData({
+            label: 'Last Month (Live)',
+            totalPips: response.summary.total_pnl,
+            winRate: response.summary.win_rate / 100,
+            profitFactor: response.summary.total_wins > 0
+              ? Math.abs(response.summary.total_pnl / (response.summary.total_trades - response.summary.total_wins) / 15 * 25 / response.summary.total_wins).toFixed(2)
+              : 0,
+            totalTrades: response.summary.total_trades,
+            periodStart: periodStart,
+            periodEnd: periodEnd,
+            periodYears: response.summary.total_days / 365,
+            periodMonths: 1,
+            isLiveSimulation: true,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch what-if data:', err);
+      } finally {
+        if (isMounted) {
+          setWhatIfLoading(false);
+        }
+      }
+    }
+
+    fetchWhatIfData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Use API data or fallback
-  const periods = backtestData?.periods || DEFAULT_BACKTEST_PERIODS;
+  const basePeriods = backtestData?.periods || DEFAULT_BACKTEST_PERIODS;
   const leverageOptions = backtestData?.leverageOptions || DEFAULT_LEVERAGE_OPTIONS;
   const forexConstants = backtestData?.forexConstants || DEFAULT_FOREX_CONSTANTS;
+
+  // Combine periods with what-if simulation data (add at the beginning if available)
+  const periods = useMemo(() => {
+    const combined = {};
+    if (whatIfData) {
+      combined['1m_live'] = whatIfData;
+    }
+    return { ...combined, ...basePeriods };
+  }, [basePeriods, whatIfData]);
 
   // Get the selected period data and leverage option
   const periodData = periods[selectedPeriod] || periods['1y'] || Object.values(periods)[0];
@@ -262,19 +321,35 @@ export function InvestmentCalculator({ assetMetadata }) {
               Time period:
             </label>
             <div className="flex flex-wrap gap-2">
-              {Object.entries(periods).map(([key, data]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedPeriod(key)}
-                  className={`px-3 py-1.5 text-xs rounded transition-colors ${
-                    selectedPeriod === key
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                  }`}
-                >
-                  {data.label}
-                </button>
-              ))}
+              {Object.entries(periods).map(([key, data]) => {
+                const isLive = data.isLiveSimulation;
+                const isSelected = selectedPeriod === key;
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedPeriod(key)}
+                    className={`px-3 py-1.5 text-xs rounded transition-colors flex items-center gap-1.5 ${
+                      isSelected
+                        ? isLive
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-blue-500 text-white'
+                        : isLive
+                          ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30'
+                          : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    }`}
+                  >
+                    {isLive && <Sparkles size={12} />}
+                    {data.label}
+                  </button>
+                );
+              })}
+              {whatIfLoading && (
+                <span className="px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin" />
+                  Loading live data...
+                </span>
+              )}
             </div>
           </div>
 
@@ -305,29 +380,46 @@ export function InvestmentCalculator({ assetMetadata }) {
           </div>
 
           {/* Results */}
-          <div className="bg-gray-700/50 rounded-lg p-4 mb-4">
+          <div className={`rounded-lg p-4 mb-4 ${
+            periodData.isLiveSimulation
+              ? 'bg-purple-500/10 border border-purple-500/30'
+              : 'bg-gray-700/50'
+          }`}>
             <p className="text-sm text-gray-400 mb-2">
-              Based on {periodData.label.toLowerCase()} backtest ({periodData.periodStart} to {periodData.periodEnd}):
+              {periodData.isLiveSimulation ? (
+                <span className="flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-purple-400" />
+                  <span>
+                    Live simulation ({periodData.periodStart} to {periodData.periodEnd}):
+                  </span>
+                </span>
+              ) : (
+                <>Based on {periodData.label.toLowerCase()} backtest ({periodData.periodStart} to {periodData.periodEnd}):</>
+              )}
             </p>
 
             <div className="flex items-center justify-between mb-3">
               <span className="text-gray-300">Your potential return:</span>
-              <span className="text-2xl font-bold text-green-400">
-                +€{returns.totalProfit.toLocaleString()}
+              <span className={`text-2xl font-bold ${returns.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {returns.totalProfit >= 0 ? '+' : ''}€{returns.totalProfit.toLocaleString()}
               </span>
             </div>
 
             <div className="flex items-center justify-between mb-3">
               <span className="text-gray-300">Final balance:</span>
-              <span className="text-xl font-semibold text-blue-400">
+              <span className={`text-xl font-semibold ${returns.totalProfit >= 0 ? 'text-blue-400' : 'text-orange-400'}`}>
                 €{returns.finalBalance.toLocaleString()}
               </span>
             </div>
 
             <div className="flex items-center gap-2 text-sm">
-              <TrendingUp size={14} className="text-green-400" />
-              <span className="text-green-400 font-medium">+{returns.returnPercentage}% total</span>
-              <span className="text-gray-500">({returns.annualizedReturn}% per year)</span>
+              <TrendingUp size={14} className={returns.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'} />
+              <span className={`font-medium ${returns.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {returns.returnPercentage > 0 ? '+' : ''}{returns.returnPercentage}% total
+              </span>
+              <span className="text-gray-500">
+                ({returns.annualizedReturn > 0 ? '+' : ''}{returns.annualizedReturn}% per year)
+              </span>
             </div>
           </div>
 
@@ -368,7 +460,13 @@ export function InvestmentCalculator({ assetMetadata }) {
                   <span>Period:</span>
                   <span className="text-gray-300">{periodData.periodStart} to {periodData.periodEnd}</span>
                 </div>
-                {backtestData?.dataSource && (
+                {periodData.isLiveSimulation && (
+                  <div className="flex justify-between pt-2 border-t border-gray-600">
+                    <span>Simulation type:</span>
+                    <span className="text-purple-400 text-xs">Live (70% conf, 2+ models agree)</span>
+                  </div>
+                )}
+                {backtestData?.dataSource && !periodData.isLiveSimulation && (
                   <div className="flex justify-between pt-2 border-t border-gray-600">
                     <span>Data source:</span>
                     <span className="text-gray-500 text-xs">{backtestData.dataSource}</span>
