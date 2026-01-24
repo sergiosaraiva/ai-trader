@@ -378,3 +378,232 @@ async def get_backtest_periods() -> Dict[str, Any]:
         "forex_constants": data.get("forex_constants", {}),
         "data_source": f"WFO Validation (updated: {data.get('metadata', {}).get('last_updated', 'unknown')})",
     }
+
+
+@router.get("/trading/whatif-performance", response_model=Dict[str, Any])
+async def get_whatif_performance(
+    days: int = Query(default=30, ge=7, le=90, description="Number of days to simulate"),
+    confidence_threshold: float = Query(default=0.70, ge=0.5, le=0.9, description="Minimum confidence to trade"),
+    require_agreement: bool = Query(default=True, description="Require at least 2 models to agree on direction"),
+) -> Dict[str, Any]:
+    """Get simulated 'What If' performance for the last N days.
+
+    Runs the model on historical data using proper triple barrier labeling
+    (same methodology as training) to calculate realistic P&L.
+
+    Triple barrier parameters (1H model):
+    - Take Profit: 25 pips
+    - Stop Loss: 15 pips
+    - Max Holding: 12 bars (12 hours)
+
+    Returns daily performance data suitable for the PerformanceChart component.
+    """
+    from ..services.model_service import model_service
+    from ..services.pipeline_service import pipeline_service
+    import pandas as pd
+    import numpy as np
+
+    # Triple barrier parameters matching training config (1H model)
+    TAKE_PROFIT_PIPS = 25.0
+    STOP_LOSS_PIPS = 15.0
+    MAX_HOLDING_BARS = 12
+    PIP_SIZE = 0.0001  # For EURUSD
+
+    try:
+        # Ensure model is loaded
+        if not model_service.is_loaded:
+            model_service.initialize()
+
+        if not model_service.is_loaded:
+            raise HTTPException(status_code=503, detail="Model not available")
+
+        # Get historical feature data from pipeline cache
+        df_1h = pipeline_service.get_processed_data("1h")
+        df_4h = pipeline_service.get_processed_data("4h")
+        df_daily = pipeline_service.get_processed_data("D")
+
+        if df_1h is None or len(df_1h) < days * 24:
+            raise HTTPException(status_code=503, detail="Insufficient historical data")
+
+        # Get last N days of 1H bars (24 bars per day) + buffer for holding period
+        n_bars = days * 24 + MAX_HOLDING_BARS
+        df_1h_recent = df_1h.iloc[-n_bars:].copy()
+
+        # Align 4H and Daily data
+        start_time = df_1h_recent.index.min()
+        df_4h_recent = df_4h[df_4h.index >= start_time].copy() if df_4h is not None else None
+        df_daily_recent = df_daily[df_daily.index >= start_time].copy() if df_daily is not None else None
+
+        # Run simulation with proper triple barrier logic
+        completed_trades = []
+        current_position = None
+        pip_multiplier = 10000  # For EURUSD
+
+        # Only process bars within the requested time window (not the buffer)
+        simulation_start_idx = MAX_HOLDING_BARS
+
+        for i in range(simulation_start_idx, len(df_1h_recent)):
+            bar = df_1h_recent.iloc[i]
+            bar_time = df_1h_recent.index[i]
+
+            # Check if we have an open position that needs to be evaluated
+            if current_position is not None:
+                entry_price = current_position["entry_price"]
+                direction = current_position["direction"]
+                bars_held = current_position["bars_held"] + 1
+                current_position["bars_held"] = bars_held
+
+                # Calculate TP/SL levels
+                if direction == "long":
+                    tp_price = entry_price + TAKE_PROFIT_PIPS * PIP_SIZE
+                    sl_price = entry_price - STOP_LOSS_PIPS * PIP_SIZE
+                    # Check if TP or SL hit (using high/low)
+                    hit_tp = bar["high"] >= tp_price
+                    hit_sl = bar["low"] <= sl_price
+                else:  # short
+                    tp_price = entry_price - TAKE_PROFIT_PIPS * PIP_SIZE
+                    sl_price = entry_price + STOP_LOSS_PIPS * PIP_SIZE
+                    hit_tp = bar["low"] <= tp_price
+                    hit_sl = bar["high"] >= sl_price
+
+                # Determine exit
+                exit_reason = None
+                exit_pips = 0.0
+
+                if hit_tp and hit_sl:
+                    # Both hit in same bar - assume SL hit first (conservative)
+                    exit_reason = "stop_loss"
+                    exit_pips = -STOP_LOSS_PIPS
+                elif hit_tp:
+                    exit_reason = "take_profit"
+                    exit_pips = TAKE_PROFIT_PIPS
+                elif hit_sl:
+                    exit_reason = "stop_loss"
+                    exit_pips = -STOP_LOSS_PIPS
+                elif bars_held >= MAX_HOLDING_BARS:
+                    # Max holding period - exit at close
+                    exit_reason = "max_holding"
+                    if direction == "long":
+                        exit_pips = (bar["close"] - entry_price) / PIP_SIZE
+                    else:
+                        exit_pips = (entry_price - bar["close"]) / PIP_SIZE
+
+                if exit_reason:
+                    # Close the position
+                    completed_trades.append({
+                        "entry_time": current_position["entry_time"],
+                        "exit_time": bar_time,
+                        "direction": direction,
+                        "pips": round(exit_pips, 1),
+                        "exit_reason": exit_reason,
+                        "is_winner": exit_pips > 0,
+                    })
+                    current_position = None
+
+            # If no position, check for new signal
+            if current_position is None:
+                # Get aligned data up to this point
+                df_1h_slice = df_1h_recent.iloc[:i+1]
+                df_4h_slice = df_4h_recent[df_4h_recent.index <= bar_time] if df_4h_recent is not None else None
+                df_daily_slice = df_daily_recent[df_daily_recent.index <= bar_time] if df_daily_recent is not None else None
+
+                if len(df_1h_slice) < 50:  # Need enough history for features
+                    continue
+
+                try:
+                    # Get prediction for this bar
+                    prediction = model_service.ensemble.predict_from_features(
+                        df_1h_slice,
+                        df_4h_slice if df_4h_slice is not None and len(df_4h_slice) > 0 else df_1h_slice,
+                        df_daily_slice if df_daily_slice is not None and len(df_daily_slice) > 0 else df_1h_slice,
+                    )
+
+                    # Check if prediction meets threshold and has clear direction
+                    # Direction can be int (1=long, -1/0=short) or string ("long"/"short")
+                    direction = prediction.direction
+                    if isinstance(direction, int):
+                        direction = "long" if direction == 1 else "short"
+
+                    # Check agreement requirement (at least 2 of 3 models agree)
+                    meets_agreement = (
+                        not require_agreement or
+                        prediction.agreement_count >= 2
+                    )
+
+                    if (prediction.confidence >= confidence_threshold and
+                        direction in ("long", "short") and
+                        meets_agreement):
+                        # Open new position at current bar's close
+                        current_position = {
+                            "entry_time": bar_time,
+                            "entry_price": bar["close"],
+                            "direction": direction,
+                            "confidence": prediction.confidence,
+                            "bars_held": 0,
+                        }
+
+                except Exception as e:
+                    logger.debug(f"Prediction failed for bar {bar_time}: {e}")
+                    continue
+
+        # Aggregate trades into daily results
+        daily_results = {}
+        for trade in completed_trades:
+            exit_date = trade["exit_time"].strftime("%Y-%m-%d")
+
+            if exit_date not in daily_results:
+                daily_results[exit_date] = {
+                    "date": exit_date,
+                    "trades": 0,
+                    "wins": 0,
+                    "daily_pnl": 0.0,
+                }
+
+            daily_results[exit_date]["trades"] += 1
+            daily_results[exit_date]["daily_pnl"] += trade["pips"]
+            if trade["is_winner"]:
+                daily_results[exit_date]["wins"] += 1
+
+        # Convert to sorted list and calculate cumulative P&L
+        daily_list = sorted(daily_results.values(), key=lambda x: x["date"])
+
+        cumulative_pnl = 0.0
+        for day in daily_list:
+            cumulative_pnl += day["daily_pnl"]
+            day["cumulative_pnl"] = round(cumulative_pnl, 1)
+            day["daily_pnl"] = round(day["daily_pnl"], 1)
+            day["win_rate"] = round(day["wins"] / day["trades"] * 100, 0) if day["trades"] > 0 else 0
+
+        # Calculate summary stats
+        total_trades = sum(d["trades"] for d in daily_list)
+        total_wins = sum(d["wins"] for d in daily_list)
+        total_pnl = sum(d["daily_pnl"] for d in daily_list)
+        profitable_days = sum(1 for d in daily_list if d["daily_pnl"] > 0)
+
+        return {
+            "daily_performance": daily_list,
+            "summary": {
+                "total_days": len(daily_list),
+                "profitable_days": profitable_days,
+                "total_trades": total_trades,
+                "total_wins": total_wins,
+                "win_rate": round(total_wins / total_trades * 100, 1) if total_trades > 0 else 0,
+                "total_pnl": round(total_pnl, 1),
+                "avg_daily_pnl": round(total_pnl / len(daily_list), 1) if daily_list else 0,
+                "confidence_threshold": confidence_threshold,
+                "require_agreement": require_agreement,
+                "tp_pips": TAKE_PROFIT_PIPS,
+                "sl_pips": STOP_LOSS_PIPS,
+                "max_holding_bars": MAX_HOLDING_BARS,
+            },
+            "data_source": "Historical simulation (Triple Barrier)",
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating what-if performance: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,4 +1,4 @@
-import { useMemo, memo } from 'react';
+import { useMemo, memo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   ComposedChart,
@@ -12,8 +12,9 @@ import {
   ReferenceLine,
   CartesianGrid,
 } from 'recharts';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, History, Activity } from 'lucide-react';
 import { getProfitUnitLabel, getAssetTypeLabel } from '../utils/assetFormatting';
+import { api } from '../api/client';
 
 // Constants
 const DAYS_TO_DISPLAY = 30;
@@ -60,12 +61,78 @@ CustomTooltip.propTypes = {
 };
 
 /**
+ * View mode toggle button component
+ */
+const ViewToggle = memo(function ViewToggle({ mode, onModeChange }) {
+  return (
+    <div className="flex gap-1 bg-gray-700/50 rounded-lg p-1">
+      <button
+        onClick={() => onModeChange('live')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+          mode === 'live'
+            ? 'bg-blue-600 text-white'
+            : 'text-gray-400 hover:text-white hover:bg-gray-600'
+        }`}
+        aria-pressed={mode === 'live'}
+      >
+        <Activity size={14} />
+        Live
+      </button>
+      <button
+        onClick={() => onModeChange('whatif')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+          mode === 'whatif'
+            ? 'bg-purple-600 text-white'
+            : 'text-gray-400 hover:text-white hover:bg-gray-600'
+        }`}
+        aria-pressed={mode === 'whatif'}
+      >
+        <History size={14} />
+        What If
+      </button>
+    </div>
+  );
+});
+
+ViewToggle.propTypes = {
+  mode: PropTypes.oneOf(['live', 'whatif']).isRequired,
+  onModeChange: PropTypes.func.isRequired,
+};
+
+/**
  * PerformanceChart - Displays 30-day daily P&L with cumulative line
+ * Supports both Live trading performance and What-If historical simulation
  */
 export function PerformanceChart({ trades, loading, error, assetMetadata }) {
   const profitUnit = getProfitUnitLabel(assetMetadata);
 
-  const chartData = useMemo(() => {
+  // View mode state: 'live' or 'whatif'
+  const [viewMode, setViewMode] = useState('whatif'); // Default to whatif since live may be empty
+  const [whatIfData, setWhatIfData] = useState(null);
+  const [whatIfLoading, setWhatIfLoading] = useState(false);
+  const [whatIfError, setWhatIfError] = useState(null);
+
+  // Fetch What-If data when mode changes to 'whatif'
+  useEffect(() => {
+    if (viewMode === 'whatif' && !whatIfData && !whatIfLoading) {
+      setWhatIfLoading(true);
+      setWhatIfError(null);
+
+      api.getWhatIfPerformance(30, 0.70)
+        .then(data => {
+          setWhatIfData(data);
+          setWhatIfLoading(false);
+        })
+        .catch(err => {
+          console.error('Failed to fetch What-If data:', err);
+          setWhatIfError(err.message || 'Failed to load simulation data');
+          setWhatIfLoading(false);
+        });
+    }
+  }, [viewMode, whatIfData, whatIfLoading]);
+
+  // Process live trades data
+  const liveChartData = useMemo(() => {
     if (!trades || !Array.isArray(trades) || trades.length === 0) {
       return [];
     }
@@ -140,6 +207,30 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
     return result;
   }, [trades]);
 
+  // Process What-If data for chart
+  const whatIfChartData = useMemo(() => {
+    if (!whatIfData?.daily_performance) {
+      return [];
+    }
+
+    return whatIfData.daily_performance.map(day => ({
+      date: new Date(day.date).toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric'
+      }),
+      daily_pnl: day.daily_pnl,
+      cumulative_pnl: day.cumulative_pnl,
+      trades: day.trades,
+      wins: day.wins,
+      win_rate: day.win_rate,
+    }));
+  }, [whatIfData]);
+
+  // Select chart data based on view mode
+  const chartData = viewMode === 'live' ? liveChartData : whatIfChartData;
+  const isLoading = viewMode === 'live' ? loading : whatIfLoading;
+  const displayError = viewMode === 'live' ? error : whatIfError;
+
   const { totalDays, profitableDays, totalPnl, maxDrawdown, bestDay, worstDay } = useMemo(() => {
     if (chartData.length === 0) {
       return { totalDays: 0, profitableDays: 0, totalPnl: 0, maxDrawdown: 0, bestDay: 0, worstDay: 0 };
@@ -181,27 +272,54 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
     };
   }, [chartData]);
 
-  if (loading) {
+  // Loading state
+  if (isLoading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6 h-[400px] animate-pulse">
-        <div className="h-4 bg-gray-700 rounded w-1/4 mb-4"></div>
-        <div className="h-full bg-gray-700/50 rounded"></div>
+      <div className="bg-gray-800 rounded-lg p-6 h-[400px]">
+        <div className="flex justify-between items-center mb-4">
+          <div className="h-4 bg-gray-700 rounded w-1/4 animate-pulse"></div>
+          <ViewToggle mode={viewMode} onModeChange={setViewMode} />
+        </div>
+        <div className="h-full bg-gray-700/50 rounded animate-pulse"></div>
       </div>
     );
   }
 
-  if (error) {
+  // Error state
+  if (displayError) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6 h-[400px] flex items-center justify-center">
-        <p className="text-red-400">{error}</p>
+      <div className="bg-gray-800 rounded-lg p-6 h-[400px]">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-300">30-Day Performance</h2>
+          <ViewToggle mode={viewMode} onModeChange={setViewMode} />
+        </div>
+        <div className="flex items-center justify-center h-[300px]">
+          <p className="text-red-400">{displayError}</p>
+        </div>
       </div>
     );
   }
 
+  // Empty state
   if (chartData.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6 h-[400px] flex items-center justify-center">
-        <p className="text-gray-500">No performance data available yet</p>
+      <div className="bg-gray-800 rounded-lg p-6 h-[400px]">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-300">30-Day Performance</h2>
+          <ViewToggle mode={viewMode} onModeChange={setViewMode} />
+        </div>
+        <div className="flex flex-col items-center justify-center h-[300px] text-center">
+          <p className="text-gray-500 mb-2">
+            {viewMode === 'live'
+              ? 'No live trading data available yet'
+              : 'No simulation data available'}
+          </p>
+          {viewMode === 'live' && (
+            <p className="text-gray-600 text-sm">
+              Switch to &quot;What If&quot; to see historical simulation
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -210,6 +328,9 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
   const profitablePercentage = totalDays > 0
     ? ((profitableDays / totalDays) * 100).toFixed(0)
     : 0;
+
+  // Summary info for What-If mode
+  const whatIfSummary = viewMode === 'whatif' && whatIfData?.summary;
 
   return (
     <div
@@ -220,7 +341,14 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-300">30-Day Performance</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-300">30-Day Performance</h2>
+            {viewMode === 'whatif' && (
+              <span className="px-2 py-0.5 bg-purple-600/20 text-purple-400 text-xs rounded-full">
+                Simulation
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3 mt-1">
             <span className={`text-2xl font-bold ${
               totalPnl >= 0 ? 'text-green-400' : 'text-red-400'
@@ -232,7 +360,14 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
               {totalDays} days • {profitableDays} profitable ({profitablePercentage}%)
             </span>
           </div>
+          {whatIfSummary && (
+            <p className="text-xs text-gray-500 mt-1">
+              {whatIfSummary.total_trades} trades • {whatIfSummary.win_rate}% win rate •
+              {whatIfSummary.confidence_threshold * 100}% confidence threshold
+            </p>
+          )}
         </div>
+        <ViewToggle mode={viewMode} onModeChange={setViewMode} />
       </div>
       {/* Screen reader summary */}
       <span className="sr-only">
@@ -298,10 +433,10 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
               yAxisId="right"
               type="monotone"
               dataKey="cumulative_pnl"
-              stroke="#3b82f6"
+              stroke={viewMode === 'whatif' ? '#a855f7' : '#3b82f6'}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: '#3b82f6' }}
+              activeDot={{ r: 4, fill: viewMode === 'whatif' ? '#a855f7' : '#3b82f6' }}
               isAnimationActive={false}
             />
           </ComposedChart>
@@ -310,8 +445,17 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
 
       {/* Chart explanation */}
       <p className="text-xs text-gray-500 mt-3">
-        Historical performance of AI recommendations for {getAssetTypeLabel(assetMetadata).toLowerCase()} trading.
-        Green/red bars show daily profit or loss in {profitUnit}, while the blue line tracks cumulative results over time.
+        {viewMode === 'whatif' ? (
+          <>
+            Historical simulation showing what would have happened following AI predictions over the last 30 days.
+            Based on {whatIfSummary?.confidence_threshold * 100 || 70}% confidence threshold.
+          </>
+        ) : (
+          <>
+            Live performance of AI recommendations for {getAssetTypeLabel(assetMetadata).toLowerCase()} trading.
+            Green/red bars show daily profit or loss in {profitUnit}, while the blue line tracks cumulative results over time.
+          </>
+        )}
       </p>
 
       {/* Statistics footer */}

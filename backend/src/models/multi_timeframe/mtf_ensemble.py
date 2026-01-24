@@ -90,6 +90,9 @@ class MTFEnsembleConfig:
     # Optimized hyperparameters (from Optuna optimization)
     optimized_hyperparams: Optional[Dict[str, Dict[str, Any]]] = None  # Dict[timeframe, hyperparams]
 
+    # Gradient boosting framework selection
+    model_type: str = "xgboost"  # Options: "xgboost", "lightgbm", "catboost"
+
     @classmethod
     def default(cls) -> "MTFEnsembleConfig":
         """Default configuration with 60/30/10 weights."""
@@ -260,6 +263,10 @@ class MTFEnsemble:
                 if tf in self.config.optimized_hyperparams:
                     cfg.hyperparams = self.config.optimized_hyperparams[tf]
                     logger.info(f"{tf} model: Using optimized hyperparameters from Optuna")
+
+        # Apply model_type to all timeframe models
+        for tf, cfg in self.model_configs.items():
+            cfg.model_type = self.config.model_type
 
         # Create model instances
         for tf, cfg in self.model_configs.items():
@@ -804,7 +811,7 @@ class MTFEnsemble:
                 probs_up[tf] = 0.5
                 continue
 
-            # Get features for latest bar
+            # Get features for latest bar - must match exact order and count from training
             feature_cols = model.feature_names
             available_cols = [c for c in feature_cols if c in df_features.columns]
 
@@ -818,7 +825,12 @@ class MTFEnsemble:
                 probs_up[tf] = 0.5
                 continue
 
-            X = df_features[available_cols].iloc[-1:].values
+            # Build full feature array with zeros for missing columns (scaler requires exact feature count)
+            X = np.zeros((1, len(feature_cols)))
+            for i, col in enumerate(feature_cols):
+                if col in df_features.columns:
+                    val = df_features[col].iloc[-1]
+                    X[0, i] = val if not pd.isna(val) else 0.0
 
             # Handle NaN values
             nan_count = np.isnan(X).sum()

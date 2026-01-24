@@ -104,6 +104,64 @@ export const api = {
 
   // Backtest data for What If Calculator
   getBacktestPeriods: () => request('/trading/backtest-periods'),
+
+  // What-If Performance simulation (30-day historical simulation)
+  getWhatIfPerformance: (days = 30, confidenceThreshold = 0.70) =>
+    request(`/trading/whatif-performance?days=${days}&confidence_threshold=${confidenceThreshold}`),
+
+  // Agent control
+  startAgent: (config) => request('/agent/start', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  }),
+  stopAgent: (options) => request('/agent/stop', {
+    method: 'POST',
+    body: JSON.stringify(options),
+  }),
+  pauseAgent: () => request('/agent/pause', { method: 'POST' }),
+  resumeAgent: () => request('/agent/resume', { method: 'POST' }),
+
+  // Agent status
+  getAgentStatus: () => request('/agent/status'),
+  getAgentMetrics: (period = 'all') => request(`/agent/metrics?period=${period}`),
+  getAgentSafety: () => request('/agent/safety'),
+
+  // Agent config
+  updateAgentConfig: (config) => request('/agent/config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  }),
+
+  // Kill switch
+  triggerKillSwitch: (reason) => request('/agent/kill-switch', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'trigger', reason }),
+  }),
+  resetKillSwitch: () => request('/agent/kill-switch', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'reset' }),
+  }),
+  getKillSwitchResetCode: () => request('/agent/safety/kill-switch/reset-code', { method: 'POST' }),
+
+  // Command status
+  getCommandStatus: (commandId) => request(`/agent/commands/${commandId}`),
+  listCommands: (limit = 20, offset = 0, status = null) => {
+    const params = new URLSearchParams({ limit, offset });
+    if (status) params.append('status', status);
+    return request(`/agent/commands?${params}`);
+  },
+
+  // Safety
+  getSafetyEvents: (limit = 50, breakerType = null, severity = null) => {
+    const params = new URLSearchParams({ limit });
+    if (breakerType) params.append('breaker_type', breakerType);
+    if (severity) params.append('severity', severity);
+    return request(`/agent/safety/events?${params}`);
+  },
+  resetCircuitBreaker: (breakerName) => request('/agent/safety/circuit-breakers/reset', {
+    method: 'POST',
+    body: JSON.stringify({ breaker_name: breakerName }),
+  }),
 };
 
 export { APIError };

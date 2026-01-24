@@ -67,6 +67,11 @@ class ModelService:
         """Check if service is initialized."""
         return self._initialized
 
+    @property
+    def ensemble(self):
+        """Get the MTF Ensemble model (read-only access)."""
+        return self._ensemble
+
     def initialize(self, warm_up: bool = True) -> bool:
         """Initialize model service by loading the ensemble.
 
