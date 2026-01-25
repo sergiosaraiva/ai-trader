@@ -21,15 +21,18 @@
 
 Production-ready **Multi-Timeframe (MTF) Ensemble** forex trading system using XGBoost models (1H, 4H, Daily) with sentiment analysis. Includes React frontend + FastAPI backend.
 
-**Status:** WFO Validated | Docker/Railway Ready
+**Status:** WFO Validated | Docker/Railway Ready | Tier 1 Risk Management Active
 
-| Metric | Value (All Time) | Value (70% Conf) |
+| Metric | Value (All Time) | Value (75% Conf) |
 |--------|------------------|------------------|
-| Total Pips | +14,637 | +13,718 |
-| Win Rate | 50.8% | 53.1% |
-| Profit Factor | 1.58x | 1.75x |
-| Total Trades | 3,801 | 2,853 |
+| Total Pips | +15,705 | +14,890 |
+| Win Rate | 53.5% | 54.8% |
+| Profit Factor | 1.75x | 1.85x |
+| Max Drawdown | 15.1% | ~12% |
+| Total Trades | 3,298 | 2,815 |
 | WFO Windows | 8/8 profitable (100% consistency) |
+
+**Risk Management (Tier 1):** Progressive position reduction + 15% circuit breaker
 
 ## Architecture
 

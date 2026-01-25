@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "last_updated": "2026-01-23T09:32:34.388341",
+    "last_updated": "2026-01-25T10:45:01.099334",
     "generated_by": "walk_forward_optimization.py",
-    "confidence_threshold": 0.55,
+    "confidence_threshold": 0.7,
     "model_version": "mtf_ensemble_v1",
     "total_windows": 8,
     "position_sizing": {
@@ -14,13 +14,13 @@
   "periods": {
     "6m": {
       "label": "Last 6 Months",
-      "total_pips": 1218,
-      "win_rate": 49.878,
-      "profit_factor": 1.41,
-      "total_trades": 409,
-      "total_return_pct": 201.05,
-      "max_drawdown_pct": 18.4,
-      "total_pnl_usd": 20104.67,
+      "total_pips": 1454,
+      "win_rate": 52.32,
+      "profit_factor": 1.54,
+      "total_trades": 388,
+      "total_return_pct": 197.22,
+      "max_drawdown_pct": 11.98,
+      "total_pnl_usd": 19722.09,
       "period_start": "2025-07-01",
       "period_end": "2025-12-30",
       "period_years": 0.5,
@@ -28,13 +28,13 @@
     },
     "1y": {
       "label": "Last Year",
-      "total_pips": 2240,
-      "win_rate": 46.768,
-      "profit_factor": 1.31,
-      "total_trades": 990,
-      "total_return_pct": 343.22,
-      "max_drawdown_pct": 42.19,
-      "total_pnl_usd": 34322.33,
+      "total_pips": 2799,
+      "win_rate": 50.0,
+      "profit_factor": 1.46,
+      "total_trades": 826,
+      "total_return_pct": 382.0,
+      "max_drawdown_pct": 15.11,
+      "total_pnl_usd": 38236.46,
       "period_start": "2025-01-01",
       "period_end": "2025-12-30",
       "period_years": 1.0,
@@ -42,13 +42,13 @@
     },
     "2y": {
       "label": "Last 2 Years",
-      "total_pips": 5918,
-      "win_rate": 50.912,
-      "profit_factor": 1.62,
-      "total_trades": 1699,
-      "total_return_pct": 1354.95,
-      "max_drawdown_pct": 42.19,
-      "total_pnl_usd": 135495.18,
+      "total_pips": 6668,
+      "win_rate": 53.737,
+      "profit_factor": 1.77,
+      "total_trades": 1485,
+      "total_return_pct": 1395.37,
+      "max_drawdown_pct": 15.11,
+      "total_pnl_usd": 139574.27,
       "period_start": "2024-01-01",
       "period_end": "2025-12-30",
       "period_years": 2.0,
@@ -56,13 +56,13 @@
     },
     "3y": {
       "label": "Last 3 Years",
-      "total_pips": 8225,
-      "win_rate": 49.58,
-      "profit_factor": 1.52,
-      "total_trades": 2622,
-      "total_return_pct": 1839.21,
-      "max_drawdown_pct": 42.19,
-      "total_pnl_usd": 183921.43,
+      "total_pips": 8981,
+      "win_rate": 51.909,
+      "profit_factor": 1.64,
+      "total_trades": 2331,
+      "total_return_pct": 1710.44,
+      "max_drawdown_pct": 15.11,
+      "total_pnl_usd": 171080.92,
       "period_start": "2023-01-01",
       "period_end": "2025-12-30",
       "period_years": 3.0,
@@ -70,13 +70,13 @@
     },
     "5y": {
       "label": "All Time (4 Years)",
-      "total_pips": 14637,
-      "win_rate": 50.776,
-      "profit_factor": 1.58,
-      "total_trades": 3801,
-      "total_return_pct": 4169.53,
-      "max_drawdown_pct": 42.19,
-      "total_pnl_usd": 416953.22,
+      "total_pips": 15705,
+      "win_rate": 53.457,
+      "profit_factor": 1.75,
+      "total_trades": 3298,
+      "total_return_pct": 4068.12,
+      "max_drawdown_pct": 15.11,
+      "total_pnl_usd": 406848.46,
       "period_start": "2022-01-01",
       "period_end": "2025-12-31",
       "period_years": 4.0,
@@ -116,34 +116,34 @@
   },
   "by_threshold": {
     "0.55": {
-      "total_trades": 3801,
-      "total_pips": 14637.0,
-      "win_rate": 50.8,
-      "profit_factor": 1.56
+      "total_trades": 3298,
+      "total_pips": 15705.4,
+      "win_rate": 53.5,
+      "profit_factor": 1.74
     },
     "0.60": {
-      "total_trades": 3502,
-      "total_pips": 15154.2,
-      "win_rate": 52.1,
-      "profit_factor": 1.66
+      "total_trades": 3298,
+      "total_pips": 15705.4,
+      "win_rate": 53.5,
+      "profit_factor": 1.74
     },
     "0.65": {
-      "total_trades": 3190,
-      "total_pips": 14371.3,
-      "win_rate": 52.4,
-      "profit_factor": 1.69
+      "total_trades": 3298,
+      "total_pips": 15705.4,
+      "win_rate": 53.5,
+      "profit_factor": 1.74
     },
     "0.70": {
-      "total_trades": 2853,
-      "total_pips": 13717.5,
-      "win_rate": 53.1,
-      "profit_factor": 1.75
+      "total_trades": 3298,
+      "total_pips": 15705.4,
+      "win_rate": 53.5,
+      "profit_factor": 1.74
     },
     "0.75": {
-      "total_trades": 2553,
-      "total_pips": 13205.2,
-      "win_rate": 54.2,
-      "profit_factor": 1.83
+      "total_trades": 2815,
+      "total_pips": 14890.2,
+      "win_rate": 54.8,
+      "profit_factor": 1.85
     }
   }
 }

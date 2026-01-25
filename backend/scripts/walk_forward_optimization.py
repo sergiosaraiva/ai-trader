@@ -284,6 +284,49 @@ def load_data(data_path: Path) -> pd.DataFrame:
 CONFIDENCE_THRESHOLDS = [0.55, 0.60, 0.65, 0.70, 0.75]
 
 
+def get_drawdown_position_multiplier(current_drawdown: float, max_allowed: float = 0.15) -> float:
+    """
+    Progressive position reduction based on current drawdown.
+
+    This multiplier compounds with consecutive loss reduction to provide
+    aggressive capital preservation. For example, if you have 2 consecutive
+    losses (50% risk) and 8% drawdown (50% multiplier), your effective
+    position size is: 50% × 50% = 25% of base risk.
+
+    Levels:
+    - 0-5% DD: Full size (1.0x)
+    - 5-7.5% DD: 75% size (0.75x)
+    - 7.5-10% DD: 50% size (0.50x)
+    - 10-15% DD: 25% size (0.25x)
+    - 15%+ DD: No trading (0x)
+
+    Args:
+        current_drawdown: Current drawdown as decimal (e.g., 0.10 = 10%)
+        max_allowed: Maximum allowed drawdown before halt (default: 0.15 = 15%)
+
+    Returns:
+        Position size multiplier (0.0 to 1.0)
+
+    Example:
+        >>> get_drawdown_position_multiplier(0.03)  # 3% drawdown
+        1.0
+        >>> get_drawdown_position_multiplier(0.08)  # 8% drawdown
+        0.5
+        >>> get_drawdown_position_multiplier(0.16)  # 16% drawdown
+        0.0
+    """
+    if current_drawdown < 0.05:
+        return 1.0
+    elif current_drawdown < 0.075:
+        return 0.75
+    elif current_drawdown < 0.10:
+        return 0.50
+    elif current_drawdown < max_allowed:
+        return 0.25
+    else:
+        return 0.0
+
+
 def calculate_threshold_metrics(trades_df: pd.DataFrame, thresholds: List[float] = None) -> Dict[str, Dict]:
     """Calculate performance metrics at multiple confidence thresholds.
 
@@ -338,7 +381,7 @@ def calculate_threshold_metrics(trades_df: pd.DataFrame, thresholds: List[float]
 def run_window_backtest(
     ensemble: MTFEnsemble,
     df_5min: pd.DataFrame,
-    min_confidence: float = 0.55,
+    min_confidence: float = 0.70,
     min_agreement: float = 0.5,
     tp_pips: float = 25.0,
     sl_pips: float = 15.0,
@@ -535,6 +578,26 @@ def run_window_backtest(
             # This ensures we lose exactly risk_amount if stopped out
             position_lots = risk_amount / (sl_pips * pip_dollar_value)
 
+            # Apply drawdown-based position reduction
+            # Risk is reduced by BOTH consecutive losses AND current drawdown level
+            # These reductions compound: e.g., 2 consecutive losses (50%) × 8% DD (50%) = 25% of base risk
+            # This aggressive capital preservation helps limit max drawdown during adverse periods
+            current_dd = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
+            dd_multiplier = get_drawdown_position_multiplier(current_dd)
+            position_lots = position_lots * dd_multiplier
+
+            # Log drawdown multiplier when position is reduced
+            if dd_multiplier < 1.0:
+                logger.debug(
+                    f"Drawdown-based position reduction: DD={current_dd:.1%}, "
+                    f"multiplier={dd_multiplier:.0%}, position={position_lots:.2f} lots"
+                )
+
+            # Skip trade if drawdown multiplier is 0 (at or beyond max drawdown)
+            if position_lots <= 0:
+                i += 1
+                continue
+
             # Cap position size to reasonable limits (max 5 lots for realistic trading)
             position_lots = min(position_lots, 5.0)
 
@@ -606,6 +669,15 @@ def run_window_backtest(
                 peak_balance = balance
             current_drawdown = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
             max_drawdown = max(max_drawdown, current_drawdown)
+
+            # CIRCUIT BREAKER - halt trading at max allowed drawdown
+            MAX_ALLOWED_DRAWDOWN = 0.15
+            if current_drawdown >= MAX_ALLOWED_DRAWDOWN:
+                logger.warning(
+                    f"Circuit breaker triggered: Drawdown {current_drawdown:.1%} >= "
+                    f"{MAX_ALLOWED_DRAWDOWN:.0%}, halting trading for this window"
+                )
+                break
 
             trades.append({
                 "direction": direction,
@@ -700,7 +772,7 @@ def run_wfo_window(
     df_5min: pd.DataFrame,
     config: MTFEnsembleConfig,
     output_dir: Path,
-    min_confidence: float = 0.55,
+    min_confidence: float = 0.70,
     initial_balance: float = 10000.0,
     risk_per_trade: float = 0.02,
     reduce_risk_on_losses: bool = True,
@@ -1143,8 +1215,8 @@ def main():
         help="Step size in months between windows"
     )
     parser.add_argument(
-        "--confidence", type=float, default=0.55,
-        help="Minimum confidence threshold for trading"
+        "--confidence", type=float, default=0.70,
+        help="Minimum confidence threshold for trading (default: 0.70)"
     )
     parser.add_argument(
         "--sentiment", action="store_true",
