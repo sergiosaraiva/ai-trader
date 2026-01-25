@@ -279,6 +279,13 @@ def main():
         action="store_true",
         help="Use hyperparameters optimized by optimize_hyperparameters.py (from configs/optimized_hyperparams.json)",
     )
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        choices=["xgboost", "lightgbm", "catboost"],
+        default="xgboost",
+        help="Gradient boosting framework to use (default: xgboost)",
+    )
     args = parser.parse_args()
 
     # Parse weights and timeframes first
@@ -377,6 +384,7 @@ def main():
         print(f"  CV folds:  {args.rfecv_cv_folds}")
     print(f"Calibration: {'ENABLED (isotonic regression)' if args.calibration else 'disabled'}")
     print(f"Optimized:   {'USING OPTIMIZED HYPERPARAMETERS' if args.use_optimized_params else 'using defaults'}")
+    print(f"Model Type:  {args.model_type.upper()}")
     print("=" * 70)
 
     # Load optimized hyperparameters if requested
@@ -425,6 +433,7 @@ def main():
         rfecv_config=rfecv_config,
         use_calibration=args.calibration,
         optimized_hyperparams=optimized_hyperparams,
+        model_type=args.model_type,
     )
 
     # Load data

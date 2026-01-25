@@ -1,4 +1,5 @@
 import { TrendingUp, Target, CheckCircle, Shield, AlertCircle, DollarSign } from 'lucide-react';
+import { CollapsibleCard } from './common/CollapsibleCard';
 
 /**
  * ModelHighlights - Displays key model performance highlights
@@ -91,34 +92,35 @@ export function ModelHighlights({ performance, loading, error }) {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-200 mb-2">{summary.headline}</h2>
-        <p className="text-sm text-gray-400 leading-relaxed">{summary.description}</p>
-      </div>
+    <CollapsibleCard
+      title={summary.headline}
+      icon={<TrendingUp size={20} />}
+      className="card-hover"
+    >
+      {/* Description */}
+      <p className="text-sm text-gray-400 leading-relaxed mb-4">{summary.description}</p>
 
       {/* Highlights Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {highlights.map((highlight, index) => (
           <div
             key={index}
-            className="bg-gray-700/50 rounded-lg p-4 hover:bg-gray-700/70 transition-colors"
+            className="bg-gray-700/50 rounded-lg p-3 hover:bg-gray-700/70 transition-colors"
           >
             {/* Icon and Title */}
-            <div className="flex items-start gap-3 mb-3">
+            <div className="flex items-start gap-2 mb-2">
               <div className="flex-shrink-0 mt-0.5">
                 {getIcon(highlight.type, highlight.status)}
               </div>
               <div className="flex-grow">
-                <h3 className="text-sm font-medium text-gray-300 leading-tight">
+                <h3 className="text-xs font-medium text-gray-300 leading-tight">
                   {highlight.title}
                 </h3>
               </div>
             </div>
 
             {/* Value */}
-            <div className={`text-3xl font-bold mb-2 ${getStatusColor(highlight.status)}`}>
+            <div className={`text-2xl font-bold mb-1.5 ${getStatusColor(highlight.status)}`}>
               {highlight.value}
             </div>
 
@@ -131,12 +133,12 @@ export function ModelHighlights({ performance, loading, error }) {
       </div>
 
       {/* Footer Note */}
-      <div className="mt-4 pt-4 border-t border-gray-700">
+      <div className="mt-3 pt-3 border-t border-gray-700">
         <p className="text-xs text-gray-500 text-center">
           Metrics based on {performance?.metrics?.total_trades?.toLocaleString() ?? 'N/A'} trades with {performance?.metrics?.high_confidence?.threshold ? `${(performance.metrics.high_confidence.threshold * 100).toFixed(0)}%` : 'high'} confidence threshold
         </p>
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
 

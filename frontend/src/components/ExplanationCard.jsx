@@ -1,5 +1,6 @@
 import { Sparkles, RefreshCw, AlertCircle } from 'lucide-react';
 import PropTypes from 'prop-types';
+import { CollapsibleCard } from './common/CollapsibleCard';
 
 /**
  * ExplanationCard - Displays AI-generated explanation of the trading recommendation
@@ -49,39 +50,40 @@ export function ExplanationCard({ explanation, loading, error, onRefresh }) {
     return null;
   }
 
-  return (
-    <div
-      className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/20 rounded-lg p-4"
-      role="region"
-      aria-label="AI Analysis Explanation"
+  const refreshButton = onRefresh && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onRefresh();
+      }}
+      className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-gray-800/50 rounded transition-colors flex-shrink-0"
+      title="Refresh explanation"
+      aria-label="Refresh explanation"
     >
-      <div className="flex items-start justify-between gap-3">
+      <RefreshCw size={14} />
+    </button>
+  );
+
+  return (
+    <CollapsibleCard
+      title="AI Analysis"
+      icon={<Sparkles size={18} />}
+      className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/20"
+      actions={refreshButton}
+    >
+      <div className="flex items-start gap-3">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={18} className="text-blue-400" aria-hidden="true" />
-            <h2 className="text-sm font-medium text-blue-300">AI Analysis</h2>
-            {explanation.cached && (
-              <span className="text-xs text-gray-500 bg-gray-800/50 px-1.5 py-0.5 rounded">
-                cached
-              </span>
-            )}
-          </div>
+          {explanation.cached && (
+            <span className="text-xs text-gray-500 bg-gray-800/50 px-1.5 py-0.5 rounded mb-2 inline-block">
+              cached
+            </span>
+          )}
           <p className="text-gray-300 text-sm leading-relaxed">
             {explanation.explanation}
           </p>
         </div>
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-gray-800/50 rounded transition-colors flex-shrink-0"
-            title="Refresh explanation"
-            aria-label="Refresh explanation"
-          >
-            <RefreshCw size={14} />
-          </button>
-        )}
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
 

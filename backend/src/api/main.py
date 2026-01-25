@@ -8,13 +8,14 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import predictions, trading, health, market, pipeline, cron, performance
+from .routes import predictions, trading, health, market, pipeline, cron, performance, agent
 from .database.session import init_db
 from .services.data_service import data_service
 from .services.model_service import model_service
 from .services.trading_service import trading_service
 from .services.pipeline_service import pipeline_service
 from .utils.logging import log_exception
+from .utils.rate_limiter import setup_rate_limiting
 
 # Configure logging
 logging.basicConfig(
@@ -175,6 +176,9 @@ def create_app() -> FastAPI:
 
     logger.info(f"CORS enabled for origins: {cors_origins}")
 
+    # Setup rate limiting
+    setup_rate_limiting(app)
+
     # Include routers
     app.include_router(health.router, tags=["Health"])
     app.include_router(predictions.router, prefix="/api/v1", tags=["Predictions"])
@@ -183,6 +187,7 @@ def create_app() -> FastAPI:
     app.include_router(pipeline.router, prefix="/api/v1", tags=["Pipeline"])
     app.include_router(cron.router, prefix="/api/v1", tags=["Cron"])
     app.include_router(performance.router, prefix="/api/v1", tags=["Performance"])
+    app.include_router(agent.router, tags=["Agent"])
 
     return app
 

@@ -1,6 +1,12 @@
 # Framework Error Report
 
-Use this template when an agent or skill produces incorrect behavior. Save completed reports to `.claude/improvement/errors/YYYY-MM-DD-[description].md`.
+Use this template when an agent or skill produces incorrect behavior. Save completed reports to `.claude/improvement/errors/ERR-YYYY-MM-DD-NNN-[description].md`.
+
+**Best Practices Applied:**
+- Chain-of-thought verification for root cause analysis
+- Verbatim quote requirements from source files
+- Iterative refinement for complex issues
+- Anti-hallucination verification gates
 
 ---
 
@@ -19,9 +25,18 @@ Use this template when an agent or skill produces incorrect behavior. Save compl
 | Severity | Definition | Response Time | Examples |
 |----------|------------|---------------|----------|
 | **Critical** | Agent/skill completely broken, blocks all work, or YAML format prevents loading | Same day | Skill won't load, agent produces dangerous output |
-| **High** | Wrong guidance that could cause bugs or security issues | 2 days | Incorrect pattern causes runtime errors |
+| **High** | Wrong guidance that could cause bugs or security issues, hallucination errors | 2 days | Incorrect pattern causes runtime errors, made-up file paths |
 | **Medium** | Suboptimal guidance, workaround exists | 1 week | Missing consideration, outdated line numbers |
 | **Low** | Minor improvement, nice-to-have | 2 weeks | Cosmetic, edge case, documentation typo |
+
+### Automatic Escalation Rules
+
+| Condition | Action |
+|-----------|--------|
+| Same error 3+ times in 30 days | Escalate to Critical |
+| Error affects >1 agent | Escalate one level |
+| Error in meta-skill (routing/improvement) | Escalate to High minimum |
+| YAML validation failure | Critical (blocks framework) |
 
 ### Auto-Classification Rules
 
@@ -105,6 +120,27 @@ Use this template when an agent or skill produces incorrect behavior. Save compl
 
 ## Root Cause Analysis
 
+### Chain-of-Thought Analysis
+
+**Use this structured approach to identify root cause:**
+
+```
+Step 1: What was the exact input/request?
+[Describe the trigger]
+
+Step 2: What did the agent/skill actually do?
+[Describe observed behavior with evidence]
+
+Step 3: What should have happened instead?
+[Describe expected behavior with codebase evidence]
+
+Step 4: At what point did behavior diverge?
+[Identify the specific failure point]
+
+Step 5: Why did it diverge at that point?
+[Identify root cause - not symptoms]
+```
+
 ### Error Type
 
 Check the primary category:
@@ -118,6 +154,7 @@ Check the primary category:
 - [ ] **Incomplete Guardrails**: Validation didn't catch invalid approach (Low)
 - [ ] **Ambiguous Instructions**: Skill instructions unclear or contradictory (Low)
 - [ ] **Context Limit**: Important information fell out of context window (Low)
+- [ ] **Missing Verification**: Agent didn't verify claims against codebase (Medium)
 
 ### Root Cause Details
 
@@ -132,10 +169,12 @@ The skill's example code no longer matches the actual implementation.
 
 ### Ground Truth Verification
 
+**REQUIRED: Provide verbatim quotes from source files to establish ground truth.**
+
 How was the correct behavior confirmed?
 
 - [ ] Checked actual codebase files
-  - Files checked: [list]
+  - Files checked: [list with file:line references]
 - [ ] Consulted team expert
   - Expert: [name]
 - [ ] Reviewed documentation
@@ -145,11 +184,24 @@ How was the correct behavior confirmed?
 - [ ] Examined git history
   - Relevant commits: [list]
 
-### Supporting Evidence
+### Supporting Evidence (Verbatim Quotes Required)
 
+**Source File 1**: `[filepath:line_number]`
 ```
-[Paste actual codebase content that shows the correct pattern]
+[EXACT verbatim content from file - do not paraphrase]
 ```
+
+**Source File 2** (if applicable): `[filepath:line_number]`
+```
+[EXACT verbatim content from file]
+```
+
+### Anti-Hallucination Checklist
+
+- [ ] All file paths verified to exist using `ls` or `Read` tool
+- [ ] All line numbers verified by reading actual file content
+- [ ] All pattern claims supported by verbatim quotes
+- [ ] No assumptions made about file contents without verification
 
 ---
 
@@ -165,8 +217,19 @@ Check all that apply:
 - [ ] Fix agent workflow: ________________________
 - [ ] Improve skill-router: ________________________
 - [ ] Add guardrails: ________________________
+- [ ] Add verification requirement: ________________________
+- [ ] Add grounding instruction: ________________________
 - [ ] Update CLAUDE.md: ________________________
 - [ ] No framework change (user error or edge case)
+
+### Iterative Refinement Plan
+
+For complex issues, define verification steps:
+
+| Step | Change | Verification | Rollback Criteria |
+|------|--------|--------------|-------------------|
+| 1 | [Change] | [How to verify] | [When to revert] |
+| 2 | [Change] | [How to verify] | [When to revert] |
 
 ### Specific Updates Required
 
@@ -250,6 +313,8 @@ This scenario should be tested after the fix:
 - [ ] Add test case to validation suite
 - [ ] Re-run validation on this specific scenario
 - [ ] Verify no regressions in related scenarios
+- [ ] Add anti-hallucination guardrail if error type was hallucination
+- [ ] Add verification requirement if error type was missing verification
 
 ### Commit Information
 
@@ -300,3 +365,4 @@ YYYY-MM-DD
 | **Resolved** | YYYY-MM-DD |
 | **Resolution PR** | [Link if applicable] |
 | **Time to Resolution** | [X days] |
+| **Recurrence Prevention Score** | [1-5, how likely fix prevents recurrence] |

@@ -18,6 +18,17 @@ from .market import (
     CandleResponse,
     CandlesResponse,
 )
+from .agent import (
+    AgentStartRequest,
+    AgentStopRequest,
+    AgentConfigUpdateRequest,
+    KillSwitchRequest,
+    CommandResponse,
+    AgentStatusResponse,
+    AgentMetricsResponse,
+    CommandStatusResponse,
+    CommandListResponse,
+)
 
 __all__ = [
     "AssetMetadata",
@@ -32,4 +43,13 @@ __all__ = [
     "MarketInfoResponse",
     "CandleResponse",
     "CandlesResponse",
+    "AgentStartRequest",
+    "AgentStopRequest",
+    "AgentConfigUpdateRequest",
+    "KillSwitchRequest",
+    "CommandResponse",
+    "AgentStatusResponse",
+    "AgentMetricsResponse",
+    "CommandStatusResponse",
+    "CommandListResponse",
 ]

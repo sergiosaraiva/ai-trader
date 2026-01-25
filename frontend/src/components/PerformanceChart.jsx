@@ -1,4 +1,5 @@
 import { useMemo, memo, useState, useEffect } from 'react';
+import { CollapsibleCard } from './common/CollapsibleCard';
 import PropTypes from 'prop-types';
 import {
   ComposedChart,
@@ -332,43 +333,40 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
   // Summary info for What-If mode
   const whatIfSummary = viewMode === 'whatif' && whatIfData?.summary;
 
+  const modeToggle = <ViewToggle mode={viewMode} onModeChange={setViewMode} />;
+
   return (
-    <div
-      className="bg-gray-800 rounded-lg p-6 card-hover"
-      role="region"
-      aria-label="30-day trading performance chart"
+    <CollapsibleCard
+      title="30-Day Performance"
+      icon={<Activity size={18} />}
+      className="card-hover"
+      actions={modeToggle}
     >
-      {/* Header */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-300">30-Day Performance</h2>
-            {viewMode === 'whatif' && (
-              <span className="px-2 py-0.5 bg-purple-600/20 text-purple-400 text-xs rounded-full">
-                Simulation
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            <span className={`text-2xl font-bold ${
-              totalPnl >= 0 ? 'text-green-400' : 'text-red-400'
-            }`}>
-              {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(1)} {profitUnit}
-            </span>
-            <span className="flex items-center gap-1 text-sm text-gray-400">
-              <TrendingUp size={16} aria-hidden="true" />
-              {totalDays} days • {profitableDays} profitable ({profitablePercentage}%)
-            </span>
-          </div>
-          {whatIfSummary && (
-            <p className="text-xs text-gray-500 mt-1">
-              {whatIfSummary.total_trades} trades • {whatIfSummary.win_rate}% win rate •
-              {whatIfSummary.confidence_threshold * 100}% confidence threshold
-            </p>
-          )}
-        </div>
-        <ViewToggle mode={viewMode} onModeChange={setViewMode} />
+      {/* Status Badge */}
+      {viewMode === 'whatif' && (
+        <span className="px-2 py-0.5 bg-purple-600/20 text-purple-400 text-xs rounded-full mb-2 inline-block">
+          Simulation
+        </span>
+      )}
+
+      <div className="flex items-center gap-3 mb-4">
+        <span className={`text-2xl font-bold ${
+          totalPnl >= 0 ? 'text-green-400' : 'text-red-400'
+        }`}>
+          {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(1)} {profitUnit}
+        </span>
+        <span className="flex items-center gap-1 text-sm text-gray-400">
+          <TrendingUp size={16} aria-hidden="true" />
+          {totalDays} days • {profitableDays} profitable ({profitablePercentage}%)
+        </span>
       </div>
+      {whatIfSummary && (
+        <p className="text-xs text-gray-500 mb-4">
+          {whatIfSummary.total_trades} trades • {whatIfSummary.win_rate}% win rate •
+          {whatIfSummary.confidence_threshold * 100}% confidence threshold
+        </p>
+      )}
+
       {/* Screen reader summary */}
       <span className="sr-only">
         Total {profitUnit}: {totalPnl >= 0 ? 'positive' : 'negative'} {Math.abs(totalPnl).toFixed(1)}.
@@ -479,7 +477,7 @@ export function PerformanceChart({ trades, loading, error, assetMetadata }) {
           </p>
         </div>
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
 

@@ -1,5 +1,6 @@
 import { TrendingUp, Target, Percent, BarChart3, Zap, Award } from 'lucide-react';
 import { getProfitUnitLabel } from '../utils/assetFormatting';
+import { CollapsibleCard } from './common/CollapsibleCard';
 
 /**
  * PerformanceStats - Displays trading performance metrics
@@ -102,30 +103,33 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
   ];
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="Performance Metrics">
-      <h2 className="text-lg font-semibold text-gray-300 mb-4">Performance Metrics</h2>
+    <CollapsibleCard
+      title="Performance Metrics"
+      icon={<BarChart3 size={18} />}
+      className="card-hover"
+    >
       <p className="text-xs text-gray-500 mb-2">
         Based on backtested results with 75/10/15 weight configuration
       </p>
-      <p className="text-xs text-gray-600 mb-4">
+      <p className="text-xs text-gray-600 mb-3">
         <span className="text-green-400">High-conf</span> = predictions with ≥70% model confidence (fewer but more accurate trades)
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4" role="list">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3" role="list">
         {metrics.map((metric) => {
           const Icon = metric.icon;
           return (
             <div
               key={metric.label}
-              className={`${metric.bgColor} rounded-lg p-4 transition-transform hover:scale-105`}
+              className={`${metric.bgColor} rounded-lg p-3 transition-transform hover:scale-105`}
               role="listitem"
               aria-label={`${metric.label}: ${metric.prefix || ''}${metric.value}`}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <Icon size={16} className={metric.color} aria-hidden="true" />
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Icon size={14} className={metric.color} aria-hidden="true" />
                 <span className="text-xs text-gray-400">{metric.label}</span>
               </div>
-              <span className={`text-xl font-bold ${metric.color}`}>
+              <span className={`text-lg font-bold ${metric.color}`}>
                 {metric.prefix || ''}{metric.value}
               </span>
               {metric.subValue && (
@@ -139,17 +143,17 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
       </div>
 
       {/* Additional info */}
-      <div className="mt-4 pt-4 border-t border-gray-700">
-        <div className="flex items-center justify-between text-sm">
+      <div className="mt-3 pt-3 border-t border-gray-700">
+        <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500">Validation Method:</span>
           <span className="text-gray-300">Walk-Forward Optimization (7 windows)</span>
         </div>
-        <div className="flex items-center justify-between text-sm mt-2">
+        <div className="flex items-center justify-between text-xs mt-1">
           <span className="text-gray-500">WFO Success Rate:</span>
           <span className="text-green-400">100% (7/7 profitable)</span>
         </div>
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
 

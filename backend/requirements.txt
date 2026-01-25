@@ -39,6 +39,10 @@ mlflow>=2.8.0
 # Hyperparameter Optimization
 optuna>=3.5.0
 
+# Additional Gradient Boosting Frameworks
+lightgbm>=4.0.0
+catboost>=1.2.0
+
 # Explainability
 shap>=0.43.0
 

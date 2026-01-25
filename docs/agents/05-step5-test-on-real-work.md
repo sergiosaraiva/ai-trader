@@ -14,9 +14,15 @@ Validate the Agent-Skill framework by comparing development approaches on curren
 
 ---
 
-## PREREQUISITE: Framework Format Validation
+## PREREQUISITES
 
-**Before testing with real work, validate that all agents and skills are discoverable by Claude Code.**
+**Before testing with real work:**
+
+1. **Step 4.6 completed**: CLAUDE.md updated with agents and skills registry
+   - Verify: `grep -q "## AI Agents" CLAUDE.md`
+   - If missing, run Step 4.6 first - agents won't be automatically invoked without CLAUDE.md registration
+
+2. **Framework Format Validation**: All agents and skills are discoverable by Claude Code
 
 ### Step 0: Validate YAML Frontmatter (CRITICAL)
 

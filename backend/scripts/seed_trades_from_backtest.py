@@ -36,17 +36,63 @@ logger = logging.getLogger(__name__)
 # Paths
 DATA_DIR = Path(__file__).parent.parent / "data"
 DB_PATH = DATA_DIR / "db" / "trading.db"
+BACKTEST_RESULTS_PATH = DATA_DIR / "backtest_results.json"
 
-# Backtest statistics (from WFO validation with 70% confidence threshold)
-BACKTEST_STATS = {
-    "win_rate": 0.621,  # 62.1%
-    "avg_winner_pips": 20.5,
-    "avg_loser_pips": -12.3,
-    "trades_per_day": 1.8,  # Average trades per trading day
-    "tp_pips": 25.0,
-    "sl_pips": 15.0,
-    "avg_confidence": 0.76,
-}
+
+def load_backtest_stats() -> dict:
+    """Load backtest statistics from backtest_results.json (canonical source).
+
+    Uses 70% confidence threshold data for trade generation.
+    """
+    import json
+
+    default_stats = {
+        "win_rate": 0.50,
+        "avg_winner_pips": 20.0,
+        "avg_loser_pips": -12.0,
+        "trades_per_day": 1.5,
+        "tp_pips": 25.0,
+        "sl_pips": 15.0,
+        "avg_confidence": 0.75,
+    }
+
+    if not BACKTEST_RESULTS_PATH.exists():
+        logger.warning(f"Backtest results not found at {BACKTEST_RESULTS_PATH}, using defaults")
+        return default_stats
+
+    try:
+        with open(BACKTEST_RESULTS_PATH) as f:
+            data = json.load(f)
+
+        # Get 70% threshold data (primary) or 5y all-time (fallback)
+        threshold_70 = data.get("by_threshold", {}).get("0.70", {})
+        all_time = data.get("periods", {}).get("5y", {})
+
+        # Calculate win rate from threshold data or all-time
+        win_rate = threshold_70.get("win_rate", all_time.get("win_rate", 50)) / 100
+
+        # Calculate trades per day (total trades / trading days ~252 per year * years)
+        total_trades = threshold_70.get("total_trades", all_time.get("total_trades", 1000))
+        period_years = all_time.get("period_years", 4)
+        trades_per_day = total_trades / (period_years * 252)
+
+        return {
+            "win_rate": win_rate,
+            "avg_winner_pips": 20.0,  # Based on TP 25 pips minus slippage
+            "avg_loser_pips": -12.0,  # Based on SL 15 pips minus slippage
+            "trades_per_day": round(trades_per_day, 1),
+            "tp_pips": 25.0,
+            "sl_pips": 15.0,
+            "avg_confidence": 0.75,
+        }
+
+    except Exception as e:
+        logger.warning(f"Could not load backtest stats: {e}, using defaults")
+        return default_stats
+
+
+# Load backtest statistics dynamically from JSON
+BACKTEST_STATS = load_backtest_stats()
 
 
 def generate_trades(days: int = 45) -> list[dict]:

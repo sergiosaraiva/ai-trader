@@ -28,6 +28,9 @@ A Multi-Timeframe Ensemble Trading System using XGBoost for technical analysis-b
 - **Triple Barrier Labeling**: Realistic TP/SL/Timeout trade outcomes
 - **Confidence-Based Trading**: Higher accuracy on high-confidence signals
 - **6 Years of Data**: Trained on EUR/USD 2020-2025 (448K 5-minute bars)
+- **AI Trading Agent**: Autonomous trading with safety systems and real-time monitoring
+- **Web Dashboard**: React frontend for live predictions and performance tracking
+- **Docker Deployment**: Production-ready containerized deployment
 
 ## Quick Start
 
@@ -75,6 +78,155 @@ docker-compose up --build
 
 # Access the dashboard at http://localhost:3001
 # Access the API at http://localhost:8001/docs
+```
+
+## AI Trading Agent
+
+This project includes an autonomous AI Trading Agent that can execute trades based on MTF Ensemble predictions.
+
+### Quick Start with Agent
+
+```bash
+# 1. Start all services (includes agent in simulation mode)
+docker-compose up -d
+
+# 2. Check agent health
+curl http://localhost:8002/health
+
+# 3. View agent status
+curl http://localhost:8001/api/v1/agent/status
+
+# 4. View agent logs
+docker logs -f ai-trader-agent
+
+# 5. Monitor via web dashboard
+open http://localhost:3001
+```
+
+### Agent Features
+
+- **Three Trading Modes**: Simulation (backtesting), Paper (MT5 demo), Live (MT5 real)
+- **Safety Systems**: Circuit breakers, kill switch, daily loss limits
+- **Command Queue Pattern**: API queues commands; agent polls and executes asynchronously
+- **Crash Recovery**: Automatic recovery with state persistence
+- **Real-time Monitoring**: Performance metrics, win rate, profit factor
+- **Health Checks**: HTTP endpoints for container orchestration
+
+### Configuration
+
+Configure the agent via environment variables in `.env`:
+
+```bash
+# Agent Mode (simulation, paper, live)
+AGENT_MODE=simulation
+
+# Trading Parameters
+AGENT_CONFIDENCE_THRESHOLD=0.70
+AGENT_CYCLE_INTERVAL=60
+AGENT_MAX_POSITION_SIZE=0.1
+
+# Safety Settings
+AGENT_MAX_CONSECUTIVE_LOSSES=5
+AGENT_MAX_DRAWDOWN_PERCENT=10.0
+AGENT_MAX_DAILY_LOSS_PERCENT=5.0
+
+# MT5 Credentials (required for paper/live modes)
+AGENT_MT5_LOGIN=
+AGENT_MT5_PASSWORD=
+AGENT_MT5_SERVER=
+```
+
+**IMPORTANT**: MT5 requires Windows. Docker (Linux) only supports simulation mode. For paper/live trading, run the agent on Windows.
+
+### Agent Operations
+
+**Start Agent:**
+
+```bash
+curl -X POST http://localhost:8001/api/v1/agent/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "simulation",
+    "confidence_threshold": 0.70,
+    "cycle_interval_seconds": 60,
+    "max_position_size": 0.1,
+    "use_kelly_sizing": true
+  }'
+```
+
+**Stop Agent:**
+
+```bash
+curl -X POST http://localhost:8001/api/v1/agent/stop \
+  -H "Content-Type: application/json" \
+  -d '{
+    "force": false,
+    "close_positions": true
+  }'
+```
+
+**Get Performance Metrics:**
+
+```bash
+curl "http://localhost:8001/api/v1/agent/metrics?period=24h"
+```
+
+### Complete Agent Documentation
+
+- **[AI Trading Agent](docs/AI-TRADING-AGENT.md)** - Complete system documentation (~39KB)
+  - Architecture overview with ASCII diagrams
+  - Execution modes (simulation, paper, live)
+  - Configuration options and safety systems
+  - Trading cycle workflow
+  - MT5 integration details
+  - Database schema
+  - Deployment instructions
+
+- **[Agent Operations Guide](docs/AGENT-OPERATIONS-GUIDE.md)** - Operations runbook (~22KB)
+  - Startup and shutdown procedures
+  - Monitoring and logging
+  - Troubleshooting common issues
+  - Emergency procedures (kill switch, circuit breaker recovery)
+  - Maintenance tasks
+
+- **[Agent API Reference](docs/AGENT-API-REFERENCE.md)** - Complete API documentation (~18KB)
+  - All 11+ endpoints with request/response examples
+  - Schema definitions
+  - Error codes and status responses
+  - Safety endpoints
+
+- **[Agent Quick Reference](docs/AGENT-QUICK-REFERENCE.md)** - Operator cheat sheet (~11KB)
+  - Quick commands
+  - Status codes
+  - Common operations
+  - Emergency procedures
+
+- **[Changelog](docs/CHANGELOG.md)** - Version history (~11KB)
+  - v1.0.0 - Initial agent release
+  - All phases implemented
+
+See [AI Trading Agent Documentation](docs/AI-TRADING-AGENT.md) for complete details.
+
+### Safety Systems
+
+The agent includes comprehensive safety mechanisms:
+
+| Safety Feature | Default Threshold | Action |
+|----------------|-------------------|--------|
+| Consecutive Loss Breaker | 5 losses | Pause trading |
+| Drawdown Breaker | 10% from peak | Stop agent |
+| Daily Loss Limit | 5% OR $5,000 | Kill switch |
+| Model Degradation | Win rate < 45% | Pause trading (optional) |
+
+**Emergency Stop (Kill Switch):**
+
+```bash
+curl -X POST http://localhost:8001/api/v1/agent/kill-switch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "trigger",
+    "reason": "Emergency stop"
+  }'
 ```
 
 ### Make Predictions

@@ -1,7 +1,7 @@
 ---
 name: improving-framework-continuously
 description: Processes error reports to evolve agents and skills, preventing recurring mistakes. Use when reviewing framework errors, performing maintenance, or analyzing improvement trends. Enables self-healing agent-skill framework.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Improving Framework Continuously
@@ -32,6 +32,34 @@ A meta-skill for evolving the agent-skill framework based on observed errors and
 - Normal implementation tasks (use domain skills)
 - One-off edge cases not worth generalizing
 - User errors (misunderstanding vs framework bug)
+
+---
+
+## Best Practices from Anthropic Documentation
+
+### Iterative Improvement Principles
+
+1. **Start with Evaluation**: Run agents on representative tasks to identify capability gaps
+2. **Structure for Scalability**: Split complex skills into separate referenced files
+3. **Think from Agent's Perspective**: Monitor how agents use skills in real scenarios
+4. **Capture Successful Approaches**: Ask agents to document what works and common mistakes
+5. **Self-Reflection on Failure**: When skills go off track, request agent self-reflection
+
+### Anti-Hallucination Techniques
+
+1. **Allow Uncertainty**: Agents can say "I need to check the codebase"
+2. **Require Citations**: Include file:line references for every pattern claim
+3. **Verbatim Quotes**: Extract exact content from source files before citing
+4. **Chain-of-Thought Verification**: Explain reasoning step-by-step before conclusions
+5. **External Knowledge Restriction**: Only use information from provided documents
+
+### Feedback Loop Structure
+
+```
+Error Occurs → Capture Evidence → Chain-of-Thought Analysis → 
+Ground Truth Verification → Update Framework → Validate Fix → 
+Track Recurrence → Refine Process
+```
 
 ---
 
@@ -111,6 +139,7 @@ Every week, review accumulated errors:
    ├─ Missing Skill      → Create new skill
    ├─ Wrong Routing      → Fix router algorithm
    ├─ Agent Logic Error  → Fix workflow
+   ├─ Missing Verification → Add verification requirement
    └─ Incomplete Guards  → Add validation
 
 3. Identify patterns:
@@ -122,6 +151,32 @@ Every week, review accumulated errors:
    └─ Severity (Critical > High > Medium > Low)
    └─ Frequency (recurring errors first)
    └─ Impact (blocking errors first)
+```
+
+### Chain-of-Thought Root Cause Template
+
+Use this for each error:
+
+```markdown
+**Error ID**: ERR-YYYY-MM-DD-NNN
+
+**Step 1: What was requested?**
+[Exact task or prompt]
+
+**Step 2: What happened?**
+[Observed agent/skill behavior with evidence]
+
+**Step 3: What should have happened?**
+[Expected behavior with codebase evidence]
+
+**Step 4: Where did behavior diverge?**
+[Specific point of failure]
+
+**Step 5: Root cause?**
+[Why it diverged - not symptoms]
+
+**Step 6: Fix category?**
+[Which remediation type applies]
 ```
 
 ### Phase 3: Framework Updates
@@ -216,6 +271,32 @@ Aggregate learnings:
    └─ Document in monthly report
    └─ Highlight key learnings
    └─ Propose process improvements
+```
+
+### Phase 6: Self-Reflection Triggers
+
+When to request agent self-reflection:
+
+| Trigger | Action |
+|---------|--------|
+| Same error 3+ times | Request: "Analyze why this keeps happening" |
+| Error after recent fix | Request: "What did the fix miss?" |
+| Multiple agents affected | Request: "What's the common factor?" |
+| New error type | Request: "How should we categorize this?" |
+
+**Self-Reflection Prompt Template:**
+
+```
+The [agent/skill] produced incorrect output for [task].
+
+Observed: [what happened]
+Expected: [what should happen]
+
+Please analyze:
+1. What information was missing or incorrect?
+2. What verification step would have caught this?
+3. What guardrail should be added?
+4. How confident are you in this analysis? (1-5)
 ```
 
 ---
@@ -324,13 +405,17 @@ Every error resolution must pass:
 
 ```
 □ Root cause identified (not just symptoms)
+□ Chain-of-thought analysis completed (5 steps)
 □ Ground truth verified from actual codebase
+□ Verbatim quotes provided for all pattern claims
 □ Fix includes specific file changes
 □ YAML validation passes: .claude/scripts/validate-framework.sh
+□ Anti-hallucination checklist completed
 □ Test case added for regression prevention
 □ Related skills checked for same issue
 □ Commit message references error report ID
 □ Error report marked Resolved with date
+□ Recurrence prevention score assigned (1-5)
 ```
 
 **Time Limits:**
@@ -379,6 +464,9 @@ By Type:
 | Resolution time (avg) | <7 days | Add resources or prioritize |
 | Backlog size | <10 | Schedule cleanup sprint |
 | Critical errors | 0 | Immediate attention |
+| Avg recurrence prevention score | >3.5 | Improve fix quality |
+| Chain-of-thought completion | 100% | Enforce before resolution |
+| Anti-hallucination compliance | 100% | Add to quality gate |
 
 ---
 
@@ -532,9 +620,18 @@ Resolves: ERR-2026-01-16-001"
 ---
 
 <!-- Skill Metadata
-Version: 1.2.0
+Version: 1.3.0
 Created: 2026-01-07
-Updated: 2026-01-18
+Updated: 2026-01-23
+
+Changes in 1.3.0:
+- Added Anthropic best practices section
+- Added anti-hallucination techniques
+- Added chain-of-thought root cause template
+- Added self-reflection triggers (Phase 6)
+- Enhanced quality gates with new requirements
+- Added recurrence prevention scoring
+- Added new target metrics
 
 Changes in 1.2.0:
 - Verified integration with v1.2.0 agents

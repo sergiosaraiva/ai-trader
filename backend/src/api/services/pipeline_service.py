@@ -97,7 +97,6 @@ class PipelineService:
 
         # Lazy-loaded components (protected by lock)
         self._technical_calculator = None
-        self._feature_engine = None
         self._requests_session = None
 
     def _get_requests_session(self) -> requests.Session:
@@ -694,17 +693,14 @@ class PipelineService:
             # Prepare higher timeframe data for cross-TF features
             higher_tf_data = self._prepare_higher_tf_data(df_5min, timeframe)
 
-            # Add enhanced features
+            # Add enhanced features (including sentiment for Daily model)
+            # EnhancedFeatureEngine handles sentiment via SentimentLoader
             df_features = self._add_enhanced_features(
                 df_features,
                 timeframe,
                 higher_tf_data,
-                include_sentiment=(timeframe == "D" and df_sentiment is not None),
+                include_sentiment=(timeframe == "D"),
             )
-
-            # Add sentiment features for Daily model
-            if timeframe == "D" and df_sentiment is not None:
-                df_features = self._merge_sentiment(df_features, df_sentiment)
 
             logger.info(f"    Features: {len(df_features.columns)} columns")
 
@@ -731,10 +727,13 @@ class PipelineService:
         """Calculate technical indicators for a timeframe."""
         try:
             # Lazy load calculator
+            # IMPORTANT: Must use short_term to match training configuration
+            # Training uses TechnicalIndicatorCalculator(model_type="short_term")
+            # in improved_model.py:prepare_data()
             if self._technical_calculator is None:
                 from src.features.technical.calculator import TechnicalIndicatorCalculator
                 self._technical_calculator = TechnicalIndicatorCalculator(
-                    model_type="medium_term"
+                    model_type="short_term"
                 )
 
             return self._technical_calculator.calculate(df)
@@ -818,23 +817,29 @@ class PipelineService:
         higher_tf_data: Dict[str, pd.DataFrame],
         include_sentiment: bool = False,
     ) -> pd.DataFrame:
-        """Add enhanced features using EnhancedFeatureEngine."""
-        try:
-            # Lazy load feature engine
-            if self._feature_engine is None:
-                from src.models.multi_timeframe.enhanced_features import EnhancedFeatureEngine
-                self._feature_engine = EnhancedFeatureEngine(
-                    base_timeframe=timeframe,
-                    include_time_features=True,
-                    include_roc_features=True,
-                    include_normalized_features=True,
-                    include_pattern_features=True,
-                    include_lag_features=True,
-                    include_sentiment_features=False,  # We handle sentiment separately
-                )
+        """Add enhanced features using EnhancedFeatureEngine.
 
-            # Update base timeframe
-            self._feature_engine.base_timeframe = timeframe
+        For Daily model with include_sentiment=True, this uses the full
+        EnhancedFeatureEngine sentiment processing (SentimentLoader +
+        SentimentFeatureCalculator) to match training feature generation.
+        """
+        try:
+            from src.models.multi_timeframe.enhanced_features import EnhancedFeatureEngine
+
+            # Create feature engine with appropriate settings
+            # For Daily with sentiment, we need the full sentiment pipeline
+            feature_engine = EnhancedFeatureEngine(
+                base_timeframe=timeframe,
+                include_time_features=True,
+                include_roc_features=True,
+                include_normalized_features=True,
+                include_pattern_features=True,
+                include_lag_features=True,
+                include_sentiment_features=include_sentiment,
+                trading_pair="EURUSD",
+                us_only_sentiment=True,  # Match training config
+                sentiment_source="epu",   # Match training config
+            )
 
             # Map timeframe names for higher_tf_data
             htf_mapped = {}
@@ -843,10 +848,12 @@ class PipelineService:
                 tf_upper = tf.upper() if tf != "D" else "D"
                 htf_mapped[tf_upper] = tf_df
 
-            return self._feature_engine.add_all_features(df, htf_mapped)
+            return feature_engine.add_all_features(df, htf_mapped)
 
         except Exception as e:
             logger.warning(f"    Enhanced features failed: {e}")
+            import traceback
+            traceback.print_exc()
             return df
 
     def _merge_sentiment(
@@ -996,7 +1003,6 @@ class PipelineService:
 
         # Clear any cached technical calculators
         self._technical_calculator = None
-        self._feature_engine = None
 
         # Force garbage collection
         gc.collect()

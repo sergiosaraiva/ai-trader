@@ -1,8 +1,8 @@
 # AI-Trader Codebase Patterns Discovery Report
 
-> **Generated**: 2026-01-18
-> **Version**: 2.1 (Enhanced)
-> **Codebase**: AI Assets Trader - MTF Ensemble Trading System
+> **Generated**: 2026-01-23
+> **Version**: 3.0.0 (Major Update)
+> **Codebase**: AI Trading Agent - MTF Ensemble Trading System
 > **Analysis Period**: Last 3 months of commits (October 2025 - January 2026)
 
 ---
@@ -11,21 +11,21 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total patterns documented** | 18 |
-| **HIGH priority patterns** | 8 |
-| **MEDIUM priority patterns** | 6 |
-| **LOW priority patterns** | 4 |
-| **Anti-patterns documented** | 6 |
-| **Shared utilities indexed** | 12 |
-| **Active skills** | 7 (SKILL.md based) |
-| **Related skill documents** | 16 |
+| **Total patterns documented** | 24 |
+| **HIGH priority patterns** | 11 |
+| **MEDIUM priority patterns** | 8 |
+| **LOW priority patterns** | 5 |
+| **Anti-patterns documented** | 8 |
+| **Shared utilities indexed** | 16 |
+| **Active skills** | 24 (7 SKILL.md + 17 related docs) |
 
-**Key Findings**:
-- FastAPI service singleton pattern is the most critical backend pattern (used in 6+ services)
-- React component state handling (loading/error/data) is consistent across all frontend components
-- Error handling follows a consistent try/except/HTTPException pattern in API layer
-- Test patterns are well-established with mock service injection via try/finally blocks
-- Two meta-skills added: `routing-to-skills` and `improving-framework-continuously`
+**Key Changes in v3.0**:
+- Added 6 new patterns from recent feature development
+- New services: PerformanceService, ExplanationService, FeatureSelectionManager
+- New frontend components: ModelHighlights, PerformanceChart, ExplanationCard
+- New ML pattern: EnhancedMetaFeatureCalculator (data leakage prevention)
+- Updated anti-patterns with DEPRECATED field migration pattern
+- Updated technology versions (React 19.2, Vite 7.2, TailwindCSS 4.1)
 
 ---
 
@@ -73,6 +73,15 @@ Based on Anthropic's documentation (consolidated January 2026), effective Skills
    - Claude uses bash `read` to access SKILL.md when triggered
    - Scripts are executed via bash, only output enters context (not source code)
    - No practical limit on bundled content since it's loaded on-demand
+
+### Anti-Hallucination Requirements (CRITICAL)
+
+Skills should include these safeguards:
+- **Verification requirements**: Must read actual files before citing
+- **Citation requirements**: Include file:line references for claims
+- **Uncertainty permission**: Can say "I need to check the codebase"
+- **Grounding validation**: Verify references exist after generation
+- **Direct quotes**: Use quotes from source documents to ground responses
 
 ### Skill Structure
 
@@ -131,29 +140,6 @@ description: Description  # max 1024 chars, third person, includes WHEN to use
 | **Examples** | Include input/output pairs like regular prompting |
 | **Table of Contents** | Add for files >100 lines to help Claude navigate |
 
-### Progressive Disclosure Patterns
-
-**Pattern 1: High-level guide with references**
-```markdown
-# Main Guide
-## Quick start
-[Basic instructions]
-
-## Advanced features
-**Form filling**: See [FORMS.md](FORMS.md)
-**API reference**: See [REFERENCE.md](REFERENCE.md)
-```
-
-**Pattern 2: Domain-specific organization**
-```
-skill/
-├── SKILL.md (overview and navigation)
-└── reference/
-    ├── finance.md
-    ├── sales.md
-    └── product.md
-```
-
 ---
 
 ## 2. Technology Stack
@@ -164,13 +150,16 @@ skill/
 |----------|-------------|----------|-------|
 | **API Framework** | FastAPI, uvicorn | >=0.100.0, >=0.23.0 | All API endpoints |
 | **ML Models** | XGBoost, scikit-learn | >=2.0.0, >=1.3.0 | MTF Ensemble |
+| **Gradient Boosting** | LightGBM, CatBoost | >=4.0.0, >=1.2.0 | Alternative models |
 | **Data Processing** | pandas, numpy, pyarrow | >=2.0.0, >=1.24.0, >=14.0.0 | All data ops |
 | **Technical Analysis** | pandas-ta | latest | Feature engineering |
-| **Database** | SQLAlchemy | >=2.0.0 | SQLite persistence |
+| **Database** | SQLAlchemy, psycopg2-binary | >=2.0.0, >=2.9.0 | SQLite/PostgreSQL |
 | **Scheduling** | APScheduler | >=3.10.0 | Prediction scheduler |
-| **Validation** | Pydantic | >=2.0.0 | Request/response schemas |
+| **Validation** | Pydantic, pydantic-settings | >=2.0.0 | Request/response schemas |
 | **Testing** | pytest, pytest-asyncio | >=7.4.0 | Backend tests |
 | **Data Sources** | yfinance, fredapi | >=0.2.28, >=0.5.0 | Market & sentiment data |
+| **LLM Integration** | OpenAI | >=1.0.0 | AI explanations |
+| **HTTP Clients** | httpx, aiohttp | >=0.25.0, >=3.9.0 | Async API calls |
 
 ### Frontend (Node.js 20+)
 
@@ -179,8 +168,9 @@ skill/
 | **Framework** | React | 19.2.0 | UI components |
 | **Build Tool** | Vite | 7.2.4 | Development & bundling |
 | **Styling** | TailwindCSS | 4.1.18 | All styling |
-| **Charts** | Recharts | 3.6.0 | Price charts |
+| **Charts** | Recharts | 3.6.0 | Price & performance charts |
 | **Icons** | lucide-react | 0.562.0 | UI icons |
+| **Props Validation** | prop-types | 15.8.1 | Runtime type checking |
 | **Testing** | Vitest, Testing Library | 4.0.17 | Component tests |
 
 ### Architecture
@@ -189,6 +179,7 @@ skill/
 - **API Style**: REST with FastAPI
 - **State**: SQLite for persistence, in-memory caching
 - **ML Pipeline**: XGBoost ensemble with multi-timeframe models (1H, 4H, Daily)
+- **Stacking**: Meta-learner with enhanced meta-features (20 features)
 
 ---
 
@@ -196,33 +187,56 @@ skill/
 
 ```
 ai-trader/
-├── src/                      # Python source code
-│   ├── api/                  # FastAPI web layer
-│   │   ├── main.py          # App entry point + lifespan
-│   │   ├── scheduler.py     # APScheduler setup
-│   │   ├── routes/          # API endpoints (predictions, trading, market, pipeline)
-│   │   ├── services/        # Business logic singletons
-│   │   ├── schemas/         # Pydantic models
-│   │   └── database/        # SQLAlchemy models + session
-│   ├── models/              # ML models
-│   │   └── multi_timeframe/ # MTF Ensemble (PRIMARY)
-│   ├── features/            # Feature engineering
-│   │   ├── technical/       # Technical indicators + registry
-│   │   ├── sentiment/       # EPU/VIX sentiment loading
-│   │   └── regime/          # Market regime detection
-│   ├── trading/             # Trading logic (position sizing, risk)
-│   └── simulation/          # Backtesting
-├── frontend/                # React application
+├── backend/
+│   └── src/                      # Python source code
+│       ├── api/                  # FastAPI web layer
+│       │   ├── main.py          # App entry point + lifespan
+│       │   ├── scheduler.py     # APScheduler setup
+│       │   ├── routes/          # API endpoints
+│       │   │   ├── predictions.py
+│       │   │   ├── trading.py
+│       │   │   ├── market.py
+│       │   │   ├── performance.py  # NEW: Model highlights
+│       │   │   └── pipeline.py
+│       │   ├── services/        # Business logic singletons
+│       │   │   ├── model_service.py
+│       │   │   ├── data_service.py
+│       │   │   ├── trading_service.py
+│       │   │   ├── performance_service.py   # NEW
+│       │   │   ├── explanation_service.py   # NEW
+│       │   │   └── pipeline_service.py
+│       │   ├── schemas/         # Pydantic models
+│       │   └── database/        # SQLAlchemy models + session
+│       ├── models/              # ML models
+│       │   ├── multi_timeframe/ # MTF Ensemble (PRIMARY)
+│       │   │   ├── mtf_ensemble.py
+│       │   │   ├── stacking_meta_learner.py
+│       │   │   ├── enhanced_meta_features.py   # NEW
+│       │   │   └── improved_model.py
+│       │   └── feature_selection/  # NEW: RFECV module
+│       │       ├── manager.py
+│       │       ├── rfecv_selector.py
+│       │       └── rfecv_config.py
+│       ├── features/            # Feature engineering
+│       │   ├── technical/       # Technical indicators + registry
+│       │   ├── sentiment/       # EPU/VIX sentiment loading
+│       │   └── regime/          # Market regime detection
+│       ├── trading/             # Trading logic (position sizing, risk)
+│       └── simulation/          # Backtesting
+├── frontend/                    # React application
 │   └── src/
-│       ├── components/      # React components (Dashboard, Cards, Chart)
-│       ├── api/             # API client
-│       └── hooks/           # Custom hooks (usePolling)
-├── scripts/                 # CLI tools
-├── tests/                   # Test suites (735+ tests)
-│   ├── api/                 # API endpoint tests
-│   ├── services/            # Service tests
-│   └── unit/                # Unit tests by module
-└── docs/                    # Documentation
+│       ├── components/          # React components
+│       │   ├── Dashboard.jsx
+│       │   ├── PredictionCard.jsx
+│       │   ├── ModelHighlights.jsx      # NEW
+│       │   ├── PerformanceChart.jsx     # NEW
+│       │   ├── ExplanationCard.jsx      # NEW
+│       │   └── ...
+│       ├── api/                 # API client
+│       └── hooks/               # Custom hooks (usePolling)
+├── scripts/                     # CLI tools
+├── tests/                       # Test suites (735+ tests)
+└── docs/                        # Documentation
 ```
 
 ---
@@ -234,17 +248,16 @@ ai-trader/
 **Description**: Thread-safe singleton services with lazy initialization, caching, and status tracking.
 
 **Priority**: HIGH
-**Frequency**: Used in 6 services (`model_service`, `data_service`, `trading_service`, `pipeline_service`)
+**Frequency**: Used in 7 services (`model_service`, `data_service`, `trading_service`, `pipeline_service`, `performance_service`, `explanation_service`, `asset_service`)
 **Layer**: Backend API Services
 
 **Examples**:
-1. `src/api/services/model_service.py:28-280` - Complete ModelService class
-2. `src/api/services/trading_service.py:1-200` - TradingService implementation
-3. `src/api/services/data_service.py:1-150` - DataService implementation
+1. `backend/src/api/services/model_service.py:28-280` - Complete ModelService class
+2. `backend/src/api/services/performance_service.py:61-529` - PerformanceService implementation
+3. `backend/src/api/services/explanation_service.py:19-369` - ExplanationService with caching
 
 **Code Pattern**:
 ```python
-# src/api/services/model_service.py
 from threading import Lock
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any
@@ -293,14 +306,14 @@ class ModelService:
             result = self._model.predict(df)
         return result
 
-# Singleton instance at module level
 model_service = ModelService()
 ```
 
 **When to Use**:
-- Services managing expensive resources (ML models, DB connections)
+- Services managing expensive resources (ML models, DB connections, LLM clients)
 - Shared state across multiple requests
 - Operations requiring thread safety
+- Services with intelligent caching (TTL or value-change based)
 
 **When NOT to Use**:
 - Stateless utilities
@@ -313,6 +326,7 @@ model_service = ModelService()
 - [ ] Clear status properties (`is_loaded`, `is_initialized`)
 - [ ] Cache with TTL for expensive operations
 - [ ] Singleton instance at module level
+- [ ] Cache cleanup to prevent memory leaks
 
 ---
 
@@ -321,17 +335,16 @@ model_service = ModelService()
 **Description**: Route handlers with service availability checks, proper error handling, and Pydantic response models.
 
 **Priority**: HIGH
-**Frequency**: Used in 20+ endpoints across all route modules
+**Frequency**: Used in 25+ endpoints across all route modules
 **Layer**: Backend API Routes
 
 **Examples**:
-1. `src/api/routes/predictions.py:26-78` - GET with service check
-2. `src/api/routes/predictions.py:81-125` - GET with pagination
-3. `src/api/routes/trading.py:1-100` - Trading endpoints
+1. `backend/src/api/routes/predictions.py:26-78` - GET with service check
+2. `backend/src/api/routes/performance.py:1-50` - Performance highlights endpoint
+3. `backend/src/api/routes/trading.py:1-100` - Trading endpoints
 
 **Code Pattern**:
 ```python
-# src/api/routes/predictions.py
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy.orm import Session
 
@@ -340,28 +353,23 @@ router = APIRouter()
 @router.get("/predictions/latest", response_model=PredictionResponse)
 async def get_latest_prediction() -> PredictionResponse:
     """Get the most recent prediction."""
-    # 1. Check service availability FIRST
     if not model_service.is_loaded:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     try:
-        # 2. Validate data availability
         df = data_service.get_data_for_prediction()
         if df is None or len(df) < 100:
             raise HTTPException(status_code=503, detail="Insufficient data")
 
-        # 3. Perform operation
         prediction = model_service.predict(df)
         return PredictionResponse(**prediction)
 
     except HTTPException:
-        raise  # Re-raise HTTPException unchanged
+        raise
     except Exception as e:
         logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 ```
-
-**When to Use**: All API endpoint definitions
 
 **Quality Criteria**:
 - [ ] `response_model=` specified on decorator
@@ -377,16 +385,15 @@ async def get_latest_prediction() -> PredictionResponse:
 **Description**: Request/response schemas with Field descriptions and Config examples.
 
 **Priority**: HIGH
-**Frequency**: Used in 15+ schema classes
+**Frequency**: Used in 20+ schema classes
 **Layer**: Backend API Schemas
 
 **Examples**:
-1. `src/api/schemas/prediction.py:16-68` - PredictionResponse
-2. `src/api/schemas/trading.py:1-100` - Trading schemas
+1. `backend/src/api/schemas/prediction.py:16-68` - PredictionResponse
+2. `backend/src/api/schemas/trading.py:1-200` - Trading schemas with DEPRECATED fields
 
 **Code Pattern**:
 ```python
-# src/api/schemas/prediction.py
 from pydantic import BaseModel, Field
 from typing import Dict, Optional
 
@@ -399,7 +406,6 @@ class PredictionResponse(BaseModel):
     confidence: float = Field(..., ge=0, le=1, description="Confidence 0-1")
     should_trade: bool = Field(..., description="Confidence >= threshold")
 
-    # Nested data
     component_directions: Dict[str, int] = Field(..., description="By TF")
     component_confidences: Dict[str, float] = Field(..., description="By TF")
 
@@ -418,29 +424,29 @@ class PredictionResponse(BaseModel):
 - [ ] Validation constraints (`ge=`, `le=`, `max_length=`)
 - [ ] Example in Config for Swagger UI
 - [ ] Proper Optional typing
+- [ ] DEPRECATED fields documented with replacement field name
 
 ---
 
-### Pattern 4.4: React Card Component
+### Pattern 4.4: React Card Component with PropTypes
 
-**Description**: Display card with loading, error, empty, and data states using TailwindCSS.
+**Description**: Display card with loading, error, empty, and data states using TailwindCSS and PropTypes validation.
 
 **Priority**: HIGH
-**Frequency**: Used in 6 components (PredictionCard, AccountStatus, PerformanceStats, TradeHistory)
+**Frequency**: Used in 10+ components (PredictionCard, AccountStatus, PerformanceStats, ModelHighlights, ExplanationCard, PerformanceChart)
 **Layer**: Frontend Components
 
 **Examples**:
-1. `frontend/src/components/PredictionCard.jsx:1-139`
-2. `frontend/src/components/AccountStatus.jsx:1-100`
-3. `frontend/src/components/PerformanceStats.jsx:1-120`
+1. `frontend/src/components/ModelHighlights.jsx:1-143`
+2. `frontend/src/components/ExplanationCard.jsx:1-107`
+3. `frontend/src/components/PerformanceChart.jsx:1-366`
 
 **Code Pattern**:
 ```jsx
-// frontend/src/components/PredictionCard.jsx
-import { AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { AlertCircle, TrendingUp } from 'lucide-react';
+import PropTypes from 'prop-types';
 
-export function PredictionCard({ prediction, loading, error }) {
-  // 1. Loading state
+export function ModelHighlights({ performance, loading, error }) {
   if (loading) {
     return (
       <div className="bg-gray-800 rounded-lg p-6 animate-pulse">
@@ -450,39 +456,54 @@ export function PredictionCard({ prediction, loading, error }) {
     );
   }
 
-  // 2. Error state
   if (error) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6 border border-red-500/30">
-        <div className="flex items-center gap-2 text-red-400">
+      <div className="bg-gray-800 rounded-lg p-6 border border-yellow-500/30">
+        <div className="flex items-center gap-2 text-yellow-400">
           <AlertCircle size={20} />
-          <span>Error loading prediction</span>
+          <span>Performance data unavailable</span>
         </div>
-        <p className="text-red-300 mt-2 text-sm">{error}</p>
+        <p className="text-gray-500 text-sm mt-2">{error}</p>
       </div>
     );
   }
 
-  // 3. Empty state
-  if (!prediction) {
+  if (!performance || performance.highlights?.length === 0) {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
-        <p className="text-gray-500">No prediction available</p>
+        <p className="text-gray-500">No performance highlights available</p>
       </div>
     );
   }
 
-  // 4. Data state
-  const { signal, confidence } = prediction;
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
-      <h2 className="text-lg font-semibold">Current Prediction</h2>
-      <span className={`text-4xl font-bold ${getSignalColor(signal)}`}>
-        {signal}
-      </span>
+    <div className="bg-gray-800 rounded-lg p-6 card-hover">
+      <h2 className="text-xl font-bold">{performance.summary.headline}</h2>
+      {/* ... data rendering ... */}
     </div>
   );
 }
+
+ModelHighlights.propTypes = {
+  performance: PropTypes.shape({
+    highlights: PropTypes.array,
+    summary: PropTypes.shape({
+      headline: PropTypes.string,
+      description: PropTypes.string,
+    }),
+    metrics: PropTypes.object,
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+};
+
+ModelHighlights.defaultProps = {
+  performance: null,
+  loading: false,
+  error: null,
+};
+
+export default ModelHighlights;
 ```
 
 **Quality Criteria**:
@@ -491,10 +512,79 @@ export function PredictionCard({ prediction, loading, error }) {
 - [ ] Error message with icon and details
 - [ ] TailwindCSS for styling
 - [ ] Props destructured at top
+- [ ] PropTypes validation defined
+- [ ] defaultProps for optional props
+- [ ] Named and default export
 
 ---
 
-### Pattern 4.5: Dashboard Data Fetching
+### Pattern 4.5: Chart Component with useMemo
+
+**Description**: Complex chart components using useMemo for data transformation and memo for child components.
+
+**Priority**: HIGH
+**Frequency**: Used in 3 chart components (PriceChart, PerformanceChart)
+**Layer**: Frontend Components
+
+**Examples**:
+1. `frontend/src/components/PerformanceChart.jsx:1-366`
+
+**Code Pattern**:
+```jsx
+import { useMemo, memo } from 'react';
+import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+const CustomTooltip = memo(function CustomTooltip({ active, payload, profitUnit }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const data = payload[0]?.payload;
+  if (!data) return null;
+  return (
+    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3">
+      {/* tooltip content */}
+    </div>
+  );
+});
+
+export function PerformanceChart({ trades, loading, error, assetMetadata }) {
+  const chartData = useMemo(() => {
+    if (!trades || !Array.isArray(trades)) return [];
+    // Complex data transformation
+    return transformedData;
+  }, [trades]);
+
+  const stats = useMemo(() => {
+    if (chartData.length === 0) return defaultStats;
+    // Calculate statistics
+    return { totalDays, profitableDays, totalPnl, maxDrawdown };
+  }, [chartData]);
+
+  if (loading) return <LoadingSkeleton />;
+  if (error) return <ErrorState error={error} />;
+  if (chartData.length === 0) return <EmptyState />;
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6">
+      <ResponsiveContainer width="100%" height={300}>
+        <ComposedChart data={chartData}>
+          {/* chart components */}
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+```
+
+**Quality Criteria**:
+- [ ] `useMemo` for expensive data transformations
+- [ ] `memo` for tooltip and child components
+- [ ] Dependency arrays correct
+- [ ] ResponsiveContainer for chart sizing
+- [ ] Loading/error/empty states handled
+- [ ] Accessibility attributes (role, aria-label)
+
+---
+
+### Pattern 4.6: Dashboard Data Fetching
 
 **Description**: Main dashboard with usePolling hooks for periodic data fetching.
 
@@ -503,20 +593,20 @@ export function PredictionCard({ prediction, loading, error }) {
 **Layer**: Frontend Components
 
 **Examples**:
-1. `frontend/src/components/Dashboard.jsx:1-206`
+1. `frontend/src/components/Dashboard.jsx:1-250`
 2. `frontend/src/hooks/usePolling.js:1-50`
 
 **Code Pattern**:
 ```jsx
-// frontend/src/components/Dashboard.jsx
 import { useCallback } from 'react';
 import { api } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
 
 const INTERVALS = {
-  prediction: 30000,   // 30 seconds
-  candles: 60000,      // 1 minute
-  account: 60000,      // 1 minute
+  prediction: 30000,
+  candles: 60000,
+  account: 60000,
+  performance: 300000,  // 5 minutes for static data
 };
 
 export function Dashboard() {
@@ -531,17 +621,16 @@ export function Dashboard() {
   );
 
   const {
-    data: account,
-    loading: accountLoading,
-    error: accountError,
+    data: performance,
+    loading: performanceLoading,
+    error: performanceError,
   } = usePolling(
-    useCallback(() => api.getAccount(), []),
-    INTERVALS.account
+    useCallback(() => api.getPerformance(), []),
+    INTERVALS.performance
   );
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
-      <header>...</header>
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <PredictionCard
@@ -549,10 +638,10 @@ export function Dashboard() {
             loading={predictionLoading}
             error={predictionError}
           />
-          <AccountStatus
-            account={account}
-            loading={accountLoading}
-            error={accountError}
+          <ModelHighlights
+            performance={performance}
+            loading={performanceLoading}
+            error={performanceError}
           />
         </div>
       </main>
@@ -566,24 +655,24 @@ export function Dashboard() {
 - [ ] `useCallback` wrapper for fetch functions
 - [ ] Pass loading/error to child components
 - [ ] Responsive grid with TailwindCSS
+- [ ] Different intervals for different data freshness needs
 
 ---
 
-### Pattern 4.6: Pytest API Test Pattern
+### Pattern 4.7: Pytest API Test Pattern
 
 **Description**: FastAPI endpoint tests with TestClient and mocked services.
 
 **Priority**: HIGH
-**Frequency**: Used in 30+ API tests
+**Frequency**: Used in 40+ API tests
 **Layer**: Testing
 
 **Examples**:
-1. `tests/api/test_predictions.py:1-134`
-2. `tests/api/test_trading.py:1-100`
+1. `backend/tests/api/test_predictions.py:1-134`
+2. `backend/tests/api/test_performance_routes.py:1-100`
 
 **Code Pattern**:
 ```python
-# tests/api/test_predictions.py
 import pytest
 from unittest.mock import Mock
 from fastapi.testclient import TestClient
@@ -602,18 +691,14 @@ class TestPredictionEndpoints:
             "weights": {"1H": 0.6, "4H": 0.3, "D": 0.1},
         }
 
-        # Create mock DataFrame
         self.mock_df = pd.DataFrame({
             "open": np.random.rand(200) + 1.08,
-            "high": np.random.rand(200) + 1.085,
-            "low": np.random.rand(200) + 1.075,
             "close": np.random.rand(200) + 1.08,
-            "volume": np.random.randint(1000, 10000, 200),
         })
 
     def test_model_status_endpoint(self):
         """Test model status endpoint."""
-        from src.api.routes import predictions
+        from backend.src.api.routes import predictions
 
         original_model = predictions.model_service
         predictions.model_service = self.mock_model_service
@@ -639,81 +724,81 @@ class TestPredictionEndpoints:
 
 ---
 
-### Pattern 4.7: Vitest Component Test Pattern
+### Pattern 4.8: Vitest Component Test Pattern
 
 **Description**: React component tests with Vitest and Testing Library.
 
 **Priority**: HIGH
-**Frequency**: Used in 35+ frontend tests
+**Frequency**: Used in 13 frontend test files
 **Layer**: Frontend Testing
 
 **Examples**:
-1. `frontend/src/components/PredictionCard.test.jsx:1-84`
-2. `frontend/src/components/AccountStatus.test.jsx:1-60`
+1. `frontend/src/components/ModelHighlights.test.jsx:1-100`
+2. `frontend/src/components/ExplanationCard.test.jsx:1-84`
 
 **Code Pattern**:
 ```jsx
-// frontend/src/components/PredictionCard.test.jsx
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { PredictionCard } from './PredictionCard';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ExplanationCard } from './ExplanationCard';
 
-describe('PredictionCard', () => {
+describe('ExplanationCard', () => {
   it('renders loading state', () => {
-    render(<PredictionCard loading={true} />);
+    render(<ExplanationCard loading={true} />);
     const skeleton = document.querySelector('.animate-pulse');
     expect(skeleton).toBeInTheDocument();
   });
 
-  it('renders error state', () => {
-    render(<PredictionCard error="Test error" />);
-    expect(screen.getByText('Error loading prediction')).toBeInTheDocument();
-    expect(screen.getByText('Test error')).toBeInTheDocument();
+  it('renders error state with refresh button', () => {
+    const mockRefresh = vi.fn();
+    render(<ExplanationCard error="Test error" onRefresh={mockRefresh} />);
+    expect(screen.getByText('AI explanation unavailable')).toBeInTheDocument();
+    
+    const refreshButton = screen.getByTitle('Retry');
+    fireEvent.click(refreshButton);
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('renders no prediction state', () => {
-    render(<PredictionCard prediction={null} />);
-    expect(screen.getByText('No prediction available')).toBeInTheDocument();
+  it('renders null when no explanation', () => {
+    const { container } = render(<ExplanationCard explanation={null} />);
+    expect(container.firstChild).toBeNull();
   });
 
-  it('renders BUY prediction correctly', () => {
-    const prediction = {
-      signal: 'BUY',
-      confidence: 0.72,
-      current_price: 1.08543,
+  it('renders explanation with cached indicator', () => {
+    const explanation = {
+      explanation: 'BUY with high confidence.',
+      cached: true,
     };
-    render(<PredictionCard prediction={prediction} />);
-
-    expect(screen.getByText('BUY')).toBeInTheDocument();
-    expect(screen.getByText('72.0%')).toBeInTheDocument();
+    render(<ExplanationCard explanation={explanation} />);
+    expect(screen.getByText('BUY with high confidence.')).toBeInTheDocument();
+    expect(screen.getByText('cached')).toBeInTheDocument();
   });
 });
 ```
 
 **Quality Criteria**:
-- [ ] All four states tested (loading, error, empty, data)
+- [ ] All states tested (loading, error, empty, data)
 - [ ] `screen.getByText` for assertions
+- [ ] `vi.fn()` for mock functions
+- [ ] `fireEvent` for user interactions
 - [ ] Descriptive test names
-- [ ] Realistic mock data
 
 ---
 
-### Pattern 4.8: Dataclass Configuration
+### Pattern 4.9: Dataclass Configuration with Factory Methods
 
 **Description**: Configuration objects using dataclasses with defaults and factory methods.
 
 **Priority**: HIGH
-**Frequency**: Used in 8+ configuration classes
+**Frequency**: Used in 10+ configuration classes
 **Layer**: Backend Models
 
 **Examples**:
-1. `src/models/multi_timeframe/mtf_ensemble.py:28-119` - MTFEnsembleConfig
-2. `src/trading/position_sizing.py:144-176` - PositionSizingConfig
-3. `src/features/technical/calculator.py:24-45` - CalculatorConfig
+1. `backend/src/models/multi_timeframe/mtf_ensemble.py:28-119` - MTFEnsembleConfig
+2. `backend/src/models/feature_selection/rfecv_config.py:1-50` - RFECVConfig
 
 **Code Pattern**:
 ```python
-# src/models/multi_timeframe/mtf_ensemble.py
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
@@ -727,6 +812,8 @@ class MTFEnsembleConfig:
     min_confidence: float = 0.55
     agreement_bonus: float = 0.05
     include_sentiment: bool = False
+    use_stacking: bool = True
+    use_enhanced_meta_features: bool = True  # NEW
 
     @classmethod
     def default(cls) -> "MTFEnsembleConfig":
@@ -748,6 +835,128 @@ class MTFEnsembleConfig:
 - [ ] `field(default_factory=...)` for mutable defaults
 - [ ] Factory classmethods for common configurations
 - [ ] Type hints on all attributes
+- [ ] Docstring explaining purpose
+
+---
+
+### Pattern 4.10: Data Leakage Prevention in ML Features
+
+**Description**: Feature engineering with explicit .shift(1) to prevent look-ahead bias.
+
+**Priority**: HIGH
+**Frequency**: Used in enhanced_meta_features.py, technical indicators
+**Layer**: Backend ML Models
+
+**Examples**:
+1. `backend/src/models/multi_timeframe/enhanced_meta_features.py:1-303`
+
+**Code Pattern**:
+```python
+"""CRITICAL: Data Leakage Prevention
+All features MUST use .shift(1) or appropriate lag to prevent look-ahead bias.
+"""
+
+class EnhancedMetaFeatureCalculator:
+    """Calculator for enhanced meta-features with data leakage prevention.
+
+    All rolling calculations use .shift(1) to ensure no future data is used.
+    """
+
+    def calculate_market_context(self, price_data: pd.DataFrame) -> Dict[str, np.ndarray]:
+        """Calculate volatility, trend strength, and regime features.
+
+        CRITICAL: All calculations use .shift(1) to prevent look-ahead bias.
+        """
+        df = price_data.copy()
+
+        returns = df["close"].pct_change()
+        vol_raw = returns.rolling(window=20, min_periods=5).std()
+        vol_shifted = vol_raw.shift(1)  # CRITICAL: Use past volatility only
+
+        ma14 = df["close"].rolling(window=14, min_periods=5).mean()
+        deviation = abs(df["close"] - ma14) / ma14
+        trend_strength_raw = deviation.rolling(window=14, min_periods=5).mean()
+        trend_strength_shifted = trend_strength_raw.shift(1)  # CRITICAL
+
+        vol_shifted = vol_shifted.fillna(vol_shifted.median())
+
+        return {
+            "recent_volatility": vol_shifted.values,
+            "trend_strength": trend_strength_shifted.values,
+        }
+```
+
+**Quality Criteria**:
+- [ ] Module-level docstring explaining leakage prevention
+- [ ] `.shift(1)` on ALL rolling calculations
+- [ ] Comments marking CRITICAL shifts
+- [ ] Proper NaN handling after shifting
+- [ ] No access to future data anywhere
+
+---
+
+### Pattern 4.11: Cache with Hash-Based Invalidation
+
+**Description**: Caching with config/value hash for automatic invalidation.
+
+**Priority**: HIGH
+**Frequency**: Used in feature_selection, explanation_service
+**Layer**: Backend Services
+
+**Examples**:
+1. `backend/src/models/feature_selection/manager.py:24-250`
+2. `backend/src/api/services/explanation_service.py:67-134`
+
+**Code Pattern**:
+```python
+import hashlib
+import json
+from pathlib import Path
+
+CACHE_HASH_LENGTH = 8
+
+class FeatureSelectionManager:
+    def _compute_config_hash(self) -> str:
+        """Compute hash of config for cache invalidation."""
+        config_dict = {
+            "step": self.config.step,
+            "min_features": self.config.min_features_to_select,
+            "cv": self.config.cv,
+            "scoring": self.config.scoring,
+        }
+        config_str = json.dumps(config_dict, sort_keys=True)
+        return hashlib.md5(config_str.encode()).hexdigest()[:CACHE_HASH_LENGTH]
+
+    def _get_cache_path(self, timeframe: str) -> Path:
+        config_hash = self._compute_config_hash()
+        return self.cache_dir / f"{timeframe}_rfecv_{config_hash}.json"
+
+    def _load_from_cache(self, timeframe: str, n_features: int) -> Optional[Dict]:
+        if not self.config.cache_enabled:
+            return None
+
+        cache_path = self._get_cache_path(timeframe)
+        if not cache_path.exists():
+            return None
+
+        with open(cache_path, "r") as f:
+            cached = json.load(f)
+
+        # CRITICAL: Validate feature count matches
+        if cached.get("n_original_features") != n_features:
+            logger.warning(f"Cache invalidated: feature count changed")
+            cache_path.unlink()
+            return None
+
+        return cached
+```
+
+**Quality Criteria**:
+- [ ] Hash computed from all relevant config parameters
+- [ ] `sort_keys=True` for deterministic hashing
+- [ ] Cache path includes hash for automatic versioning
+- [ ] Validation of cached data (e.g., feature count)
+- [ ] Cache cleanup for invalid entries
 
 ---
 
@@ -762,8 +971,7 @@ class MTFEnsembleConfig:
 **Layer**: Backend Database
 
 **Examples**:
-1. `src/api/database/models.py:22-61` - Prediction model
-2. `src/api/database/models.py:64-107` - Trade model
+1. `backend/src/api/database/models.py:22-107`
 
 **Code Pattern**:
 ```python
@@ -798,11 +1006,10 @@ class Prediction(Base):
 **Layer**: Frontend API
 
 **Examples**:
-1. `frontend/src/api/client.js:1-81`
+1. `frontend/src/api/client.js:1-100`
 
 **Code Pattern**:
 ```javascript
-// frontend/src/api/client.js
 const API_BASE = '/api';
 
 class APIError extends Error {
@@ -841,6 +1048,7 @@ async function request(endpoint, options = {}) {
 export const api = {
   health: () => fetch('/health').then(r => r.json()),
   getPrediction: () => request('/v1/predictions/latest'),
+  getPerformance: () => request('/v1/performance'),
   getAccount: () => request('/v1/trading/account'),
 };
 ```
@@ -856,8 +1064,8 @@ export const api = {
 **Layer**: Scripts
 
 **Examples**:
-1. `scripts/train_mtf_ensemble.py:1-456`
-2. `scripts/backtest_mtf_ensemble.py:1-700`
+1. `backend/scripts/train_mtf_ensemble.py:1-456`
+2. `backend/scripts/optimize_hyperparameters.py:1-300`
 
 **Code Pattern**:
 ```python
@@ -884,6 +1092,8 @@ def main():
     parser.add_argument("--data", type=str, default="data/forex/EURUSD.csv")
     parser.add_argument("--output", type=str, default="models/mtf_ensemble")
     parser.add_argument("--sentiment", action="store_true")
+    parser.add_argument("--stacking", action="store_true", default=True)
+    parser.add_argument("--enhanced-meta", action="store_true", default=True)
     args = parser.parse_args()
 
     print("\n" + "=" * 70)
@@ -910,7 +1120,7 @@ if __name__ == "__main__":
 **Layer**: Backend API
 
 **Examples**:
-1. `src/api/main.py:25-130`
+1. `backend/src/api/main.py:25-130`
 
 **Code Pattern**:
 ```python
@@ -921,19 +1131,18 @@ from fastapi.middleware.cors import CORSMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    # Startup
     logger.info("Starting API...")
     init_db()
     model_service.initialize()
+    performance_service.initialize()  # NEW
     start_scheduler()
     yield
-    # Shutdown
     logger.info("Shutting down...")
     stop_scheduler()
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="AI Assets Trader API",
+        title="AI Trading Agent API",
         version="1.0.0",
         lifespan=lifespan,
     )
@@ -941,6 +1150,7 @@ def create_app() -> FastAPI:
     app.add_middleware(CORSMiddleware, allow_origins=["*"], ...)
     app.include_router(health.router, tags=["Health"])
     app.include_router(predictions.router, prefix="/api/v1", tags=["Predictions"])
+    app.include_router(performance.router, prefix="/api/v1", tags=["Performance"])
 
     return app
 
@@ -958,43 +1168,73 @@ app = create_app()
 **Layer**: Backend Models
 
 **Examples**:
-1. `src/models/multi_timeframe/mtf_ensemble.py:154-653`
-
-**Code Pattern**:
-```python
-class MTFEnsemble:
-    """Multi-Timeframe Ensemble model."""
-
-    def __init__(
-        self,
-        config: Optional[MTFEnsembleConfig] = None,
-        model_dir: Optional[Path] = None,
-    ):
-        self.config = config or MTFEnsembleConfig.default()
-        self.model_dir = Path(model_dir) if model_dir else Path("models/mtf_ensemble")
-        self.models: Dict[str, Model] = {}
-        self.is_trained = False
-
-    def train(self, df_5min: pd.DataFrame, ...) -> Dict[str, Dict]:
-        """Train all timeframe models."""
-        results = {}
-        for tf, model in self.models.items():
-            results[tf] = model.train(...)
-        self.is_trained = all(m.is_trained for m in self.models.values())
-        return results
-
-    def predict(self, df_5min: pd.DataFrame) -> MTFPrediction:
-        if not self.is_trained:
-            raise RuntimeError("Model not trained")
-        return MTFPrediction(...)
-
-    def save(self, path: Optional[Path] = None) -> None: ...
-    def load(self, path: Optional[Path] = None) -> None: ...
-```
+1. `backend/src/models/multi_timeframe/mtf_ensemble.py:154-653`
 
 ---
 
-### Pattern 5.6: Technical Indicator Calculator
+### Pattern 5.6: Performance Service with Default Constants
+
+**Description**: Service loading from multiple data files with documented defaults.
+
+**Priority**: MEDIUM
+**Frequency**: Used in performance_service.py
+**Layer**: Backend Services
+
+**Examples**:
+1. `backend/src/api/services/performance_service.py:21-80`
+
+**Code Pattern**:
+```python
+# Paths to data files (canonical sources of truth)
+BACKTEST_RESULTS_PATH = PROJECT_ROOT / "data" / "backtest_results.json"
+
+def _load_defaults_from_backtest() -> Dict[str, Any]:
+    """Load default metrics from backtest_results.json (canonical source).
+
+    This ensures defaults always match the latest validated backtest results,
+    avoiding stale hardcoded values that drift from actual data.
+    """
+    if not BACKTEST_RESULTS_PATH.exists():
+        return fallback  # Zero values
+
+    with open(BACKTEST_RESULTS_PATH) as f:
+        data = json.load(f)
+
+    # Load baseline from 5y (All Time) period
+    all_time = data.get("periods", {}).get("5y", {})
+    baseline = {
+        "TOTAL_PIPS": all_time.get("total_pips", 0),
+        "WIN_RATE": all_time.get("win_rate", 0) / 100,
+        ...
+    }
+    return {"baseline": baseline, "high_conf": high_conf}
+
+# Load defaults once at module initialization (from canonical backtest_results.json)
+_LOADED_DEFAULTS = _load_defaults_from_backtest()
+DEFAULT_BASELINE_METRICS = _LOADED_DEFAULTS["baseline"]
+DEFAULT_HIGH_CONF_METRICS = _LOADED_DEFAULTS["high_conf"]
+
+class PerformanceService:
+    def _load_metrics(self) -> None:
+        """Load metrics from training_metadata.json and backtest_results.json."""
+        metadata_path = self.DEFAULT_MODEL_DIR / "training_metadata.json"
+        if not metadata_path.exists():
+            logger.warning(f"Training metadata not found at {metadata_path}")
+            self._metrics = self._get_default_metrics()
+            return
+
+        # Load from files, fall back to defaults for missing values
+```
+
+**Quality Criteria**:
+- [ ] Constants at module level with date/source comments
+- [ ] Graceful fallback to defaults when files unavailable
+- [ ] Logging when using fallbacks
+- [ ] Single source of truth for metric values
+
+---
+
+### Pattern 5.7: Technical Indicator Calculator
 
 **Description**: Configuration-driven indicator calculation with registry.
 
@@ -1003,7 +1243,55 @@ class MTFEnsemble:
 **Layer**: Backend Features
 
 **Examples**:
-1. `src/features/technical/calculator.py:47-411`
+1. `backend/src/features/technical/calculator.py:47-411`
+
+---
+
+### Pattern 5.8: LLM Service with Intelligent Caching
+
+**Description**: OpenAI integration with value-change-based cache invalidation.
+
+**Priority**: MEDIUM
+**Frequency**: Used in explanation_service.py
+**Layer**: Backend Services
+
+**Examples**:
+1. `backend/src/api/services/explanation_service.py:19-369`
+
+**Code Pattern**:
+```python
+class ExplanationService:
+    CACHE_TTL = timedelta(hours=1)
+    CONFIDENCE_THRESHOLD = 0.05  # 5% change triggers regeneration
+    VIX_THRESHOLD = 2.0
+
+    def _should_regenerate(self, current_values: Dict[str, Any]) -> bool:
+        """Check if we should regenerate based on value changes."""
+        if not self._last_values:
+            return True
+
+        if current_values.get("direction") != self._last_values.get("direction"):
+            return True
+
+        conf_diff = abs(
+            current_values.get("confidence", 0) -
+            self._last_values.get("confidence", 0)
+        )
+        if conf_diff >= self.CONFIDENCE_THRESHOLD:
+            return True
+
+        return False
+
+    def _cleanup_expired_cache(self) -> None:
+        """Remove expired cache entries to prevent memory leak."""
+        now = datetime.now()
+        expired_keys = [
+            k for k, v in self._cache.items()
+            if now - v["generated_at"] > self.CACHE_TTL
+        ]
+        for key in expired_keys:
+            del self._cache[key]
+```
 
 ---
 
@@ -1031,7 +1319,7 @@ class MTFEnsemble:
 **Layer**: Backend Database
 
 **Examples**:
-1. `src/api/database/session.py:1-30`
+1. `backend/src/api/database/session.py:1-30`
 
 ---
 
@@ -1044,7 +1332,7 @@ class MTFEnsemble:
 **Layer**: Backend Features
 
 **Examples**:
-1. `src/features/regime/regime_detector.py:1-200`
+1. `backend/src/features/regime/regime_detector.py:1-200`
 
 ---
 
@@ -1057,7 +1345,37 @@ class MTFEnsemble:
 **Layer**: Backend Trading
 
 **Examples**:
-1. `src/trading/position_sizing.py:179-397`
+1. `backend/src/trading/position_sizing.py:179-397`
+
+---
+
+### Pattern 6.5: JSON Serialization Helper
+
+**Description**: Convert numpy types to JSON-serializable Python types.
+
+**Priority**: LOW
+**Frequency**: Used in caching and serialization
+**Layer**: Backend Utilities
+
+**Examples**:
+1. `backend/src/models/feature_selection/manager.py:188-200`
+
+**Code Pattern**:
+```python
+def convert_for_json(obj):
+    """Convert numpy types to JSON-serializable Python types."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, list):
+        return [convert_for_json(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {str(k): convert_for_json(v) for k, v in obj.items()}
+    return obj
+```
 
 ---
 
@@ -1067,7 +1385,7 @@ class MTFEnsemble:
 
 **Why it's wrong**: Swallows specific error details and status codes.
 
-**Evidence**: Avoided in `src/api/routes/predictions.py:74-78`
+**Evidence**: Avoided in `backend/src/api/routes/predictions.py:74-78`
 
 **Wrong**:
 ```python
@@ -1077,12 +1395,12 @@ except Exception as e:
     raise HTTPException(status_code=500, detail=str(e))
 ```
 
-**Correct approach**: See `src/api/routes/predictions.py:74-78`
+**Correct approach**: See `backend/src/api/routes/predictions.py:74-78`
 ```python
 try:
     # ... operations
 except HTTPException:
-    raise  # Re-raise unchanged
+    raise
 except Exception as e:
     logger.error(f"Error: {e}")
     raise HTTPException(status_code=500, detail=str(e))
@@ -1104,7 +1422,7 @@ async def get_latest():
     return prediction
 ```
 
-**Correct approach**: See `src/api/routes/predictions.py:26-37`
+**Correct approach**: See `backend/src/api/routes/predictions.py:26-37`
 ```python
 @router.get("/predictions/latest")
 async def get_latest():
@@ -1124,11 +1442,11 @@ async def get_latest():
 **Wrong**:
 ```python
 def test_endpoint(self):
-    predictions.model_service = self.mock  # Never restored!
+    predictions.model_service = self.mock
     # Test code
 ```
 
-**Correct approach**: See `tests/api/test_predictions.py:56-68`
+**Correct approach**: See `backend/tests/api/test_predictions.py:56-68`
 ```python
 def test_endpoint(self):
     original = predictions.model_service
@@ -1151,10 +1469,10 @@ def test_endpoint(self):
 ```python
 @dataclass
 class Config:
-    weights: Dict[str, float] = {"1H": 0.6}  # SHARED MUTABLE!
+    weights: Dict[str, float] = {"1H": 0.6}
 ```
 
-**Correct approach**: See `src/models/multi_timeframe/mtf_ensemble.py:30-35`
+**Correct approach**: See `backend/src/models/multi_timeframe/mtf_ensemble.py:30-35`
 ```python
 @dataclass
 class Config:
@@ -1176,7 +1494,7 @@ async def get_data():
     return {"value": 123}
 ```
 
-**Correct approach**: See `src/api/routes/predictions.py:26`
+**Correct approach**: See `backend/src/api/routes/predictions.py:26`
 ```python
 @router.get("/data", response_model=DataResponse)
 async def get_data() -> DataResponse:
@@ -1194,11 +1512,11 @@ async def get_data() -> DataResponse:
 **Wrong**:
 ```jsx
 function Card({ data }) {
-  return <div>{data.value}</div>;  // Crashes if data is null
+  return <div>{data.value}</div>;
 }
 ```
 
-**Correct approach**: See `frontend/src/components/PredictionCard.jsx:1-139`
+**Correct approach**: See `frontend/src/components/ModelHighlights.jsx:1-143`
 ```jsx
 function Card({ data, loading, error }) {
   if (loading) return <Skeleton />;
@@ -1210,22 +1528,61 @@ function Card({ data, loading, error }) {
 
 ---
 
+### Anti-Pattern 7.7: Missing Data Leakage Prevention in Rolling Features
+
+**Why it's wrong**: Look-ahead bias invalidates all model performance claims.
+
+**Evidence**: Correct pattern in `backend/src/models/multi_timeframe/enhanced_meta_features.py`
+
+**Wrong**:
+```python
+vol = returns.rolling(window=20).std()
+```
+
+**Correct approach**:
+```python
+vol_raw = returns.rolling(window=20).std()
+vol_shifted = vol_raw.shift(1)  # CRITICAL: Use past volatility only
+```
+
+---
+
+### Anti-Pattern 7.8: Not Documenting DEPRECATED Fields
+
+**Why it's wrong**: Developers don't know about the migration path.
+
+**Evidence**: Found in `backend/src/api/schemas/trading.py:26`
+
+**Correct approach**: Document with replacement field name
+```python
+pips: Optional[float] = Field(
+    None, 
+    description="Profit/loss in pips (DEPRECATED - use profit_points)"
+)
+```
+
+---
+
 ## 8. Shared Utilities Index
 
 | Utility | Location | Used By | Purpose |
 |---------|----------|---------|---------|
-| `TechnicalIndicatorCalculator` | `src/features/technical/calculator.py:47` | 15+ scripts | Calculate technical indicators |
-| `SentimentLoader` | `src/features/sentiment/sentiment_loader.py:1` | 5+ modules | Load EPU/VIX sentiment |
-| `MTFEnsemble` | `src/models/multi_timeframe/mtf_ensemble.py:154` | 10+ scripts | Main prediction model |
-| `MTFEnsembleConfig` | `src/models/multi_timeframe/mtf_ensemble.py:28` | 10+ scripts | Model configuration |
-| `model_service` | `src/api/services/model_service.py:389` | 5+ routes | Singleton model service |
-| `data_service` | `src/api/services/data_service.py:1` | 5+ routes | Market data fetching |
-| `trading_service` | `src/api/services/trading_service.py:1` | 3+ routes | Paper trading logic |
+| `TechnicalIndicatorCalculator` | `backend/src/features/technical/calculator.py:47` | 15+ scripts | Calculate technical indicators |
+| `SentimentLoader` | `backend/src/features/sentiment/sentiment_loader.py:1` | 5+ modules | Load EPU/VIX sentiment |
+| `MTFEnsemble` | `backend/src/models/multi_timeframe/mtf_ensemble.py:154` | 10+ scripts | Main prediction model |
+| `MTFEnsembleConfig` | `backend/src/models/multi_timeframe/mtf_ensemble.py:28` | 10+ scripts | Model configuration |
+| `EnhancedMetaFeatureCalculator` | `backend/src/models/multi_timeframe/enhanced_meta_features.py:32` | 2 modules | Meta-learner features |
+| `FeatureSelectionManager` | `backend/src/models/feature_selection/manager.py:24` | Training scripts | RFECV feature selection |
+| `model_service` | `backend/src/api/services/model_service.py:389` | 5+ routes | Singleton model service |
+| `data_service` | `backend/src/api/services/data_service.py:36` | 5+ routes | Market data fetching |
+| `trading_service` | `backend/src/api/services/trading_service.py:24` | 3+ routes | Paper trading logic |
+| `performance_service` | `backend/src/api/services/performance_service.py:61` | Performance routes | Model highlights |
+| `explanation_service` | `backend/src/api/services/explanation_service.py:19` | Prediction routes | LLM explanations |
 | `api` client | `frontend/src/api/client.js:1` | All components | API communication |
 | `usePolling` | `frontend/src/hooks/usePolling.js:1` | Dashboard | Periodic fetching |
-| `get_db` | `src/api/database/session.py:1` | 5+ routes | DB session dependency |
-| `RegimeDetector` | `src/features/regime/regime_detector.py:1` | 3+ scripts | Market regime detection |
-| `PositionSizer` | `src/trading/position_sizing.py:179` | 2+ scripts | Kelly criterion sizing |
+| `get_db` | `backend/src/api/database/session.py:1` | 5+ routes | DB session dependency |
+| `RegimeDetector` | `backend/src/features/regime/regime_detector.py:1` | 3+ scripts | Market regime detection |
+| `PositionSizer` | `backend/src/trading/position_sizing.py:179` | 2+ scripts | Kelly criterion sizing |
 
 ---
 
@@ -1233,10 +1590,10 @@ function Card({ data, loading, error }) {
 
 | Layer | Exception Type | Logging Pattern | Example |
 |-------|---------------|-----------------|---------|
-| **API Routes** | `HTTPException` | `logger.error(f"Error: {e}")` | `src/api/routes/predictions.py:77` |
-| **Services** | `RuntimeError` | `logger.error(f"Failed: {e}")` | `src/api/services/model_service.py:93` |
-| **ML Models** | `RuntimeError` | `logger.warning(f"Issue: {e}")` | `src/models/multi_timeframe/mtf_ensemble.py:500` |
-| **Scripts** | `Exception` | `logger.error(f"Error: {e}")` | `scripts/train_mtf_ensemble.py:225` |
+| **API Routes** | `HTTPException` | `logger.error(f"Error: {e}")` | `backend/src/api/routes/predictions.py:77` |
+| **Services** | `RuntimeError` | `logger.error(f"Failed: {e}")` | `backend/src/api/services/model_service.py:93` |
+| **ML Models** | `RuntimeError` | `logger.warning(f"Issue: {e}")` | `backend/src/models/multi_timeframe/mtf_ensemble.py:500` |
+| **Scripts** | `Exception` | `logger.error(f"Error: {e}")` | `backend/scripts/train_mtf_ensemble.py:225` |
 | **Frontend** | `APIError` | Console in dev | `frontend/src/api/client.js:8` |
 
 ### Error Response Format (API)
@@ -1264,18 +1621,34 @@ function Card({ data, loading, error }) {
 ### Test Organization
 
 ```
-tests/
+backend/tests/
 ├── api/                      # API endpoint tests
-│   ├── test_predictions.py   # Prediction endpoints
-│   ├── test_trading.py       # Trading endpoints
-│   └── test_health.py        # Health check
+│   ├── test_predictions.py
+│   ├── test_trading.py
+│   ├── test_performance_routes.py
+│   └── test_health.py
 ├── services/                 # Service unit tests
 │   ├── test_data_service.py
 │   └── test_trading_service.py
-└── unit/                     # Unit tests by module
-    ├── features/             # Feature engineering
-    ├── models/               # ML models
-    └── trading/              # Trading logic
+├── unit/                     # Unit tests by module
+│   ├── api/
+│   │   └── test_performance_service.py
+│   ├── models/
+│   │   ├── test_enhanced_meta_features.py
+│   │   └── test_stacking_meta_learner.py
+│   └── features/
+└── integration/              # Integration tests
+    ├── test_enhanced_meta_learner.py
+    └── test_rfecv_integration.py
+
+frontend/src/
+├── components/
+│   ├── *.jsx                 # Component files
+│   └── *.test.jsx            # Component tests (co-located)
+├── hooks/
+│   └── *.test.js             # Hook tests
+└── api/
+    └── client.test.js        # API client tests
 ```
 
 ### Test Naming Convention
@@ -1286,7 +1659,8 @@ test_<function>_<condition>_<expected_result>
 Examples:
 - test_model_status_endpoint
 - test_latest_prediction_model_not_loaded
-- test_latest_prediction_insufficient_data
+- test_performance_highlights_loading_state
+- test_explanation_card_cached_indicator
 ```
 
 ### Test Coverage Targets
@@ -1307,26 +1681,25 @@ Examples:
 Based on git history, features follow this pattern:
 
 1. **Documentation First**: Create/update `docs/XX-feature-name.md`
-2. **Core Implementation**: Add to `src/` with proper module structure
-3. **Script Creation**: Add `scripts/feature_script.py` for CLI access
-4. **Testing**: Add tests in appropriate `tests/` directory
+2. **Backend First**: Add services and routes
+3. **Frontend Second**: Add components consuming API
+4. **Testing**: Add tests in appropriate directories
 5. **CLAUDE.md Update**: Update project guide with new capabilities
 
 **Recent Examples**:
 ```
-12060ed feat: Implement market regime detection
-  - docs/05-regime-detection-analysis.md
-  - src/features/regime/regime_detector.py
-  - scripts/analyze_regime_performance.py
+b134ad7 feat: Add ModelHighlights component with dynamic performance metrics
+  - backend/src/api/routes/performance.py
+  - backend/src/api/services/performance_service.py
+  - backend/tests/api/test_performance_routes.py
+  - backend/tests/unit/api/test_performance_service.py
+  - frontend/src/components/ModelHighlights.jsx
+  - frontend/src/components/ModelHighlights.test.jsx
 
-dc17a92 feat: Implement confidence threshold optimization
-  - docs/04-confidence-threshold-optimization.md
-  - scripts/optimize_confidence_threshold.py
-
-6058433 feat: Add web showcase, Docker deployment
-  - frontend/ (entire React application)
-  - src/api/ (FastAPI backend)
-  - Dockerfile, docker-compose.yml
+15161e2 feat: Add Enhanced Meta-Learner Features (20 meta-features)
+  - backend/src/models/multi_timeframe/enhanced_meta_features.py
+  - backend/tests/unit/models/test_enhanced_meta_features.py
+  - backend/tests/integration/test_enhanced_meta_learner.py
 ```
 
 ### Commit Message Convention
@@ -1338,6 +1711,7 @@ docs: <description>           # Documentation
 refactor: <description>       # Refactoring
 chore: <description>          # Maintenance
 test: <description>           # Test additions
+perf: <description>           # Performance improvements
 
 # With scopes:
 feat(sentiment): Add sentiment analysis
@@ -1355,9 +1729,9 @@ fix(frontend): Fix loading state
 |------|------------|---------|
 | Python modules | snake_case | `model_service.py` |
 | Python classes | PascalCase | `ModelService` |
-| React components | PascalCase | `PredictionCard.jsx` |
-| React tests | `*.test.jsx` | `PredictionCard.test.jsx` |
-| Python tests | `test_*.py` | `test_predictions.py` |
+| React components | PascalCase | `ModelHighlights.jsx` |
+| React tests | `*.test.jsx` | `ModelHighlights.test.jsx` |
+| Python tests | `test_*.py` | `test_performance_service.py` |
 
 ### Code
 
@@ -1365,7 +1739,7 @@ fix(frontend): Fix loading state
 |------|------------|---------|
 | Functions | snake_case | `get_prediction()` |
 | Variables | snake_case | `model_service` |
-| Constants | UPPER_SNAKE | `CACHE_TTL` |
+| Constants | UPPER_SNAKE | `CACHE_TTL`, `DEFAULT_BASELINE_METRICS` |
 | Classes | PascalCase | `MTFEnsemble` |
 | Private | _prefix | `_load_model()` |
 | React props | camelCase | `predictionLoading` |
@@ -1374,104 +1748,91 @@ fix(frontend): Fix loading state
 
 ## 13. Recommended Skills
 
-Based on patterns discovered, the following skills exist or should be created:
+Based on patterns discovered, the following skills exist:
 
-### Active Skills (7 SKILL.md files)
+### Active Skills (24 total)
 
-| Skill | Type | Location | Purpose |
-|-------|------|----------|---------|
-| `backend` | Domain | `.claude/skills/backend/SKILL.md` | FastAPI endpoints, services, schemas |
-| `frontend` | Domain | `.claude/skills/frontend/SKILL.md` | React components, API clients |
-| `database` | Domain | `.claude/skills/database/SKILL.md` | SQLAlchemy models, migrations |
-| `testing` | Domain | `.claude/skills/testing/SKILL.md` | pytest and Vitest test writing |
-| `build-deployment` | Domain | `.claude/skills/build-deployment/SKILL.md` | CLI scripts, Docker, deployment |
-| `routing-to-skills` | Meta | `.claude/skills/routing-to-skills/SKILL.md` | Dynamic skill discovery and routing |
-| `improving-framework-continuously` | Meta | `.claude/skills/improving-framework-continuously/SKILL.md` | Error processing, framework evolution |
+| Layer | Count | Primary Skills |
+|-------|-------|----------------|
+| **Meta** | 2 | `routing-to-skills`, `improving-framework-continuously` |
+| **Backend** | 6 | `backend`, `creating-python-services`, `creating-pydantic-schemas` |
+| **Frontend** | 2 | `frontend`, `creating-api-clients` |
+| **Database** | 1 | `database` |
+| **Feature Engineering** | 2 | `creating-technical-indicators`, `configuring-indicator-yaml` |
+| **Data Layer** | 1 | `adding-data-sources` |
+| **Trading Domain** | 3 | `running-backtests`, `analyzing-trading-performance`, `implementing-risk-management` |
+| **Testing** | 2 | `testing`, `writing-vitest-tests` |
+| **Quality & Testing** | 4 | `creating-dataclasses`, `validating-time-series-data`, `planning-test-scenarios`, `generating-test-data` |
+| **Build & Deployment** | 1 | `build-deployment` |
 
-### Related Skill Documents (16)
+### Quick Reference: When to Use
 
-| Category | Documents |
-|----------|-----------|
-| **Backend** | `creating-api-endpoints.md`, `creating-pydantic-schemas.md`, `creating-python-services.md`, `creating-data-processors.md`, `implementing-prediction-models.md` |
-| **Frontend** | `creating-api-clients.md` |
-| **Feature Engineering** | `creating-technical-indicators.md`, `configuring-indicator-yaml.md` |
-| **Data Layer** | `adding-data-sources.md` |
-| **Quality Testing** | `creating-dataclasses.md`, `generating-test-data.md`, `planning-test-scenarios.md`, `validating-time-series-data.md` |
-| **Testing** | `writing-vitest-tests.md` |
-| **Trading Domain** | `analyzing-trading-performance.md`, `implementing-risk-management.md`, `running-backtests.md` |
-
-### Meta-Skills (New in 2.1)
-
-Two meta-skills enable self-improving framework:
-
-1. **`routing-to-skills`** (v1.1.0): Dynamic skill discovery
-   - Analyzes task context (layer, type, keywords)
-   - Scores available skills (0-100 points)
-   - Returns top 3 recommendations with confidence
-   - Handles multi-skill scenarios and fallbacks
-
-2. **`improving-framework-continuously`** (v1.1.0): Framework evolution
-   - Captures errors in structured reports
-   - YAML validation before every commit
-   - Weekly triage and root cause analysis
-   - Metrics tracking (error rate, recurrence, resolution time)
+| Task | Primary Skill |
+|------|---------------|
+| Add API endpoint | `backend` |
+| Create service class | `creating-python-services` |
+| Define API schema | `creating-pydantic-schemas` |
+| Internal DTO | `creating-dataclasses` |
+| React component | `frontend` |
+| Database model | `database` |
+| Technical indicator | `creating-technical-indicators` |
+| New data source | `adding-data-sources` |
+| Backtest strategy | `running-backtests` |
+| Analyze performance | `analyzing-trading-performance` |
+| Position sizing | `implementing-risk-management` |
+| Python tests | `testing` |
+| Frontend tests | `writing-vitest-tests` |
+| Test data | `generating-test-data` |
+| Time series validation | `validating-time-series-data` |
+| CLI script | `build-deployment` |
 
 ### Recommended New Skills
 
 | Skill Name | Priority | Key Patterns |
 |------------|----------|--------------|
-| `creating-ml-models` | HIGH | 5.5 - ML Model Class Pattern |
-| `creating-cli-scripts` | MEDIUM | 5.3 - CLI Script Pattern |
-| `creating-react-hooks` | LOW | 6.1 - usePolling Hook Pattern |
-
-### Skill Structure Template
-
-```
-skill-name/
-├── SKILL.md           # Main instructions (< 500 lines, YAML frontmatter)
-├── EXAMPLES.md        # Extended code examples (if needed)
-├── REFERENCE.md       # Detailed reference docs (if needed)
-└── scripts/           # Executable utilities (optional)
-```
-
-### YAML Frontmatter Requirements
-
-```yaml
----
-name: skill-name       # lowercase, hyphens, max 64 chars (must match folder)
-description: ...       # max 1024 chars, third person, what + when to use
-version: 1.0.0         # recommended for tracking
----
-```
+| `creating-ml-features` | HIGH | 4.10 - Data Leakage Prevention Pattern |
+| `creating-chart-components` | MEDIUM | 4.5 - Chart Component with useMemo |
+| `caching-strategies` | MEDIUM | 4.11 - Cache with Hash-Based Invalidation |
 
 ---
 
 ## Validation Checklist
 
-- [x] At least 15 patterns identified and documented (18 total)
+- [x] At least 15 patterns identified and documented (24 total)
 - [x] Each HIGH priority pattern has 2+ concrete code examples with file paths
-- [x] Anti-patterns section documents 6 things to avoid
-- [x] Shared utilities indexed (12 utilities)
+- [x] Anti-patterns section documents 8 things to avoid
+- [x] Shared utilities indexed (16 utilities)
 - [x] Error handling patterns documented by layer
 - [x] All file path references verified to exist
 - [x] Patterns organized by priority (HIGH -> MEDIUM -> LOW)
 - [x] Skills best practices from Anthropic docs consolidated
 - [x] Recent git commits analyzed for workflow patterns
-- [x] Active skills inventory updated (7 SKILL.md files)
-- [x] Meta-skills documented (routing-to-skills, improving-framework-continuously)
-- [x] YAML frontmatter requirements documented
+- [x] Active skills inventory updated (24 skills)
+- [x] Technology stack versions updated (React 19.2, Vite 7.2)
+- [x] New patterns from recent development documented
 
 ---
 
-## Changes in Version 2.1
+## Changes in Version 3.0
 
-- Updated skills inventory from v2.0 (14 skills) to accurate count (7 SKILL.md + 16 related docs)
-- Added meta-skills documentation (routing-to-skills, improving-framework-continuously)
-- Enhanced Skills Best Practices with progressive disclosure details
-- Added anti-hallucination and examples recommendations
-- Added YAML frontmatter requirements section
-- Updated validation checklist
+### New Patterns Added
+- **4.4**: Updated React Card Component pattern with PropTypes (from 13 test files)
+- **4.5**: Chart Component with useMemo (PerformanceChart, PriceChart)
+- **4.10**: Data Leakage Prevention in ML Features (EnhancedMetaFeatureCalculator)
+- **4.11**: Cache with Hash-Based Invalidation (FeatureSelectionManager, ExplanationService)
+- **5.6**: Performance Service with Default Constants
+- **5.8**: LLM Service with Intelligent Caching
+
+### New Anti-Patterns
+- **7.7**: Missing Data Leakage Prevention in Rolling Features
+- **7.8**: Not Documenting DEPRECATED Fields
+
+### Updated Sections
+- Technology stack: React 19.2.0, Vite 7.2.4, TailwindCSS 4.1.18, LightGBM/CatBoost
+- Shared utilities: Added 4 new utilities (EnhancedMetaFeatureCalculator, FeatureSelectionManager, performance_service, explanation_service)
+- Layer architecture: Added new routes, services, and ML modules
+- Test organization: Added frontend test patterns (13 test files)
 
 ---
 
-*Last updated: 2026-01-18 | Version 2.1 Enhanced*
+*Last updated: 2026-01-23 | Version 3.0.0*

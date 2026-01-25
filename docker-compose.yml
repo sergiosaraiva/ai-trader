@@ -1,6 +1,24 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-trader-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ai-trader-network
+
   backend:
     build:
       context: ./backend
@@ -8,10 +26,18 @@ services:
     container_name: ai-trader-backend
     ports:
       - "8001:8001"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
     environment:
       - PORT=8001
       - PYTHONPATH=/app
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/db/trading.db}
+      - DATABASE_URL=${DATABASE_URL}
       - FRED_API_KEY=${FRED_API_KEY:-}
       # Scheduler mode: "true" for always-on, "false" for Railway cron
       - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-true}
@@ -23,6 +49,9 @@ services:
       - ./backend/data:/app/data
       # Mount models directory (read-only in production)
       - ./backend/models:/app/models:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8001/health', timeout=5)"]
       interval: 30s
@@ -30,6 +59,74 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
+    networks:
+      - ai-trader-network
+
+  agent:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.agent
+    container_name: ai-trader-agent
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=${DATABASE_URL}
+      - BACKEND_URL=http://backend:8001
+      # OpenAI API key for LLM trade explanations
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Agent configuration
+      - AGENT_MODE=${AGENT_MODE:-simulation}
+      - AGENT_SYMBOL=${AGENT_SYMBOL:-EURUSD}
+      - AGENT_CONFIDENCE_THRESHOLD=${AGENT_CONFIDENCE_THRESHOLD:-0.70}
+      - AGENT_CYCLE_INTERVAL=${AGENT_CYCLE_INTERVAL:-60}
+      - AGENT_MAX_POSITION_SIZE=${AGENT_MAX_POSITION_SIZE:-0.1}
+      - AGENT_USE_KELLY_SIZING=${AGENT_USE_KELLY_SIZING:-true}
+      - AGENT_HEALTH_PORT=${AGENT_HEALTH_PORT:-8002}
+      - AGENT_INITIAL_CAPITAL=${AGENT_INITIAL_CAPITAL:-100000.0}
+      # MT5 credentials (required for paper/live modes)
+      # NOTE: MT5 requires Windows. In Docker (Linux), only simulation mode works.
+      # For paper/live trading, run agent on Windows or use WSL2 with proper setup.
+      - AGENT_MT5_LOGIN=${AGENT_MT5_LOGIN:-}
+      - AGENT_MT5_PASSWORD=${AGENT_MT5_PASSWORD:-}
+      - AGENT_MT5_SERVER=${AGENT_MT5_SERVER:-}
+      # Safety settings
+      - AGENT_MAX_CONSECUTIVE_LOSSES=${AGENT_MAX_CONSECUTIVE_LOSSES:-5}
+      - AGENT_MAX_DRAWDOWN_PERCENT=${AGENT_MAX_DRAWDOWN_PERCENT:-10.0}
+      - AGENT_MAX_DAILY_LOSS_PERCENT=${AGENT_MAX_DAILY_LOSS_PERCENT:-5.0}
+      - AGENT_ENABLE_MODEL_DEGRADATION=${AGENT_ENABLE_MODEL_DEGRADATION:-false}
+      # Live trading confirmation (required for live mode)
+      - AGENT_LIVE_TRADING_CONFIRMED=${AGENT_LIVE_TRADING_CONFIRMED:-false}
+    ports:
+      - "8002:8002"
+    volumes:
+      # Mount models directory (read-only)
+      - ./backend/models:/app/models:ro
+      # Mount data directories (read-only - agent writes to database only)
+      - ./backend/data/forex:/app/data/forex:ro
+      - ./backend/data/sentiment:/app/data/sentiment:ro
+      # Logs directory (writable)
+      - ./backend/logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - ai-trader-network
 
   frontend:
     build:
@@ -50,3 +147,12 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    networks:
+      - ai-trader-network
+
+volumes:
+  postgres_data:
+
+networks:
+  ai-trader-network:
+    driver: bridge

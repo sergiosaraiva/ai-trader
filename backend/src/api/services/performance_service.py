@@ -18,43 +18,71 @@ logger = logging.getLogger(__name__)
 # Project root path (resolved for safety)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-# Default metric values from validated backtest results (2026-01-22)
-# These are used when data files are unavailable
-DEFAULT_BASELINE_METRICS = {
-    "TOTAL_PIPS": 8135.6,        # From backtest on test set with shallow_fast config
-    "WIN_RATE": 0.586,           # 58.6% win rate at 55% confidence threshold
-    "PROFIT_FACTOR": 2.26,       # Risk-reward ratio from backtest
-    "TOTAL_TRADES": 1093,        # Number of trades in backtest period
-}
+# Paths to data files (canonical sources of truth)
+BACKTEST_RESULTS_PATH = PROJECT_ROOT / "data" / "backtest_results.json"
+WFO_RESULTS_PATH = PROJECT_ROOT / "models" / "wfo_validation" / "wfo_results.json"
 
-# High-confidence metrics (70% threshold) from confidence optimization analysis
-DEFAULT_HIGH_CONF_METRICS = {
-    "THRESHOLD": 0.70,           # 70% confidence threshold
-    "WIN_RATE": 0.621,           # 62.1% win rate at high confidence
-    "PROFIT_FACTOR": 2.69,       # Profit factor at high confidence
-    "TOTAL_PIPS": 8693,          # Total pips at high confidence threshold
-    "SAMPLE_SIZE": 966,          # Number of high-confidence predictions
-}
 
-# Full model agreement metrics (used when training metadata unavailable)
+def _load_defaults_from_backtest() -> Dict[str, Any]:
+    """Load default metrics from backtest_results.json (canonical source).
+
+    This ensures defaults always match the latest validated backtest results,
+    avoiding stale hardcoded values that drift from actual data.
+
+    Returns:
+        Dict with baseline_metrics, high_conf_metrics loaded from JSON,
+        or minimal fallback values if file unavailable.
+    """
+    # Minimal fallback values (zeros) if backtest file unavailable
+    fallback = {
+        "baseline": {"TOTAL_PIPS": 0, "WIN_RATE": 0, "PROFIT_FACTOR": 0, "TOTAL_TRADES": 0},
+        "high_conf": {"THRESHOLD": 0.70, "WIN_RATE": 0, "PROFIT_FACTOR": 0, "TOTAL_PIPS": 0, "SAMPLE_SIZE": 0},
+    }
+
+    if not BACKTEST_RESULTS_PATH.exists():
+        logger.warning(f"Backtest results not found at {BACKTEST_RESULTS_PATH}, using zero fallbacks")
+        return fallback
+
+    try:
+        with open(BACKTEST_RESULTS_PATH) as f:
+            data = json.load(f)
+
+        # Load baseline from 5y (All Time) period
+        all_time = data.get("periods", {}).get("5y", {})
+        baseline = {
+            "TOTAL_PIPS": all_time.get("total_pips", 0),
+            "WIN_RATE": all_time.get("win_rate", 0) / 100,  # Convert percentage to decimal
+            "PROFIT_FACTOR": all_time.get("profit_factor", 0),
+            "TOTAL_TRADES": all_time.get("total_trades", 0),
+        }
+
+        # Load high-confidence metrics from by_threshold["0.70"]
+        threshold_70 = data.get("by_threshold", {}).get("0.70", {})
+        high_conf = {
+            "THRESHOLD": 0.70,
+            "WIN_RATE": threshold_70.get("win_rate", 0) / 100 if threshold_70.get("win_rate") else 0,
+            "PROFIT_FACTOR": threshold_70.get("profit_factor", 0),
+            "TOTAL_PIPS": threshold_70.get("total_pips", 0),
+            "SAMPLE_SIZE": threshold_70.get("total_trades", 0),
+        }
+
+        logger.debug(f"Loaded defaults from backtest: baseline={baseline}, high_conf={high_conf}")
+        return {"baseline": baseline, "high_conf": high_conf}
+
+    except Exception as e:
+        logger.warning(f"Could not load defaults from backtest: {e}, using zero fallbacks")
+        return fallback
+
+
+# Load defaults once at module initialization (from canonical backtest_results.json)
+_LOADED_DEFAULTS = _load_defaults_from_backtest()
+DEFAULT_BASELINE_METRICS = _LOADED_DEFAULTS["baseline"]
+DEFAULT_HIGH_CONF_METRICS = _LOADED_DEFAULTS["high_conf"]
+
+# Full model agreement metrics (loaded from training metadata, fallback to estimates)
 DEFAULT_AGREEMENT_METRICS = {
     "ACCURACY": 0.82,            # 82% accuracy when all 3 timeframes agree
     "SAMPLE_SIZE": 50,           # Number of full agreement samples
-}
-
-# WFO validation metrics (used when wfo_results.json unavailable)
-DEFAULT_WFO_METRICS = {
-    "WINDOWS_PROFITABLE": 8,     # All 8 windows profitable
-    "TOTAL_WINDOWS": 8,          # 8 WFO windows
-    "TOTAL_PIPS": 18136,         # Total pips across all windows
-    "CONSISTENCY_SCORE": 1.0,    # 100% consistency (8/8)
-}
-
-# Regime performance metrics (used when backtest_results.json unavailable)
-DEFAULT_REGIME_METRICS = {
-    "ALL_PROFITABLE": True,      # All market regimes profitable
-    "REGIMES_COUNT": 6,          # 6 market regimes tested
-    "PROFITABLE_REGIMES": 6,     # 6/6 profitable
 }
 
 

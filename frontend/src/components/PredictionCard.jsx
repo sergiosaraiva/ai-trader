@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Minus, AlertCircle, Clock } from 'lucide-react';
 import { formatPrice, getFormattedSymbol, getAssetTypeLabel } from '../utils/assetFormatting';
+import { CollapsibleCard } from './common/CollapsibleCard';
 
 /**
  * PredictionCard - Displays the current trading recommendation
@@ -133,33 +134,32 @@ export function PredictionCard({ prediction, loading, error }) {
     }
   };
 
-  return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-300">Current Recommendation <span className="text-blue-400 font-normal">({primaryTimeframe})</span></h2>
-          <p className="text-sm text-gray-500">{getAssetTypeLabel(prediction?.asset_metadata)} • {getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
-        </div>
-        <div className="flex flex-col items-end gap-1 text-gray-500 text-sm">
-          <div className="flex items-center gap-1">
-            <Clock size={14} />
-            <span>{formatTime(timestamp)}</span>
-          </div>
-          {data_timestamp && (
-            <div className="text-xs text-gray-600">
-              Data from: {formatTime(data_timestamp)}
-            </div>
-          )}
-          {next_prediction_at && (
-            <div className="text-xs text-gray-600">
-              Next update: {formatTime(next_prediction_at)}
-            </div>
-          )}
-        </div>
+  const timestampInfo = (
+    <div className="flex flex-col items-end gap-1 text-gray-500 text-xs">
+      <div className="flex items-center gap-1">
+        <Clock size={12} />
+        <span>{formatTime(timestamp)}</span>
       </div>
+      {data_timestamp && (
+        <div className="text-xs text-gray-600">
+          Data: {formatTime(data_timestamp)}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <CollapsibleCard
+      title={`Current Recommendation (${primaryTimeframe})`}
+      icon={<TrendingUp size={18} />}
+      className="card-hover"
+      actions={timestampInfo}
+    >
+      {/* Symbol Info */}
+      <p className="text-xs text-gray-500 mb-3">{getAssetTypeLabel(prediction?.asset_metadata)} • {getFormattedSymbol(symbol, prediction?.asset_metadata)}</p>
 
       {/* Main Signal */}
-      <div className="flex items-center justify-center gap-4 py-4" role="status" aria-live="polite">
+      <div className="flex items-center justify-center gap-3 py-3" role="status" aria-live="polite">
         <div className={`${getSignalColor(recommendation, isHold)}`} aria-hidden="true">
           {getSignalIcon(recommendation, isHold)}
         </div>
@@ -174,15 +174,15 @@ export function PredictionCard({ prediction, loading, error }) {
       </div>
 
       {/* Recommendation Explanation */}
-      <div className="bg-gray-700/30 rounded-lg p-3 mb-2">
-        <p className="text-sm text-gray-400 leading-relaxed">
+      <div className="bg-gray-700/30 rounded-lg p-2 mb-2">
+        <p className="text-xs text-gray-400 leading-relaxed">
           <span className={`font-medium ${getSignalColor(recommendation, isHold)}`}>{recommendation}:</span>{' '}
           {getRecommendationReason()}
         </p>
       </div>
 
       {/* Confidence Bar */}
-      <div className="mt-4" aria-label="Recommendation confidence">
+      <div className="mt-3" aria-label="Recommendation confidence">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm text-gray-400" id="confidence-label">Confidence</span>
           <span className="text-sm font-medium text-gray-300">
@@ -206,14 +206,14 @@ export function PredictionCard({ prediction, loading, error }) {
 
       {/* Timeframe Breakdown */}
       {(timeframe_signals || component_directions) && (
-        <div className="mt-6 pt-4 border-t border-gray-700">
-          <h3 className="text-sm text-gray-400 mb-3">Timeframe Breakdown</h3>
-          <div className="grid grid-cols-3 gap-3">
+        <div className="mt-4 pt-3 border-t border-gray-700">
+          <h3 className="text-xs text-gray-400 mb-2">Timeframe Breakdown</h3>
+          <div className="grid grid-cols-3 gap-2">
             {/* Handle new API format with component_directions */}
             {component_directions && Object.entries(component_directions).map(([tf, dir]) => (
-              <div key={tf} className="bg-gray-700/50 rounded p-3 text-center">
+              <div key={tf} className="bg-gray-700/50 rounded p-2 text-center">
                 <span className="text-xs text-gray-500 block mb-1">{tf === 'D' ? '1D' : tf}</span>
-                <span className={`text-sm font-medium ${getSignalColor(dir)}`}>
+                <span className={`text-xs font-medium ${getSignalColor(dir)}`}>
                   {getSignalText(dir)}
                 </span>
                 {component_confidences?.[tf] && (
@@ -225,9 +225,9 @@ export function PredictionCard({ prediction, loading, error }) {
             ))}
             {/* Handle old API format with timeframe_signals */}
             {!component_directions && timeframe_signals && Object.entries(timeframe_signals).map(([tf, data]) => (
-              <div key={tf} className="bg-gray-700/50 rounded p-3 text-center">
+              <div key={tf} className="bg-gray-700/50 rounded p-2 text-center">
                 <span className="text-xs text-gray-500 block mb-1">{tf}</span>
-                <span className={`text-sm font-medium ${getSignalColor(data.signal || data)}`}>
+                <span className={`text-xs font-medium ${getSignalColor(data.signal || data)}`}>
                   {getSignalText(data.signal || data)}
                 </span>
                 {data.confidence && (
@@ -240,7 +240,7 @@ export function PredictionCard({ prediction, loading, error }) {
           </div>
         </div>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
 

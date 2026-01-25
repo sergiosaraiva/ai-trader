@@ -11,6 +11,8 @@ from sqlalchemy import (
     DateTime,
     Boolean,
     JSON,
+    Text,
+    ForeignKey,
     Enum as SQLEnum,
     Index,
 )
@@ -57,10 +59,15 @@ class Prediction(Base):
     # Whether confidence meets 70% threshold for trading
     should_trade = Column(Boolean, nullable=False, default=True)
 
+    # Agent tracking fields
+    used_by_agent = Column(Boolean, default=False)
+    agent_cycle_number = Column(Integer, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
         Index("idx_predictions_timestamp_symbol", "timestamp", "symbol"),
+        Index("idx_predictions_agent_cycle", "agent_cycle_number"),
     )
 
 
@@ -70,7 +77,7 @@ class Trade(Base):
     __tablename__ = "trades"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    prediction_id = Column(Integer, nullable=True)  # Link to prediction
+    prediction_id = Column(Integer, ForeignKey("predictions.id", ondelete="SET NULL"), nullable=True)  # Link to prediction
     symbol = Column(String(20), nullable=False, default="EURUSD")
 
     # Trade details
@@ -101,12 +108,19 @@ class Trade(Base):
     confidence = Column(Float, nullable=True)
     status = Column(String(20), nullable=False, default="open")  # "open", "closed"
 
+    # Agent execution fields
+    execution_mode = Column(String(20), nullable=False, default="simulation")  # "simulation", "paper", "live"
+    broker = Column(String(50), nullable=True)  # "mt5", "alpaca", etc.
+    mt5_ticket = Column(Integer, nullable=True)  # MT5 order ticket number
+    explanation_id = Column(Integer, nullable=True)  # Note: TradeExplanation has FK to trades, not vice versa
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         Index("idx_trades_status", "status"),
         Index("idx_trades_entry_time", "entry_time"),
+        Index("idx_trades_execution_mode", "execution_mode"),
     )
 
 
@@ -168,4 +182,93 @@ class MarketData(Base):
 
     __table_args__ = (
         Index("idx_market_data_symbol_timestamp", "symbol", "timestamp"),
+    )
+
+
+class AgentCommand(Base):
+    """Commands from backend to agent (start, stop, pause, resume, kill, update_config)."""
+
+    __tablename__ = "agent_commands"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    command = Column(String(50), nullable=False)  # start, stop, pause, resume, kill, update_config
+    payload = Column(JSON, nullable=True)  # Command parameters
+    status = Column(String(20), nullable=False, default="pending")  # pending, processing, completed, failed
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    processed_at = Column(DateTime, nullable=True)
+    result = Column(JSON, nullable=True)  # Execution result
+    error_message = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("idx_agent_commands_status", "status"),
+        Index("idx_agent_commands_created", "created_at"),
+    )
+
+
+class AgentState(Base):
+    """Current agent status for crash recovery and status reporting."""
+
+    __tablename__ = "agent_state"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    status = Column(String(20), nullable=False)  # stopped, starting, running, paused, stopping, error
+    mode = Column(String(20), nullable=False)  # simulation, paper, live
+    cycle_count = Column(Integer, nullable=False, default=0)
+    last_cycle_at = Column(DateTime, nullable=True)
+    last_prediction = Column(JSON, nullable=True)
+    last_signal = Column(JSON, nullable=True)
+    account_equity = Column(Float, nullable=True)
+    open_positions = Column(Integer, nullable=False, default=0)
+    circuit_breaker_state = Column(String(50), nullable=True)
+    kill_switch_active = Column(Boolean, nullable=False, default=False)
+    error_message = Column(Text, nullable=True)
+    config = Column(JSON, nullable=False)
+    started_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        Index("idx_agent_state_status", "status"),
+        Index("idx_agent_state_updated", "updated_at"),
+    )
+
+
+class TradeExplanation(Base):
+    """LLM explanations linked to trades."""
+
+    __tablename__ = "trade_explanations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_id = Column(Integer, ForeignKey("trades.id"), nullable=False, index=True)
+    prediction_id = Column(Integer, ForeignKey("predictions.id"), nullable=True, index=True)
+    explanation = Column(Text, nullable=False)
+    confidence_factors = Column(JSON, nullable=True)
+    risk_factors = Column(JSON, nullable=True)
+    llm_model = Column(String(50), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_trade_explanations_trade", "trade_id"),
+        Index("idx_trade_explanations_prediction", "prediction_id"),
+    )
+
+
+class CircuitBreakerEvent(Base):
+    """Audit trail for safety system triggers."""
+
+    __tablename__ = "circuit_breaker_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    breaker_type = Column(String(50), nullable=False)  # consecutive_loss, drawdown, model_degradation
+    severity = Column(String(20), nullable=False)  # warning, critical
+    action = Column(String(20), nullable=False)  # triggered, recovered, reset
+    reason = Column(Text, nullable=True)
+    value = Column(Float, nullable=True)
+    threshold = Column(Float, nullable=True)
+    triggered_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    recovered_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_circuit_breaker_type", "breaker_type"),
+        Index("idx_circuit_breaker_severity", "severity"),
+        Index("idx_circuit_breaker_triggered", "triggered_at"),
     )

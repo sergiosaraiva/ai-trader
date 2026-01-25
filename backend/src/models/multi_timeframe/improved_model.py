@@ -21,6 +21,21 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.calibration import CalibratedClassifierCV
 from xgboost import XGBClassifier
 
+# Optional dependencies - protected imports
+try:
+    from lightgbm import LGBMClassifier
+    HAS_LIGHTGBM = True
+except ImportError:
+    HAS_LIGHTGBM = False
+    LGBMClassifier = None
+
+try:
+    from catboost import CatBoostClassifier
+    HAS_CATBOOST = True
+except ImportError:
+    HAS_CATBOOST = False
+    CatBoostClassifier = None
+
 from .labeling import AdvancedLabeler, LabelingConfig, LabelMethod
 from .enhanced_features import EnhancedFeatureEngine
 
@@ -44,13 +59,13 @@ class ImprovedModelConfig:
     max_holding_bars: int = 24  # ~24 hours for 1H
 
     # Model type
-    model_type: str = "xgboost"  # "xgboost", "gbm", "rf"
+    model_type: str = "xgboost"  # Options: "xgboost", "lightgbm", "catboost", "gbm", "rf"
 
-    # XGBoost parameters (defaults - optimized via targeted HPO 2026-01-22)
-    # shallow_fast config: +4.4% improvement over previous baseline
-    n_estimators: int = 250
-    max_depth: int = 4
-    learning_rate: float = 0.08
+    # XGBoost parameters (defaults - conservative config for best WFO generalization)
+    # Selected via WFO-based HPO: +5.3% improvement over baseline across 4 windows
+    n_estimators: int = 150
+    max_depth: int = 5
+    learning_rate: float = 0.03
     min_child_weight: int = 3
     subsample: float = 0.8
     colsample_bytree: float = 0.8
@@ -87,9 +102,9 @@ class ImprovedModelConfig:
             tp_pips=25.0,
             sl_pips=15.0,
             max_holding_bars=12,  # 12 hours max
-            n_estimators=250,
-            max_depth=4,
-            # learning_rate=0.08 inherited from defaults (shallow_fast config)
+            n_estimators=150,
+            max_depth=5,
+            learning_rate=0.03,
         )
 
     @classmethod
@@ -101,9 +116,9 @@ class ImprovedModelConfig:
             tp_pips=50.0,   # Original value - stable
             sl_pips=25.0,   # Original value - stable
             max_holding_bars=18,  # Original value - 3 days max
-            n_estimators=200,
-            max_depth=3,
-            # learning_rate=0.08 inherited from defaults (shallow_fast config)
+            n_estimators=120,
+            max_depth=4,
+            learning_rate=0.03,
         )
 
     @classmethod
@@ -115,9 +130,9 @@ class ImprovedModelConfig:
             tp_pips=150.0,  # Increased from 100 - wider target for position trades
             sl_pips=75.0,   # Increased from 50 - more room for daily volatility
             max_holding_bars=15,  # Increased from 10 - 3 weeks max
-            n_estimators=150,
+            n_estimators=80,
             max_depth=3,
-            # learning_rate=0.08 inherited from defaults (shallow_fast config)
+            learning_rate=0.03,
         )
 
 
@@ -205,6 +220,70 @@ class ImprovedTimeframeModel:
                 use_label_encoder=False,
                 eval_metric="logloss",
                 verbosity=0,
+            )
+        elif self.config.model_type == "lightgbm":
+            if not HAS_LIGHTGBM:
+                raise ImportError(
+                    "LightGBM is not installed. Install it with: pip install lightgbm>=4.0.0"
+                )
+            # LightGBM parameters - equivalent to shallow_fast XGBoost config
+            if self.config.hyperparams:
+                params = {
+                    "n_estimators": self.config.hyperparams.get("n_estimators", self.config.n_estimators),
+                    "max_depth": self.config.hyperparams.get("max_depth", self.config.max_depth),
+                    "learning_rate": self.config.hyperparams.get("learning_rate", self.config.learning_rate),
+                    "num_leaves": self.config.hyperparams.get("num_leaves", 15),  # 2^max_depth - 1
+                    "min_child_samples": self.config.hyperparams.get("min_child_samples", 20),
+                    "subsample": self.config.hyperparams.get("subsample", self.config.subsample),
+                    "colsample_bytree": self.config.hyperparams.get("colsample_bytree", self.config.colsample_bytree),
+                    "reg_alpha": self.config.hyperparams.get("reg_alpha", self.config.reg_alpha),
+                    "reg_lambda": self.config.hyperparams.get("reg_lambda", self.config.reg_lambda),
+                }
+            else:
+                params = {
+                    "n_estimators": self.config.n_estimators,
+                    "max_depth": self.config.max_depth,
+                    "learning_rate": self.config.learning_rate,
+                    "num_leaves": 15,  # 2^4 - 1 for similar complexity to max_depth=4
+                    "min_child_samples": 20,
+                    "subsample": self.config.subsample,
+                    "colsample_bytree": self.config.colsample_bytree,
+                    "reg_alpha": self.config.reg_alpha,
+                    "reg_lambda": self.config.reg_lambda,
+                }
+
+            return LGBMClassifier(
+                **params,
+                random_state=42,
+                n_jobs=-1,
+                verbosity=-1,
+            )
+        elif self.config.model_type == "catboost":
+            if not HAS_CATBOOST:
+                raise ImportError(
+                    "CatBoost is not installed. Install it with: pip install catboost>=1.2.0"
+                )
+            # CatBoost parameters - equivalent to shallow_fast XGBoost config
+            if self.config.hyperparams:
+                params = {
+                    "iterations": self.config.hyperparams.get("n_estimators", self.config.n_estimators),
+                    "depth": self.config.hyperparams.get("max_depth", self.config.max_depth),
+                    "learning_rate": self.config.hyperparams.get("learning_rate", self.config.learning_rate),
+                    "l2_leaf_reg": self.config.hyperparams.get("reg_lambda", self.config.reg_lambda),
+                }
+            else:
+                params = {
+                    "iterations": self.config.n_estimators,
+                    "depth": self.config.max_depth,
+                    "learning_rate": self.config.learning_rate,
+                    "l2_leaf_reg": self.config.reg_lambda,
+                }
+
+            return CatBoostClassifier(
+                **params,
+                random_seed=42,
+                verbose=False,
+                thread_count=-1,
             )
         elif self.config.model_type == "gbm":
             return GradientBoostingClassifier(
@@ -334,6 +413,17 @@ class ImprovedTimeframeModel:
             self.model.fit(
                 X_train_scaled, y_train,
                 eval_set=[(X_val_scaled, y_val)],
+                verbose=False,
+            )
+        elif self.config.model_type == "lightgbm":
+            self.model.fit(
+                X_train_scaled, y_train,
+                eval_set=[(X_val_scaled, y_val)],
+            )
+        elif self.config.model_type == "catboost":
+            self.model.fit(
+                X_train_scaled, y_train,
+                eval_set=(X_val_scaled, y_val),
                 verbose=False,
             )
         else:

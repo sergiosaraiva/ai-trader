@@ -453,6 +453,7 @@ Read skill1 → analyze → Read skill2 → analyze
 - [ ] Fix all broken references
 - [ ] Update agent skill references
 - [ ] Update SKILL-INDEX.md
+- [ ] **Sync CLAUDE.md with updated agents/skills** (re-run Step 4.6)
 
 ## Validation
 - [ ] Run full validation (must pass 100%)

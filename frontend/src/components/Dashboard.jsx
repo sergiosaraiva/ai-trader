@@ -18,13 +18,13 @@ import {
 import { PredictionCard } from './PredictionCard';
 import { AccountStatus } from './AccountStatus';
 import { PriceChart } from './PriceChart';
-import { PerformanceStats } from './PerformanceStats';
 import { PerformanceChart } from './PerformanceChart';
 import { TradeHistory } from './TradeHistory';
-import { AboutSection } from './AboutSection';
 import { InvestmentCalculator } from './InvestmentCalculator';
 import { ExplanationCard } from './ExplanationCard';
 import { ModelHighlights } from './ModelHighlights';
+import { AgentControlPanel } from './AgentControlPanel';
+import { useAgent } from '../hooks/useAgent';
 
 // Polling intervals (in milliseconds)
 const INTERVALS = {
@@ -35,6 +35,7 @@ const INTERVALS = {
   performance: 300000,  // 5 minutes (rarely changes)
   tradeHistory: 300000, // 5 minutes (for 30-day chart)
   explanation: 60000,   // 1 minute (cached on backend anyway)
+  agent: 5000,          // 5 seconds (agent status)
 };
 
 /**
@@ -48,6 +49,14 @@ export function Dashboard() {
   // Get current asset metadata
   const currentAssetType = selectedMarket;
   const marketOpenStatus = useMemo(() => isMarketOpen(currentAssetType), [currentAssetType]);
+
+  // Agent status (auto-refresh every 5 seconds)
+  const {
+    status: agentStatus,
+    safety: agentSafety,
+    loading: agentLoading,
+    refetch: refetchAgent,
+  } = useAgent(INTERVALS.agent);
 
   // Prediction data
   const {
@@ -95,14 +104,6 @@ export function Dashboard() {
     INTERVALS.pipeline
   );
 
-  // VIX sentiment data
-  const {
-    data: vixData,
-  } = usePolling(
-    useCallback(() => api.getVix(), []),
-    INTERVALS.pipeline
-  );
-
   // Signal history
   const {
     data: signalsData,
@@ -111,23 +112,6 @@ export function Dashboard() {
   } = usePolling(
     useCallback(() => api.getSignals(20), []),
     INTERVALS.signals
-  );
-
-  // Trading performance metrics for PerformanceStats
-  const {
-    data: performance,
-    loading: performanceLoading,
-    error: performanceError,
-  } = usePolling(
-    useCallback(async () => {
-      try {
-        return await api.getPerformance();
-      } catch {
-        // Return null if endpoint doesn't exist, component will use defaults
-        return null;
-      }
-    }, []),
-    INTERVALS.performance
   );
 
   // Model performance highlights
@@ -188,10 +172,6 @@ export function Dashboard() {
 
   // Extract signals array from response (API returns 'predictions' not 'signals')
   const signals = signalsData?.predictions || signalsData?.signals || (Array.isArray(signalsData) ? signalsData : []);
-
-  // Extract model weights and stacking info for AboutSection
-  const modelWeights = modelStatus?.weights || null;
-  const useStacking = modelStatus?.use_stacking || false;
 
   // Handle market change
   const handleMarketChange = (e) => {
@@ -332,9 +312,9 @@ export function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 py-6 flex-grow">
+      <main className="max-w-[1600px] mx-auto px-4 py-4 flex-grow">
         {/* AI Explanation - Full Width */}
-        <div className="mb-6">
+        <div className="mb-4">
           <ExplanationCard
             explanation={explanation}
             loading={explanationLoading}
@@ -344,7 +324,7 @@ export function Dashboard() {
         </div>
 
         {/* Model Highlights - Full Width */}
-        <div className="mb-6">
+        <div className="mb-4">
           <ModelHighlights
             performance={modelPerformance}
             loading={modelPerformanceLoading}
@@ -352,22 +332,23 @@ export function Dashboard() {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Prediction, About, Status & Signal History */}
-          <div className="space-y-6">
+        {/* Agent Control Section - Full Width */}
+        <div className="mb-4">
+          <AgentControlPanel
+            status={agentStatus}
+            safety={agentSafety}
+            loading={agentLoading}
+            onRefresh={refetchAgent}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left Column - Prediction, Status & Signal History */}
+          <div className="space-y-4">
             <PredictionCard
               prediction={prediction}
               loading={predictionLoading}
               error={predictionError}
-            />
-            <AboutSection
-              tradingPair={tradingPair}
-              modelWeights={modelWeights}
-              vixValue={vixData?.value}
-              assetMetadata={assetMetadata}
-              marketOpen={marketOpenStatus}
-              performance={performance}
-              useStacking={useStacking}
             />
             <AccountStatus
               pipelineStatus={pipelineStatus}
@@ -384,7 +365,7 @@ export function Dashboard() {
           </div>
 
           {/* Right Column - Chart, Performance & Calculator */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             <PriceChart
               candles={candles}
               prediction={prediction}
@@ -398,12 +379,6 @@ export function Dashboard() {
               error={tradeHistoryError}
               assetMetadata={assetMetadata}
             />
-            <PerformanceStats
-              performance={performance}
-              loading={performanceLoading}
-              error={performanceError}
-              assetMetadata={assetMetadata}
-            />
             <InvestmentCalculator
               assetMetadata={assetMetadata}
             />
@@ -414,22 +389,8 @@ export function Dashboard() {
       {/* Footer */}
       <footer className="bg-gray-800 border-t border-gray-700 mt-auto">
         <div className="max-w-[1600px] mx-auto px-4 py-4">
-          {/* Stats Row */}
-          <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-            <span>AI Trading Agent • Multi-Timeframe Analysis</span>
-            <div className="flex items-center gap-4">
-              <span className="text-green-400 font-medium">
-                {performance?.win_rate_high_conf ? `${(performance.win_rate_high_conf * 100).toFixed(0)}%` : '61%'} Win Rate <span className="text-xs text-gray-500">(high-confidence)</span>
-              </span>
-              <span className="text-blue-400">
-                {performance?.profit_factor?.toFixed(2) || '2.10'} PF
-              </span>
-              <span className="text-yellow-400">WFO Validated</span>
-            </div>
-          </div>
-
           {/* Risk Disclaimer */}
-          <div className="border-t border-gray-700 pt-4 mb-4">
+          <div className="mb-4">
             <p className="text-xs text-gray-500 leading-relaxed text-center">
               <strong className="text-yellow-500">⚠️ Risk Disclaimer:</strong> These recommendations are generated by an AI agent and are provided for informational purposes only.
               Past performance does not guarantee future results. Trading involves substantial risk of loss.

@@ -1,7 +1,7 @@
 ---
 name: routing-to-skills
 description: Meta-skill that analyzes task context and routes to appropriate skills. Use when an agent needs to discover which skill applies to a given task. Scans available skills in .claude/skills/ and returns ranked recommendations with confidence scores. Enables cross-project portability without hardcoded skill names.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Routing to Skills
@@ -11,12 +11,12 @@ A meta-skill that enables agents to dynamically discover and invoke appropriate 
 ## Quick Reference
 
 ```
-1. analyzeContext(task, files)     → Extract layer, task type, keywords
-2. discoverSkills()                → Scan .claude/skills/ for available skills
-3. scoreSkills(context, skills)    → Rank by relevance (0-100 points)
-4. handleNoMatch(closestMatches)   → Generate fallback when confidence < 0.5
-5. invokeSkill(skill, context)     → Load and apply selected skill
-6. logRouting(decision)            → Record decision for audit trail
+1. analyzeContext(task, files)     -> Extract layer, task type, keywords
+2. discoverSkills()                -> Scan .claude/skills/ for available skills
+3. scoreSkills(context, skills)    -> Rank by relevance (0-100 points)
+4. handleNoMatch(closestMatches)   -> Generate fallback when confidence < 0.5
+5. invokeSkill(skill, context)     -> Load and apply selected skill
+6. logRouting(decision)            -> Record decision for audit trail
 ```
 
 ## When to Use
@@ -25,7 +25,7 @@ A meta-skill that enables agents to dynamically discover and invoke appropriate 
 - Agent workflow step needs skill-based guidance
 - Multiple skills might apply (need ranking)
 - Task description is ambiguous about which pattern to follow
-- Post-design phase (Solution Architect → Test Automator handoff)
+- Post-design phase (Solution Architect -> Test Automator handoff)
 
 ## When NOT to Use
 
@@ -33,6 +33,35 @@ A meta-skill that enables agents to dynamically discover and invoke appropriate 
 - Simple tasks requiring no specialized patterns
 - Research/exploration tasks (not implementation)
 - User provides explicit manual override
+
+---
+
+## Progressive Disclosure Pattern
+
+Skills use a three-level loading strategy to minimize token usage:
+
+```
+Level 1: Metadata (always loaded)
+├── name, description from YAML frontmatter
+├── Pre-loaded in system prompt (~50 tokens per skill)
+└── Enables skill discovery without full content
+
+Level 2: Instructions (loaded when triggered)
+├── Full SKILL.md content
+├── Decision trees, patterns, examples
+└── Loaded only for selected skill(s)
+
+Level 3: Resources (loaded as needed)
+├── Referenced code files
+├── Templates, schemas
+└── Loaded only when skill explicitly requests
+```
+
+**Token Budget Awareness**: The context window is a shared resource. Only load what's needed:
+- Routing analysis: ~200 tokens
+- Skill metadata scan: ~50 tokens per skill
+- Full skill load: 200-800 tokens per skill
+- Keep total routing overhead under 500 tokens
 
 ---
 
@@ -67,20 +96,21 @@ Extracts layer, task type, and keywords from the input.
 
 | Path Pattern | Layer | Primary Skills |
 |-------------|-------|----------------|
-| `backend/src/api/routes/**` | api-routes | creating-fastapi-endpoints |
+| `backend/src/api/routes/**` | api-routes | backend |
 | `backend/src/api/services/**` | api-services | creating-python-services |
 | `backend/src/api/schemas/**` | api-schemas | creating-pydantic-schemas |
-| `backend/src/api/database/**` | database | creating-sqlalchemy-models |
-| `frontend/src/components/**` | frontend-components | creating-react-components |
+| `backend/src/api/database/**` | database | database |
+| `frontend/src/components/**` | frontend-components | frontend |
 | `frontend/src/api/**` | frontend-api | creating-api-clients |
 | `backend/src/models/**` | model | implementing-prediction-models |
 | `backend/src/features/technical/**` | feature-engineering | creating-technical-indicators |
+| `backend/src/features/**` | ml-features | creating-ml-features |
 | `backend/src/data/sources/**` | data-sources | adding-data-sources |
 | `backend/src/data/processors/**` | data-processors | creating-data-processors |
 | `backend/src/trading/**` | trading | implementing-risk-management |
 | `backend/src/simulation/**` | simulation | running-backtests |
-| `backend/tests/**` or `*.test.*` | testing | writing-pytest-tests, writing-vitest-tests |
-| `backend/scripts/**` | cli | creating-cli-scripts |
+| `backend/tests/**` or `*.test.*` | testing | testing, writing-vitest-tests |
+| `backend/scripts/**` | cli | build-deployment |
 | `backend/configs/**` | config | configuring-indicator-yaml |
 
 **Task Type Detection:**
@@ -93,6 +123,8 @@ Extracts layer, task type, and keywords from the input.
 | test, validate, verify, spec | testing | +30 to testing skills |
 | config, configure, setup, env | config | +25 to config skills |
 | migrate, upgrade, update, move | migration | +10 to affected layer |
+| cache, memoize, performance | caching | +25 to caching skills |
+| chart, graph, visualization | charting | +25 to chart skills |
 
 ### Function 2: `discoverSkills()`
 
@@ -114,7 +146,8 @@ Scans the skills directory and builds a registry.
   "pathPatterns": ["src/api/services/**"],
   "taskTypes": ["feature", "refactor"],
   "keywords": ["service", "singleton", "cache", "Lock", "initialize"],
-  "whenToUse": ["New service needed", "Adding caching to service"]
+  "whenToUse": ["New service needed", "Adding caching to service"],
+  "tokenCost": 262
 }
 ```
 
@@ -126,11 +159,12 @@ Ranks skills by relevance using the scoring algorithm.
 
 | Signal | Points | Example |
 |--------|--------|---------|
-| File path match | +50 | `*/services/*` → `creating-python-services` |
-| Task type match | +30 | "add test" → `writing-pytest-tests` |
-| Keyword match | +10 each (max 30) | "validation" → `creating-pydantic-schemas` |
-| Layer match | +20 | Frontend file → frontend skills |
+| File path match | +50 | `*/services/*` -> `creating-python-services` |
+| Task type match | +30 | "add test" -> `testing` |
+| Keyword match | +10 each (max 30) | "validation" -> `creating-pydantic-schemas` |
+| Layer match | +20 | Frontend file -> frontend skills |
 | Recent success | +5 | Skill worked well on similar task |
+| Explicit mention | +100 | "use the backend skill" |
 
 **Confidence Thresholds:**
 
@@ -198,17 +232,17 @@ Records routing decisions for audit trail.
 
 **Log Format:**
 ```
-[2026-01-16 14:32:15] Task: "Add validation to UserService"
-[2026-01-16 14:32:15] Files: ["src/api/services/user_service.py"]
-[2026-01-16 14:32:15] Context Analysis:
+[2026-01-23 14:32:15] Task: "Add validation to UserService"
+[2026-01-23 14:32:15] Files: ["src/api/services/user_service.py"]
+[2026-01-23 14:32:15] Context Analysis:
   - Layer: api-services (from src/api/services/)
   - Task Type: feature (keywords: add, validation)
   - Keywords: validation, user, email, service
-[2026-01-16 14:32:15] Skills Scored:
+[2026-01-23 14:32:15] Skills Scored:
   - creating-python-services: 0.90 (path:+50, type:+30, keyword:+10)
   - creating-pydantic-schemas: 0.78 (type:+30, keyword:+20, related:+28)
   - creating-sqlalchemy-models: 0.65 (keyword:+20, related:+45)
-[2026-01-16 14:32:15] Selected: creating-python-services (confidence: 0.90)
+[2026-01-23 14:32:15] Selected: creating-python-services (confidence: 0.90)
 ```
 
 ---
@@ -242,6 +276,7 @@ Records routing decisions for audit trail.
       "confidence": 0.90,
       "reason": "File path matches backend service pattern, task mentions validation",
       "skill_path": ".claude/skills/backend/creating-python-services.md",
+      "token_cost": 262,
       "next_steps": [
         "Review existing validation patterns in service",
         "Add validation method with proper error handling",
@@ -253,16 +288,18 @@ Records routing decisions for audit trail.
       "confidence": 0.78,
       "reason": "Validation often requires Pydantic schema constraints",
       "skill_path": ".claude/skills/backend/creating-pydantic-schemas.md",
+      "token_cost": 229,
       "next_steps": [
         "Add unique constraint validation in schema",
         "Use Field() with constraints"
       ]
     },
     {
-      "skill": "creating-sqlalchemy-models",
+      "skill": "database",
       "confidence": 0.65,
       "reason": "Duplicate prevention often requires database unique constraint",
       "skill_path": ".claude/skills/database/SKILL.md",
+      "token_cost": 273,
       "next_steps": [
         "Add unique index to email column",
         "Add migration for schema change"
@@ -276,11 +313,11 @@ Records routing decisions for audit trail.
     "Input: task='Add validation to UserService', files=['src/api/services/user_service.py']",
     "Detected layer: api-services (from src/api/services/)",
     "Detected task type: feature (keywords: add, validation)",
-    "Discovered 24 skills in .claude/skills/",
+    "Discovered 27 skills in .claude/skills/",
     "Scored all skills, top 3:",
     "  1. creating-python-services: 90 pts (path:+50, type:+30, keyword:+10)",
     "  2. creating-pydantic-schemas: 78 pts (type:+30, keyword:+20, related:+28)",
-    "  3. creating-sqlalchemy-models: 65 pts (keyword:+20, related:+45)",
+    "  3. database: 65 pts (keyword:+20, related:+45)",
     "Selected: creating-python-services (highest confidence)"
   ]
 }
@@ -301,13 +338,13 @@ Score[skill_1] - Score[skill_2] <= 10 points (0.10 confidence)
 ```json
 {
   "recommendations": [
-    {"skill": "creating-sqlalchemy-models", "confidence": 0.91},
+    {"skill": "database", "confidence": 0.91},
     {"skill": "creating-python-services", "confidence": 0.89},
     {"skill": "creating-pydantic-schemas", "confidence": 0.87}
   ],
   "multi_skill": true,
   "execution_order": [
-    "1. creating-sqlalchemy-models (database layer first)",
+    "1. database (database layer first)",
     "2. creating-pydantic-schemas (schemas depend on models)",
     "3. creating-python-services (service depends on schemas)"
   ],
@@ -317,13 +354,41 @@ Score[skill_1] - Score[skill_2] <= 10 points (0.10 confidence)
 
 **Dependency Order:**
 ```
-1. Database (creating-sqlalchemy-models)
+1. Database (database)
 2. Schemas (creating-pydantic-schemas)
 3. Services (creating-python-services)
-4. Routes (creating-fastapi-endpoints)
-5. Tests (writing-pytest-tests)
-6. Frontend (creating-react-components, if applicable)
+4. Routes (backend)
+5. Tests (testing)
+6. Frontend (frontend, if applicable)
+7. Charts (creating-chart-components, if applicable)
 ```
+
+---
+
+## Skill Chaining
+
+Some skills explicitly reference other skills. The router handles these chains:
+
+**Chain Triggers:**
+```
+planning-test-scenarios -> generating-test-data
+  When: Test plan identifies data requirements
+
+creating-ml-features -> validating-time-series-data
+  When: ML features need leakage validation
+
+implementing-caching-strategies -> creating-python-services
+  When: Service needs caching integration
+
+frontend -> creating-chart-components
+  When: Component includes data visualization
+```
+
+**Chain Handling:**
+1. Primary skill completes its guidance
+2. If chain trigger detected, router suggests next skill
+3. User can accept or skip chained skill
+4. Each skill in chain is logged separately
 
 ---
 
@@ -346,7 +411,7 @@ Task Type: bug_fix (keyword "fix")
 Keywords:  button, alignment, mobile, login
 
 Skill Scores:
-1. creating-react-components: 95 pts
+1. frontend: 95 pts
    - File path: +50 (frontend/src/components/)
    - Task type: +30 (bug_fix on UI component)
    - Keywords: +15 (component, mobile)
@@ -355,7 +420,7 @@ Skill Scores:
    - Task type: +30 (testing related)
    - Keywords: +20 (component, test)
 
-Selected: creating-react-components
+Selected: frontend
 Multi-skill: No (clear winner)
 ```
 
@@ -364,7 +429,7 @@ Multi-skill: No (clear winner)
 {
   "recommendations": [
     {
-      "skill": "creating-react-components",
+      "skill": "frontend",
       "confidence": 0.95,
       "reason": "File path matches frontend component, UI fix task",
       "next_steps": [
@@ -405,11 +470,12 @@ Skill Scores:
    - Task type: +30 (testing)
    - Keywords: +25 (acceptance criteria present)
 
-2. creating-fastapi-endpoints: 60 pts
+2. backend: 60 pts
    - File path: +50 (src/api/routes/)
    - Keywords: +10 (export)
 
 Selected: planning-test-scenarios (phase-based priority)
+Chain: -> generating-test-data (after test plan complete)
 ```
 
 **Output:**
@@ -424,7 +490,8 @@ Selected: planning-test-scenarios (phase-based priority)
         "Generate test scenarios from acceptance criteria",
         "Define test data requirements for PDF export",
         "Chain to generating-test-data for fixtures"
-      ]
+      ],
+      "chains_to": "generating-test-data"
     }
   ],
   "multi_skill": false
@@ -454,7 +521,7 @@ Task Type: feature (keyword "add")
 Keywords:  customer, status, field
 
 Skill Scores:
-1. creating-sqlalchemy-models: 91 pts
+1. database: 91 pts
    - File path: +50 (src/api/database/)
    - Task type: +30 (feature)
    - Keywords: +11 (field)
@@ -476,17 +543,17 @@ Multi-skill: Yes (3 skills within 0.1 confidence)
 ```json
 {
   "recommendations": [
-    {"skill": "creating-sqlalchemy-models", "confidence": 0.91},
+    {"skill": "database", "confidence": 0.91},
     {"skill": "creating-python-services", "confidence": 0.89},
     {"skill": "creating-pydantic-schemas", "confidence": 0.87}
   ],
   "multi_skill": true,
   "execution_order": [
-    "1. creating-sqlalchemy-models (database first - add CustomerStatus enum/column)",
+    "1. database (database first - add CustomerStatus enum/column)",
     "2. creating-pydantic-schemas (schema depends on model)",
     "3. creating-python-services (service depends on schema)",
-    "4. creating-fastapi-endpoints (route uses service, if needed)",
-    "5. creating-react-components (frontend displays data)"
+    "4. backend (route uses service, if needed)",
+    "5. frontend (frontend displays data)"
   ],
   "reason": "Task spans 4 layers - apply skills in dependency order"
 }
@@ -541,47 +608,135 @@ Fallback triggered: No skill scores above 0.5 threshold
 }
 ```
 
+### Example 5: Chart Component Task
+
+**Input:**
+```json
+{
+  "task": "Add performance chart showing equity curve",
+  "files": ["frontend/src/components/PerformanceChart.jsx"]
+}
+```
+
+**Router Analysis:**
+```
+Layer:     frontend-components
+Task Type: feature (keyword "add")
+Keywords:  chart, performance, equity, curve
+
+Skill Scores:
+1. creating-chart-components: 95 pts
+   - File path: +50 (frontend/src/components/)
+   - Task type: +30 (feature)
+   - Keywords: +15 (chart, performance)
+
+2. frontend: 70 pts
+   - File path: +50 (frontend/src/components/)
+   - Keywords: +20 (component)
+
+Selected: creating-chart-components (keyword specificity)
+```
+
+**Output:**
+```json
+{
+  "recommendations": [
+    {
+      "skill": "creating-chart-components",
+      "confidence": 0.95,
+      "reason": "Chart-specific task in frontend component",
+      "next_steps": [
+        "Use LineChart from Recharts for equity curve",
+        "Memoize data transformation with useMemo",
+        "Add loading state with Skeleton",
+        "Include responsive container"
+      ]
+    }
+  ],
+  "multi_skill": false
+}
+```
+
+### Example 6: Caching Implementation
+
+**Input:**
+```json
+{
+  "task": "Add caching to prediction service",
+  "files": ["backend/src/api/services/model_service.py"]
+}
+```
+
+**Router Analysis:**
+```
+Layer:     api-services
+Task Type: feature (keyword "add")
+Keywords:  cache, caching, prediction, service
+
+Skill Scores:
+1. implementing-caching-strategies: 95 pts
+   - Task type: +30 (feature)
+   - Keywords: +40 (cache, caching)
+   - Layer: +25 (caching boost)
+
+2. creating-python-services: 80 pts
+   - File path: +50 (src/api/services/)
+   - Task type: +30 (feature)
+
+Selected: implementing-caching-strategies (keyword specificity)
+Chain: -> creating-python-services (for service integration patterns)
+```
+
 ---
 
 ## Available Skills Registry
 
-### Backend Layer
+### Meta-Skills (2)
+
+| Skill | Purpose |
+|-------|---------|
+| `routing-to-skills` | This skill - dynamic skill discovery |
+| `improving-framework-continuously` | Process errors to improve agents/skills |
+
+### Backend Layer (6)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-fastapi-endpoints` | `backend/src/api/routes/**` | endpoint, route, FastAPI, APIRouter, GET, POST |
+| `backend` | `backend/src/api/routes/**` | endpoint, route, FastAPI, APIRouter, GET, POST |
 | `creating-python-services` | `backend/src/api/services/**` | service, singleton, cache, Lock, initialize |
 | `creating-pydantic-schemas` | `backend/src/api/schemas/**` | schema, BaseModel, Field, response, request |
 | `implementing-prediction-models` | `backend/src/models/**` | model, predict, train, ensemble, MTF |
 | `creating-data-processors` | `backend/src/data/processors/**` | processor, transform, validate, clean |
 
-### Frontend Layer
+### Frontend Layer (3)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-react-components` | `frontend/src/components/**` | component, jsx, useState, loading, error |
+| `frontend` | `frontend/src/components/**` | component, jsx, useState, loading, error |
 | `creating-api-clients` | `frontend/src/api/**` | fetch, client, API, hook |
+| `creating-chart-components` | `frontend/src/components/*Chart*` | chart, graph, Recharts, LineChart, useMemo |
 
-### Database Layer
+### Database Layer (1)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-sqlalchemy-models` | `backend/src/api/database/**` | SQLAlchemy, Column, Table, Index, relationship |
+| `database` | `backend/src/api/database/**` | SQLAlchemy, Column, Table, Index, relationship |
 
-### Feature Engineering
+### Feature Engineering (3)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
 | `creating-technical-indicators` | `backend/src/features/technical/**` | indicator, RSI, MACD, EMA, bollinger, ATR |
 | `configuring-indicator-yaml` | `backend/configs/indicators/**` | config, yaml, priority, enabled |
+| `creating-ml-features` | `backend/src/features/**` | feature, rolling, shift, leakage, ML |
 
-### Data Layer
+### Data Layer (1)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
 | `adding-data-sources` | `backend/src/data/sources/**` | source, connector, fetch, provider |
 
-### Trading Domain
+### Trading Domain (3)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
@@ -589,14 +744,14 @@ Fallback triggered: No skill scores above 0.5 threshold
 | `analyzing-trading-performance` | - | sharpe, sortino, drawdown, metrics, performance |
 | `implementing-risk-management` | `backend/src/trading/**` | risk, position, circuit, drawdown |
 
-### Testing
+### Testing (2)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `writing-pytest-tests` | `backend/tests/**` | pytest, TestClient, Mock, fixture, assert |
+| `testing` | `backend/tests/**` | pytest, TestClient, Mock, fixture, assert |
 | `writing-vitest-tests` | `*.test.jsx`, `*.test.tsx` | vitest, render, screen, Testing Library |
 
-### Quality & Testing
+### Quality & Testing (4)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
@@ -605,18 +760,17 @@ Fallback triggered: No skill scores above 0.5 threshold
 | `validating-time-series-data` | - | time series, leakage, chronological, shift |
 | `creating-dataclasses` | - | dataclass, DTO, @dataclass, frozen |
 
-### Build & Deployment
+### Caching & Performance (1)
 
 | Skill | Path Triggers | Keyword Triggers |
 |-------|---------------|------------------|
-| `creating-cli-scripts` | `backend/scripts/**` | argparse, CLI, command-line, main |
+| `implementing-caching-strategies` | - | cache, memoize, TTL, invalidate, hash |
 
-### Meta-Skills
+### Build & Deployment (1)
 
-| Skill | Purpose |
-|-------|---------|
-| `routing-to-skills` | This skill - dynamic skill discovery |
-| `improving-framework-continuously` | Process errors to improve agents/skills |
+| Skill | Path Triggers | Keyword Triggers |
+|-------|---------------|------------------|
+| `build-deployment` | `backend/scripts/**` | argparse, CLI, command-line, main |
 
 ---
 
@@ -628,22 +782,25 @@ When multiple skills score equally or within 5 points:
 
 ```
 1. Phase-specific skills first
-   - post-design → planning-test-scenarios
-   - implementation → domain skill
+   - post-design -> planning-test-scenarios
+   - implementation -> domain skill
 
 2. More specific path match wins
    - src/api/routes/ > src/api/ > src/
 
-3. Explicit skill reference in task wins
-   - "using the creating-pydantic-schemas pattern" → that skill
+3. More specific keyword match wins
+   - "chart" -> creating-chart-components > frontend
 
-4. Multi-file: apply skills in dependency order
-   - database → schemas → services → routes → frontend
+4. Explicit skill reference in task wins
+   - "using the creating-pydantic-schemas pattern" -> that skill
 
-5. Session history bonus
+5. Multi-file: apply skills in dependency order
+   - database -> schemas -> services -> routes -> frontend
+
+6. Session history bonus
    - Previously successful skill gets +5 points
 
-6. Ask for preference if still tied
+7. Ask for preference if still tied
    - Present options with tradeoffs
 ```
 
@@ -676,24 +833,25 @@ The router respects explicit skill requests and logs the override.
 
 ```
 Agent receives task
-│
-├─ Invoke skill-router with {task, files, context}
-│
-├─ Router returns recommendations:
-│   ├─ Top 3 skills with confidence scores
-│   ├─ Reasons for each recommendation
-│   └─ Suggested next steps
-│
-├─ Agent reviews recommendations:
-│   ├─ High confidence (≥0.80): Auto-select
-│   ├─ Medium confidence (0.50-0.79): Review and select
-│   └─ Low confidence (<0.50): Fallback triggered
-│
-├─ Agent loads selected skill content
-│
-├─ Agent follows skill's decision tree
-│
-└─ If skill references another → Router handles chaining
+|
++-- Invoke skill-router with {task, files, context}
+|
++-- Router returns recommendations:
+|   +-- Top 3 skills with confidence scores
+|   +-- Reasons for each recommendation
+|   +-- Token cost for each skill
+|   +-- Suggested next steps
+|
++-- Agent reviews recommendations:
+|   +-- High confidence (>=0.80): Auto-select
+|   +-- Medium confidence (0.50-0.79): Review and select
+|   +-- Low confidence (<0.50): Fallback triggered
+|
++-- Agent loads selected skill content
+|
++-- Agent follows skill's decision tree
+|
++-- If skill references another -> Router handles chaining
 ```
 
 ---
@@ -704,12 +862,14 @@ Agent receives task
 - [ ] All skills discovered from `.claude/skills/`
 - [ ] Top 3 recommendations returned with confidence scores
 - [ ] Each recommendation includes reasons and next_steps
+- [ ] Token cost included for budget awareness
 - [ ] Confidence scores calibrated (0-1 range)
 - [ ] Routing log captures decision process
 - [ ] Manual override respected if provided
 - [ ] Multi-file tasks get sequenced skill recommendations
 - [ ] Fallback triggered when confidence < 0.5
 - [ ] Audit trail recorded for debugging
+- [ ] Skill chains identified and communicated
 
 ## Common Mistakes
 
@@ -723,6 +883,8 @@ Agent receives task
 | Low confidence auto-select | Wrong skill applied | Require review <0.80 |
 | No fallback handling | Silent failure on no match | Always provide suggestions |
 | Missing audit trail | Can't debug wrong routing | Log all decisions |
+| Ignoring token budget | Context overflow | Include token_cost |
+| Missing chain triggers | User misses related skills | Check skill dependencies |
 
 ## Anti-Hallucination Rules
 
@@ -732,14 +894,7 @@ Agent receives task
 4. **Confidence Honesty**: If unsure about match, return lower confidence
 5. **Fallback Over Guess**: When no match, trigger fallback instead of guessing
 6. **Log Everything**: All decisions must be auditable in routing_log
-
----
-
-## Related Skills
-
-All discoverable skills are listed in [SKILL-INDEX.md](../SKILL-INDEX.md).
-
-This meta-skill enables agents to work across different projects without hardcoded skill references.
+7. **Ground in Evidence**: Each recommendation must cite scoring breakdown
 
 ---
 
@@ -753,6 +908,7 @@ When the router recommends skills, it MUST:
 2. **Cite exact paths**: Provide `skill_path` from actual filesystem, not invented paths
 3. **Ground in evidence**: Each recommendation must cite why (path match, keyword match, etc.)
 4. **Allow uncertainty**: If confidence < 0.5, use fallback instead of forcing a match
+5. **Include token cost**: Help agents make informed decisions about context budget
 
 ### Verification Steps
 
@@ -760,20 +916,22 @@ Before returning recommendations:
 
 ```
 1. For each recommended skill:
-   □ Glob confirms skill file exists at skill_path
-   □ Skill name matches YAML frontmatter
-   □ Confidence score is justified by scoring algorithm
-   □ Reasons cite specific matches (file:+50, keyword:+10)
+   [ ] Glob confirms skill file exists at skill_path
+   [ ] Skill name matches YAML frontmatter
+   [ ] Confidence score is justified by scoring algorithm
+   [ ] Reasons cite specific matches (file:+50, keyword:+10)
+   [ ] Token cost is accurate (from skill line count)
 
 2. For multi-skill scenarios:
-   □ All skills exist and are valid
-   □ Execution order respects dependencies
-   □ No circular dependencies
+   [ ] All skills exist and are valid
+   [ ] Execution order respects dependencies
+   [ ] No circular dependencies
+   [ ] Combined token cost is reasonable
 
 3. For fallback scenarios:
-   □ No invented skills in suggestions
-   □ Suggestions are actionable
-   □ Closest matches are real skills
+   [ ] No invented skills in suggestions
+   [ ] Suggestions are actionable
+   [ ] Closest matches are real skills
 ```
 
 ### What to Say When Uncertain
@@ -784,20 +942,43 @@ If the router cannot confidently match a skill:
 - "No skill matched with confidence > 0.5"
 - "Closest match: [skill] at 0.42 confidence - may not be appropriate"
 - "Consider creating a new skill for [pattern]"
+- "I need to check the available skills before recommending"
 
 **DO NOT say:**
 - "Use [invented-skill-name] for this task"
 - Recommend skills that don't exist in `.claude/skills/`
 - Force high confidence when evidence is weak
+- Invent file paths or patterns
+
+---
+
+## Related Skills
+
+All discoverable skills are listed in [SKILL-INDEX.md](../SKILL-INDEX.md).
+
+This meta-skill enables agents to work across different projects without hardcoded skill references.
 
 ---
 
 <!-- Skill Metadata
-Version: 1.2.0
+Version: 1.3.0
 Created: 2026-01-07
-Updated: 2026-01-18
-Skills Indexed: 24
-Last Registry Update: 2026-01-18
+Updated: 2026-01-23
+Skills Indexed: 27
+Last Registry Update: 2026-01-23
+
+Changes in 1.3.0:
+- Added Progressive Disclosure Pattern section (from Anthropic best practices)
+- Added token budget awareness (token_cost in recommendations)
+- Added Skill Chaining section with explicit chain triggers
+- Added Example 5: Chart Component Task
+- Added Example 6: Caching Implementation
+- Updated Available Skills Registry (added creating-ml-features, implementing-caching-strategies, creating-chart-components)
+- Updated Task Type Detection with caching and charting keywords
+- Enhanced conflict resolution with keyword specificity rule
+- Updated skills count to 27
+- Updated skill references from deprecated names (creating-sqlalchemy-models -> database)
+- Added chains_to field in recommendation output
 
 Changes in 1.2.0:
 - Added Verification & Grounding section (anti-hallucination)

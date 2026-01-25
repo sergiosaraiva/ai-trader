@@ -76,3 +76,19 @@ body {
 .card-hover:hover {
   @apply transform scale-[1.01] shadow-lg;
 }
+
+/* Collapsible content transitions */
+.collapsible-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.collapsible-content.expanded {
+  max-height: 5000px;
+  opacity: 1;
+}
+
+.collapsible-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+}

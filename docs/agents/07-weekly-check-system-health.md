@@ -101,8 +101,122 @@ Read .claude/improvement/errors/*.md || Read .claude/metrics/feedback.json || Re
 | Agents with valid frontmatter | ✅/❌ | X/Y |
 | Agents with model field | ✅/❌ | X/Y |
 | Agents with color field | ✅/❌ | X/Y |
+| CLAUDE.md has agents section | ✅/❌ | - |
+| All agents registered in CLAUDE.md | ✅/❌ | X/Y |
 
 **Any failures here are CRITICAL and must be fixed immediately.**
+
+### CLAUDE.md Sync Validation
+
+```bash
+echo "=== CLAUDE.MD SYNC CHECK ==="
+# Check agents section exists
+grep -q "## AI Agents" CLAUDE.md && echo "✅ Agents section exists" || echo "❌ Agents section MISSING - run Step 4.6"
+
+# Check all agents are mentioned in CLAUDE.md
+for agent in .claude/agents/*.md; do
+  name=$(basename "$agent" .md)
+  grep -q "$name" CLAUDE.md && echo "✅ $name registered" || echo "❌ $name NOT in CLAUDE.md"
+done
+```
+
+### CLAUDE.md Auto-Sync (if issues detected)
+
+**If CLAUDE.md validation fails, automatically sync using the instructions below:**
+
+#### Step 1: Detect Sync Issues
+- Agents section missing from CLAUDE.md
+- New agents not registered in CLAUDE.md
+- Agent trigger conditions outdated
+
+#### Step 2: Inventory Current Agents
+
+Read all agent files in parallel:
+```
+Read .claude/agents/*.md
+```
+
+For each agent, extract:
+- `name` from YAML frontmatter
+- `description` for purpose
+- `<example>` blocks for trigger conditions
+
+Generate agent registry:
+```markdown
+| Agent | Purpose | Trigger Conditions |
+|-------|---------|-------------------|
+| [name] | [from description] | [from examples] |
+```
+
+#### Step 3: Update CLAUDE.md
+
+Add or update this section in CLAUDE.md (preserve all existing content):
+
+```markdown
+## AI Agents & Skills Framework
+
+**IMPORTANT**: This project uses a custom Agent-Skill framework. For tasks matching the descriptions below, Claude Code MUST invoke the appropriate agent.
+
+### Agent Registry
+
+| Agent | Purpose | Trigger Conditions |
+|-------|---------|-------------------|
+| [populated from Step 2] | | |
+
+### Mandatory Agent Usage
+
+**YOU MUST invoke the appropriate agent when:**
+
+1. **Work Item Analysis**: User mentions work item IDs or asks to analyze requirements
+   → Use Task tool with `requirements-analyst` agent
+
+2. **Solution Design**: User asks to design or plan implementation
+   → Use Task tool with `solution-architect` agent
+
+3. **Code Implementation**: User asks to implement, code, or make changes
+   → Use Task tool with `code-engineer` agent
+
+4. **Quality Assurance**: User asks to review, check quality, or analyze
+   → Use Task tool with `quality-guardian` agent
+
+5. **Testing**: User asks to write, create, or run tests
+   → Use Task tool with `test-automator` agent
+
+6. **Documentation**: User asks to document or create documentation
+   → Use Task tool with `documentation-curator` agent
+
+### Agent Selection Decision Tree
+
+Is this a work item analysis? → requirements-analyst
+Is this design/planning? → solution-architect
+Is this code implementation? → code-engineer
+Is this review/quality? → quality-guardian
+Is this testing? → test-automator
+Is this documentation? → documentation-curator
+No match? → Proceed manually, report gap
+```
+
+**Location**: Insert after `## Development Workflow` or before `## Environment Access` in CLAUDE.md.
+
+#### Step 4: Post-Sync Validation
+   ```bash
+   echo "=== POST-SYNC VALIDATION ==="
+   grep -q "## AI Agents" CLAUDE.md && echo "✅ Agents section now exists" || echo "❌ Sync failed"
+
+   sync_errors=0
+   for agent in .claude/agents/*.md; do
+     name=$(basename "$agent" .md)
+     grep -q "$name" CLAUDE.md || ((sync_errors++))
+   done
+
+   if [ $sync_errors -eq 0 ]; then
+     echo "✅ All agents now registered in CLAUDE.md"
+   else
+     echo "❌ $sync_errors agents still missing - manual intervention required"
+   fi
+   ```
+
+**Action**: When running this health check, if CLAUDE.md issues are detected, automatically execute Step 4.6 to resync before continuing with other checks.
 
 ### 2. Broken Link Detection
 
@@ -207,12 +321,19 @@ Create `.claude/metrics/weekly-health-report-YYYY-MM-DD.md`:
 ## Health Score Calculation
 | Category | Weight | Score | Weighted |
 |----------|--------|-------|----------|
-| YAML Format Valid | 30% | X/100 | X |
-| No Broken Links | 20% | X/100 | X |
+| YAML Format Valid | 25% | X/100 | X |
+| CLAUDE.md Integration | 15% | X/100 | X |
+| No Broken Links | 15% | X/100 | X |
 | Error Rate <10% | 20% | X/100 | X |
 | Coverage >80% | 15% | X/100 | X |
-| Usage Metrics | 15% | X/100 | X |
+| Usage Metrics | 10% | X/100 | X |
 | **Total** | 100% | | **X** |
+
+**CLAUDE.md Integration Score Calculation:**
+- Agents section exists: 40 points
+- All agents registered: 30 points
+- All agents have trigger conditions: 20 points
+- Examples provided for each agent: 10 points
 
 🟢 80-100: Healthy
 🟡 60-79: Needs Attention
@@ -251,6 +372,28 @@ Create `.claude/metrics/weekly-health-report-YYYY-MM-DD.md`:
 | Agent | Issue | Priority |
 |-------|-------|----------|
 | [name] | Missing model field | Critical |
+
+### CLAUDE.md Integration Check
+| Metric | Result | Status |
+|--------|--------|--------|
+| Agents section exists | Yes/No | ✅/❌ |
+| Agents registered in CLAUDE.md | X/Y | ✅/❌ |
+| Trigger conditions documented | X/Y | ✅/❌ |
+| Examples provided | X/Y | ✅/❌ |
+
+**CLAUDE.md Issues Found:**
+| Issue | Action Taken |
+|-------|--------------|
+| Agents section missing | Auto-synced via Step 4.6 |
+| Agent [name] not registered | Auto-synced via Step 4.6 |
+
+**CLAUDE.md Auto-Sync Results:**
+| Metric | Before | After | Status |
+|--------|--------|-------|--------|
+| Issues detected | X | - | - |
+| Auto-sync executed | Yes/No | - | - |
+| Issues resolved | - | Y | ✅/❌ |
+| Manual intervention needed | - | Yes/No | ⚠️ |
 
 ---
 

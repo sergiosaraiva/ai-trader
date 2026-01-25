@@ -122,6 +122,7 @@ export const api = {
   resumeAgent: () => request('/agent/resume', { method: 'POST' }),
 
   // Agent status
+  getAgentHealth: () => request('/agent/health'),
   getAgentStatus: () => request('/agent/status'),
   getAgentMetrics: (period = 'all') => request(`/agent/metrics?period=${period}`),
   getAgentSafety: () => request('/agent/safety'),

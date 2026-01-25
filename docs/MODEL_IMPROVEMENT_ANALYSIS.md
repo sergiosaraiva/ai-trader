@@ -261,6 +261,36 @@ calibrated_proba = calibrated_model.predict_proba(X_test)
 
 **Priority: 4** | Time: M | Complexity: Medium | Expected Gain: +2-5% | Risk: Low
 
+> **⛔ STATUS: NO-GO (Tested 2026-01-22)**
+>
+> **Results:**
+> | Framework | Total Pips | Win Rate | Profit Factor | Sharpe | Trades |
+> |-----------|------------|----------|---------------|--------|--------|
+> | **XGBoost** | **+2,190** | **61.6%** | **3.21** | **7.07** | 258 |
+> | LightGBM | +1,210 | 52.4% | 2.20 | 4.70 | 212 |
+> | CatBoost | +1,610 | 51.5% | 2.13 | 5.33 | 295 |
+>
+> **Individual Model Validation Accuracy:**
+> | Framework | 1H Val Acc | 4H Val Acc | Daily Val Acc |
+> |-----------|------------|------------|---------------|
+> | XGBoost | 67.2% | 66.0% | 58.8% |
+> | LightGBM | 67.7% | 65.1% | 60.7% |
+> | CatBoost | 68.0% | 68.9% | 59.0% |
+>
+> **Key Finding:** XGBoost significantly outperforms alternatives for trading performance:
+> - +81% more pips than LightGBM (+2,190 vs +1,210)
+> - +36% more pips than CatBoost (+2,190 vs +1,610)
+> - Higher win rate (61.6% vs ~52%)
+> - Higher profit factor (3.21 vs ~2.1)
+>
+> **Interesting Observation:** CatBoost has the highest validation accuracies but the worst trading performance, suggesting higher validation accuracy does not equal better trading results.
+>
+> **Decision:** Keep XGBoost as production framework. LightGBM/CatBoost support added to codebase for future experiments but not recommended for production use.
+>
+> **Files:**
+> - Comparison results: `backend/data/gradient_boosting_comparison.json`
+> - Models: `backend/models/gradient_boosting/{xgboost,lightgbm,catboost}/`
+
 **Current State:**
 - Only XGBoost used for all models
 - No comparison with other gradient boosting frameworks
@@ -277,15 +307,20 @@ Benchmark LightGBM and CatBoost against XGBoost for each timeframe.
 | CatBoost | Built-in categorical handling, less overfitting | Ordered boosting |
 
 **Implementation Steps:**
-1. Create comparison script with identical train/val splits
-2. Train all three frameworks with similar hyperparameters
-3. Compare validation accuracy, calibration, and inference speed
+1. Create comparison script with identical train/val splits ✅
+2. Train all three frameworks with similar hyperparameters ✅
+3. Compare validation accuracy, calibration, and inference speed ✅
 4. Optionally: Create ensemble of all three (diversity improves stacking)
 
-**Expected Impact:**
-- LightGBM often 1-2% better on large tabular datasets
-- CatBoost's ordered boosting prevents target leakage
-- Diversity of base models can improve meta-learner by 3-5%
+**~~Expected Impact:~~**
+- ~~LightGBM often 1-2% better on large tabular datasets~~
+- ~~CatBoost's ordered boosting prevents target leakage~~
+- ~~Diversity of base models can improve meta-learner by 3-5%~~
+
+**Actual Impact:**
+- XGBoost outperforms both alternatives significantly
+- Validation accuracy does not correlate with trading performance
+- Framework diversity does not improve results for this dataset
 
 ---
 
@@ -685,7 +720,7 @@ Test: Paper trading validation
 | 1 | Bayesian Hyperparameter Optimization | M | Medium | +3-5% | Low | optuna | **✅ +4.4% (8 configs tested)** |
 | 2 | Feature Selection (RFECV) | S | Low | +2-4% | Low | None | **✅ Done** |
 | 3 | Probability Calibration | S | Low | +2-3% | Low | None | **⛔ NO-GO** |
-| 4 | LightGBM/CatBoost Comparison | M | Medium | +2-5% | Low | lightgbm, catboost | Pending |
+| 4 | LightGBM/CatBoost Comparison | M | Medium | +2-5% | Low | lightgbm, catboost | **⛔ NO-GO** |
 | 5 | Enhanced Meta-Learner Features | S | Low | +3-5% | Low | None | ✅ Done |
 | 6 | Regime-Adaptive Model Selection | M | Medium | +3-5% | Medium | None | Pending |
 | 7 | TFT Integration | L | High | +5-10% | Medium | neuralforecast | Pending |
@@ -768,7 +803,8 @@ The MTF Ensemble system has a solid foundation with Phase 1 improvements complet
 | Enhanced Meta-Learner Features (#5) | ✅ Done | +3.45% meta-learner accuracy |
 | Probability Calibration (#3) | ⛔ NO-GO | -27.7% pips, -4.1% win rate |
 | Hyperparameter Tuning (#1) | ✅ Done | +4.4% pips (shallow_fast config) |
+| LightGBM/CatBoost (#4) | ⛔ NO-GO | XGBoost wins: +81% more pips than LightGBM, +36% more than CatBoost |
 
-**Next Priority:** The remaining quick wins (**LightGBM/CatBoost comparison**, **SHAP analysis**) could yield an additional +3-5% win rate improvement with minimal risk.
+**Next Priority:** The remaining quick wins (**SHAP analysis**) could provide model interpretability improvements. For larger gains, focus on neural network integration (TFT, N-HiTS) and adaptive systems (regime-specific weights, online learning).
 
 For larger gains (10%+), neural network integration (TFT, N-HiTS) and adaptive systems (regime-specific, online learning) offer the most promise but require more significant investment.

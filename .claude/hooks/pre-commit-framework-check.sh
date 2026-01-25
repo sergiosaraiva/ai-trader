@@ -7,6 +7,15 @@
 #
 # Or to append to existing pre-commit:
 #   cat .claude/hooks/pre-commit-framework-check.sh >> .git/hooks/pre-commit
+#
+# Version: 1.1.0
+# Features:
+#   - YAML frontmatter validation
+#   - Name/description field checks
+#   - Agent model field validation
+#   - Description length validation (max 1024 chars)
+#   - Version field recommendation
+#   - Related skills cross-reference check
 
 set -e
 
@@ -95,6 +104,20 @@ while IFS= read -r file; do
                 ((errors++))
             fi
         fi
+
+        # Check description length (max 1024 chars)
+        if grep -q "^description:" "$file"; then
+            desc=$(grep "^description:" "$file" | head -1 | sed 's/description: *//')
+            if [ ${#desc} -gt 1024 ]; then
+                echo -e "  ${RED}ERROR${NC}: description exceeds 1024 characters (${#desc} chars)"
+                ((errors++))
+            fi
+        fi
+
+        # Check for version field (warning only)
+        if ! grep -q "^version:" "$file"; then
+            echo -e "  ${YELLOW}WARNING${NC}: Missing 'version:' field (recommended for tracking)"
+        fi
     fi
 
     # Agents validation
@@ -152,6 +175,15 @@ while IFS= read -r file; do
                     echo -e "  ${YELLOW}WARNING${NC}: Unusual color '$color'"
                     ;;
             esac
+        fi
+
+        # Check description length (max 1024 chars)
+        if grep -q "^description:" "$file"; then
+            desc=$(grep "^description:" "$file" | head -1 | sed 's/description: *//')
+            if [ ${#desc} -gt 1024 ]; then
+                echo -e "  ${RED}ERROR${NC}: description exceeds 1024 characters (${#desc} chars)"
+                ((errors++))
+            fi
         fi
     fi
 

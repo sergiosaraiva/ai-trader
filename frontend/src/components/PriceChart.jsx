@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import { formatPrice, getFormattedSymbol, getAssetTypeLabel } from '../utils/assetFormatting';
+import { CollapsibleCard } from './common/CollapsibleCard';
 
 /**
  * Custom tooltip component for the price chart
@@ -153,37 +154,29 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
   const assetMetadata = prediction?.asset_metadata;
   const symbol = prediction?.symbol || candles[0]?.symbol || '';
 
-  return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-300">{getAssetTypeLabel(assetMetadata)} • {getFormattedSymbol(symbol, assetMetadata)}</h2>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="text-2xl font-bold text-gray-100">
-              {formatPrice(currentPrice, assetMetadata)}
-            </span>
-            {priceChange !== null && (
-              <span className={`flex items-center gap-1 text-sm ${
-                priceChange >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {priceChange >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(3)}%
-              </span>
-            )}
-          </div>
-        </div>
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw size={18} />
-          </button>
-        )}
-      </div>
+  const priceInfo = (
+    <div className="text-right">
+      <span className="text-xl font-bold text-gray-100 block">
+        {formatPrice(currentPrice, assetMetadata)}
+      </span>
+      {priceChange !== null && (
+        <span className={`flex items-center justify-end gap-1 text-xs ${
+          priceChange >= 0 ? 'text-green-400' : 'text-red-400'
+        }`}>
+          {priceChange >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+          {priceChange.toFixed(2)}%
+        </span>
+      )}
+    </div>
+  );
 
+  return (
+    <CollapsibleCard
+      title={`${getAssetTypeLabel(assetMetadata)} • ${getFormattedSymbol(symbol, assetMetadata)}`}
+      icon={<TrendingUp size={18} />}
+      className="card-hover"
+      actions={priceInfo}
+    >
       {/* Chart */}
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -270,7 +263,7 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
           </div>
         );
       })()}
-    </div>
+    </CollapsibleCard>
   );
 }
 

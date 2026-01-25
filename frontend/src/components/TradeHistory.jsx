@@ -1,5 +1,6 @@
 import { ArrowUpRight, ArrowDownRight, Clock, Minus } from 'lucide-react';
 import { formatPrice } from '../utils/assetFormatting';
+import { CollapsibleCard } from './common/CollapsibleCard';
 
 /**
  * TradeHistory - Displays recent trading signals
@@ -56,13 +57,17 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
     return 'HOLD';
   };
 
-  return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="Signal History">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-300">Signal History</h2>
-        <span className="text-xs text-gray-500">{signalList.length} signals</span>
-      </div>
+  const signalCount = (
+    <span className="text-xs text-gray-500">{signalList.length} signals</span>
+  );
 
+  return (
+    <CollapsibleCard
+      title="Signal History"
+      icon={<Clock size={18} />}
+      className="card-hover"
+      actions={signalCount}
+    >
       {signalList.length === 0 ? (
         <div className="text-center py-8">
           <Clock size={32} className="mx-auto text-gray-600 mb-2" aria-hidden="true" />
@@ -72,7 +77,7 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[400px] overflow-y-auto" role="list" aria-label="Trading signals list">
+        <div className="space-y-2 max-h-[350px] overflow-y-auto" role="list" aria-label="Trading signals list">
           {signalList.map((signal, idx) => {
             // Get signal type using full signal object (checks should_trade flag)
             const signalType = getSignalType(signal);
@@ -88,13 +93,13 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
             return (
               <div
                 key={signal.id || idx}
-                className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
+                className="flex items-center justify-between p-2 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
                 role="listitem"
                 aria-label={`${signalType} signal at ${price}, confidence ${confidence}, ${formatTime(signal.timestamp)}`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div
-                    className={`p-2 rounded-full ${
+                    className={`p-1.5 rounded-full ${
                       isBuy
                         ? 'bg-green-500/20'
                         : isSell
@@ -104,17 +109,17 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
                     aria-hidden="true"
                   >
                     {isBuy ? (
-                      <ArrowUpRight size={18} className="text-green-400" />
+                      <ArrowUpRight size={16} className="text-green-400" />
                     ) : isSell ? (
-                      <ArrowDownRight size={18} className="text-red-400" />
+                      <ArrowDownRight size={16} className="text-red-400" />
                     ) : (
-                      <Minus size={18} className="text-yellow-400" />
+                      <Minus size={16} className="text-yellow-400" />
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`font-medium ${
+                        className={`text-xs font-medium ${
                           isBuy
                             ? 'text-green-400'
                             : isSell
@@ -124,7 +129,7 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
                       >
                         {signalType}
                       </span>
-                      <span className="text-gray-400 text-sm">
+                      <span className="text-gray-400 text-xs">
                         @ {price}
                       </span>
                     </div>
@@ -135,7 +140,7 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
                 </div>
 
                 <div className="text-right">
-                  <div className="text-sm text-gray-300">
+                  <div className="text-xs text-gray-300">
                     {confidence}
                   </div>
                   <span className="text-xs text-gray-500">confidence</span>
@@ -145,7 +150,7 @@ export function TradeHistory({ signals, loading, error, assetMetadata }) {
           })}
         </div>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
 

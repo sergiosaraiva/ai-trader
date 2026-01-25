@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Activity, Wifi, WifiOff, Server, Database, Clock, Cpu } from 'lucide-react';
+import { CollapsibleCard } from './common/CollapsibleCard';
 
 /**
  * Format time difference from a timestamp
@@ -59,12 +60,6 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
     return <WifiOff size={16} className="text-red-400" />;
   };
 
-  const formatTime = (ts) => {
-    if (!ts) return 'Never';
-    const date = new Date(ts);
-    return date.toLocaleString();
-  };
-
   // Extract data from pipeline status - handle nested structure
   const pipelineData = pipelineStatus?.pipeline || pipelineStatus || {};
   const pipelineInitialized = pipelineData.initialized || pipelineStatus?.status === 'ok';
@@ -77,11 +72,12 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
   const modelCount = Object.keys(modelDetails).length;
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="System Status">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-300">System Status</h2>
-        <Activity size={20} className={error ? 'text-red-400' : 'text-green-400'} aria-hidden="true" />
-      </div>
+    <CollapsibleCard
+      title="System Status"
+      icon={<Activity size={20} className={error ? 'text-red-400' : 'text-green-400'} />}
+      className="card-hover"
+      defaultExpanded={false}
+    >
 
       {error && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm">
@@ -89,13 +85,13 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-2">
         {/* Pipeline Status */}
-        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded" role="status" aria-label="Data Pipeline Status">
-          <div className="flex items-center gap-3">
-            <Database size={18} className="text-gray-400" aria-hidden="true" />
+        <div className="flex items-center justify-between p-2 bg-gray-700/50 rounded" role="status" aria-label="Data Pipeline Status">
+          <div className="flex items-center gap-2">
+            <Database size={16} className="text-gray-400" aria-hidden="true" />
             <div>
-              <span className="text-sm text-gray-300">Data Pipeline</span>
+              <span className="text-xs text-gray-300">Data Pipeline</span>
               <p className="text-xs text-gray-500">
                 {pipelineInitialized
                   ? (lastUpdate ? formatTimeDiff(lastUpdate, now) : 'Initialized')
@@ -109,11 +105,11 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
         </div>
 
         {/* Model Status */}
-        <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded" role="status" aria-label="AI Models Status">
-          <div className="flex items-center gap-3">
-            <Cpu size={18} className="text-gray-400" aria-hidden="true" />
+        <div className="flex items-center justify-between p-2 bg-gray-700/50 rounded" role="status" aria-label="AI Models Status">
+          <div className="flex items-center gap-2">
+            <Cpu size={16} className="text-gray-400" aria-hidden="true" />
             <div>
-              <span className="text-sm text-gray-300">AI Models</span>
+              <span className="text-xs text-gray-300">AI Models</span>
               <p className="text-xs text-gray-500">
                 {modelsLoaded
                   ? `${modelCount} analyzers active`
@@ -159,7 +155,7 @@ export function AccountStatus({ pipelineStatus, modelStatus, loading, error }) {
           <span>Data refreshed: {lastUpdate ? formatTimeDiff(lastUpdate, now) : 'Never'}</span>
         </div>
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
 

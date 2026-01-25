@@ -3,6 +3,15 @@
 Run this checklist every 3 months to keep the agent-skill framework aligned with the evolving codebase.
 
 **Schedule:** First week of January, April, July, October
+**Version:** 1.1.0
+
+## Best Practices Applied
+
+Based on Anthropic's official guidelines:
+- Chain-of-thought verification for pattern alignment
+- Anti-hallucination checks for all file references
+- Verbatim quote requirements for codebase validation
+- Self-reflection prompts for systemic issues
 
 ---
 
@@ -34,6 +43,8 @@ Run this checklist every 3 months to keep the agent-skill framework aligned with
 - [ ] Export skill invocation logs (if available)
 - [ ] Note any informal feedback about framework issues
 - [ ] Review git history for codebase changes
+- [ ] Calculate recurrence prevention scores from resolved errors
+- [ ] Review anti-hallucination compliance rate
 
 ---
 
@@ -58,6 +69,14 @@ Run pattern discovery to capture current state:
 | BaseDataSource | src/data/sources/base.py:__ | adding-data-sources | [ ] Match / [ ] Drift |
 | RiskManager | src/trading/risk.py:__ | implementing-risk-management | [ ] Match / [ ] Drift |
 | Backtester | src/simulation/backtester.py:__ | running-backtests | [ ] Match / [ ] Drift |
+
+### Anti-Hallucination Verification
+
+For each pattern above, verify:
+- [ ] File path exists (use `ls` to confirm)
+- [ ] Line numbers are current (read actual file)
+- [ ] Pattern example matches actual codebase (verbatim comparison)
+- [ ] No assumptions made without verification
 
 ### Identify Changes
 
@@ -420,6 +439,9 @@ Collected feedback:
 | Avg resolution time | ___ days | ___ days | |
 | Critical errors | ___ | ___ | |
 | YAML validation pass rate | ___% | ___% | (Target: 100%) |
+| Chain-of-thought completion | ___% | ___% | (Target: 100%) |
+| Anti-hallucination compliance | ___% | ___% | (Target: 100%) |
+| Avg recurrence prevention score | ___/5 | ___/5 | (Target: >3.5) |
 
 ### Error Type Distribution
 
@@ -531,6 +553,8 @@ Trend: [ ] Improving / [ ] Stable / [ ] Degrading
 - [ ] Save this checklist as `.claude/improvement/YYYY-QN-maintenance-report.md`
 - [ ] Update README with any structural changes
 - [ ] Update CLAUDE.md if project patterns changed
+- [ ] Update SKILL-INDEX.md with version changes
+- [ ] Document anti-hallucination improvements made
 
 ### Commit
 

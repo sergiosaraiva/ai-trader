@@ -110,6 +110,7 @@ Change: [Before → After]
 - [ ] Add example to skill documentation
 - [ ] Update skill-router if routing issue
 - [ ] Increment version in file footer
+- [ ] **Update CLAUDE.md if agent triggers changed** (re-run Step 4.6)
 - [ ] Add test case to validation suite
 - [ ] Re-run validation on this scenario
 - [ ] Commit changes with descriptive message
@@ -386,6 +387,7 @@ For each skill:
 - [ ] Consolidate duplicate skills
 - [ ] Split overly complex skills (>500 lines)
 - [ ] Update all version numbers
+- [ ] **Sync CLAUDE.md with current agents/skills** (re-run Step 4.6)
 - [ ] Generate changelog
 - [ ] **Run full validation after all updates**
 

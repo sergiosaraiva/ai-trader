@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { CollapsibleCard } from './common/CollapsibleCard';
 import { Calculator, TrendingUp, Info, DollarSign, Calendar, Scale, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import api from '../api/client';
 
@@ -240,21 +241,26 @@ export function InvestmentCalculator({ assetMetadata }) {
   // Quick amount buttons
   const quickAmounts = [500, 1000, 5000, 10000];
 
+  const detailsButton = (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setShowDetails(!showDetails);
+      }}
+      className="text-gray-500 hover:text-gray-300 transition-colors"
+      aria-label="Show calculation details"
+    >
+      <Info size={18} />
+    </button>
+  );
+
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="Investment Calculator">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Calculator size={20} className="text-blue-400" />
-          <h2 className="text-lg font-semibold text-gray-300">What If Calculator</h2>
-        </div>
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className="text-gray-500 hover:text-gray-300 transition-colors"
-          aria-label="Show calculation details"
-        >
-          <Info size={18} />
-        </button>
-      </div>
+    <CollapsibleCard
+      title="What If Calculator"
+      icon={<Calculator size={18} />}
+      className="card-hover"
+      actions={detailsButton}
+    >
 
       {/* Loading state */}
       {loading && (
@@ -278,8 +284,8 @@ export function InvestmentCalculator({ assetMetadata }) {
       {!loading && (
         <>
           {/* Investment Input */}
-          <div className="mb-4">
-            <label htmlFor="investment-input" className="block text-sm text-gray-400 mb-2">
+          <div className="mb-3">
+            <label htmlFor="investment-input" className="block text-xs text-gray-400 mb-2">
               If you had invested:
             </label>
             <div className="relative">
@@ -315,8 +321,8 @@ export function InvestmentCalculator({ assetMetadata }) {
           </div>
 
           {/* Time Period Selector */}
-          <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+          <div className="mb-3">
+            <label className="flex items-center gap-2 text-xs text-gray-400 mb-2">
               <Calendar size={14} />
               Time period:
             </label>
@@ -354,8 +360,8 @@ export function InvestmentCalculator({ assetMetadata }) {
           </div>
 
           {/* Leverage Selector */}
-          <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+          <div className="mb-3">
+            <label className="flex items-center gap-2 text-xs text-gray-400 mb-2">
               <Scale size={14} />
               Leverage:
             </label>
@@ -380,12 +386,12 @@ export function InvestmentCalculator({ assetMetadata }) {
           </div>
 
           {/* Results */}
-          <div className={`rounded-lg p-4 mb-4 ${
+          <div className={`rounded-lg p-3 mb-3 ${
             periodData.isLiveSimulation
               ? 'bg-purple-500/10 border border-purple-500/30'
               : 'bg-gray-700/50'
           }`}>
-            <p className="text-sm text-gray-400 mb-2">
+            <p className="text-xs text-gray-400 mb-2">
               {periodData.isLiveSimulation ? (
                 <span className="flex items-center gap-1.5">
                   <Sparkles size={14} className="text-purple-400" />
@@ -425,7 +431,7 @@ export function InvestmentCalculator({ assetMetadata }) {
 
           {/* Expandable Details */}
           {showDetails && (
-            <div className="bg-gray-700/30 rounded-lg p-4 mb-4 text-sm">
+            <div className="bg-gray-700/30 rounded-lg p-3 mb-3 text-xs">
               <h3 className="text-gray-300 font-medium mb-2">Calculation Details</h3>
               <div className="space-y-1.5 text-gray-400">
                 <div className="flex justify-between">
@@ -503,7 +509,7 @@ export function InvestmentCalculator({ assetMetadata }) {
           </p>
         </>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
 

@@ -1,0 +1,64 @@
+# Agent Container Dockerfile
+# Autonomous trading agent that monitors predictions and executes trades
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system dependencies
+# gcc/g++ needed for some Python packages (e.g., pandas)
+# Combine commands to reduce layers and clean up in same layer
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        g++ \
+        curl \
+        postgresql-client \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Python dependencies
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir -r requirements-api.txt
+
+# Install additional agent dependencies (if not in requirements-api.txt)
+# aiohttp for health server is already in requirements-api.txt
+
+# Copy static data first (changes less frequently)
+COPY models/ ./models/
+COPY data/forex/ ./data/forex/
+COPY data/sentiment/ ./data/sentiment/
+
+# Copy configuration
+COPY configs/ ./configs/
+
+# Copy application source last (changes most frequently)
+COPY scripts/ ./scripts/
+COPY src/ ./src/
+
+# Copy and prepare agent entrypoint
+COPY docker-entrypoint-agent.sh /docker-entrypoint-agent.sh
+RUN chmod +x /docker-entrypoint-agent.sh
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data/db
+
+# Create non-root user for running the application
+RUN groupadd -r aitrader && useradd -r -g aitrader aitrader
+
+# Set correct permissions
+RUN chown -R aitrader:aitrader /app && \
+    chown aitrader:aitrader /docker-entrypoint-agent.sh
+
+# Switch to non-root user
+USER aitrader
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Health check port
+EXPOSE 8002
+
+# Run agent entrypoint
+ENTRYPOINT ["/docker-entrypoint-agent.sh"]

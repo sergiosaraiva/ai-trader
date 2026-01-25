@@ -1,0 +1,36 @@
+# Docker Compose Override for Development
+# This file is automatically loaded by docker-compose and overrides values in docker-compose.yml
+# Use this for development-specific settings that shouldn't be in production
+
+services:
+  backend:
+    # Mount source code for hot reload in development
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/data:/app/data
+      - ./backend/models:/app/models:ro
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+
+  agent:
+    # Mount source code for hot reload in development
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/models:/app/models:ro
+      - ./backend/data/forex:/app/data/forex:ro
+      - ./backend/data/sentiment:/app/data/sentiment:ro
+      - ./backend/logs:/app/logs
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      # Always use simulation mode in development
+      - AGENT_MODE=simulation
+    # In development, agent can restart more quickly
+    healthcheck:
+      start_period: 30s
+
+  frontend:
+    # No override needed for frontend in development
+    environment:
+      - ENVIRONMENT=development

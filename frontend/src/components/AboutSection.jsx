@@ -1,4 +1,5 @@
 import { Brain, TrendingUp, Shield, Database, Zap, BarChart3, Activity, AlertTriangle } from 'lucide-react';
+import { CollapsibleCard } from './common/CollapsibleCard';
 import { getAssetTypeLabel, getFormattedSymbol, inferAssetMetadata, getProfitUnitLabel } from '../utils/assetFormatting';
 
 /**
@@ -93,31 +94,28 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
   ];
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 card-hover" role="region" aria-label="About This System">
-      {/* Header with Trading Pair */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-300">AI Trading System</h2>
-          <p className="text-xs text-gray-500 mt-1">
-            {getAssetTypeLabel(metadata)} • <span className="text-blue-400 font-medium">{getFormattedSymbol(tradingPair, metadata)}</span>
-          </p>
-        </div>
-        <Brain size={24} className="text-blue-400" aria-hidden="true" />
-      </div>
+    <CollapsibleCard
+      title="AI Trading System"
+      icon={<Brain size={18} />}
+      className="card-hover"
+    >
+      <p className="text-xs text-gray-500 mb-4">
+        {getAssetTypeLabel(metadata)} • <span className="text-blue-400 font-medium">{getFormattedSymbol(tradingPair, metadata)}</span>
+      </p>
 
       {/* Market Closed Banner */}
       {!marketOpen && (
-        <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-3">
-          <AlertTriangle size={18} className="text-yellow-400 flex-shrink-0" />
+        <div className="mb-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-2">
+          <AlertTriangle size={16} className="text-yellow-400 flex-shrink-0" />
           <div>
-            <span className="text-yellow-400 font-medium text-sm">Markets Closed</span>
+            <span className="text-yellow-400 font-medium text-xs">Markets Closed</span>
             <p className="text-yellow-400/70 text-xs">{getMarketClosedMessage(metadata?.asset_type)}</p>
           </div>
         </div>
       )}
 
       {/* VIX Sentiment Indicator - Highlighted */}
-      <div className={`mb-4 p-4 rounded-lg border ${
+      <div className={`mb-3 p-3 rounded-lg border ${
         !marketOpen
           ? 'bg-gray-700/30 border-gray-600'
           : vixValue >= 30
@@ -149,13 +147,13 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
       </div>
 
       {/* Brief Description */}
-      <p className="text-sm text-gray-400 mb-4 leading-relaxed">
+      <p className="text-sm text-gray-400 mb-3 leading-relaxed">
         AI agent combining technical analysis with sentiment indicators
         to generate high-confidence trading recommendations.
       </p>
 
       {/* Key Features */}
-      <div className="space-y-3 mb-4">
+      <div className="space-y-2 mb-3">
         {features.map((feature, idx) => (
           <div key={idx} className="flex items-start gap-3">
             <feature.icon size={16} className="text-blue-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
@@ -169,7 +167,7 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
 
       {/* Model Weights if available */}
       {modelWeights && Object.keys(modelWeights).length > 0 && (
-        <div className="mb-4 pt-3 border-t border-gray-700">
+        <div className="mb-3 pt-3 border-t border-gray-700">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <BarChart3 size={14} className="text-gray-500" />
@@ -216,7 +214,7 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
       </div>
 
       {/* Performance Highlight */}
-      <div className="mt-4 pt-3 border-t border-gray-700">
+      <div className="mt-3 pt-3 border-t border-gray-700">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Zap size={14} className="text-yellow-400" />
@@ -244,7 +242,7 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
         </div>
       </div>
 
-    </div>
+    </CollapsibleCard>
   );
 }
 

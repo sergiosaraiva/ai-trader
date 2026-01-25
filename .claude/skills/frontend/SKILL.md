@@ -1,7 +1,7 @@
 ---
 name: frontend
-description: This skill should be used when the user asks to "create a React component", "add a dashboard card", "build a UI widget", "implement a data display". Creates React functional components with loading, error, and data states using TailwindCSS styling.
-version: 1.1.0
+description: Creates React functional components with loading, error, and data states using TailwindCSS styling and PropTypes.
+version: 1.3.0
 ---
 
 # Creating React Components
@@ -9,242 +9,139 @@ version: 1.1.0
 ## Quick Reference
 
 - Handle all states: loading, error, empty, data
-- Use skeleton loaders (`animate-pulse`) for loading state
+- Use `animate-pulse` skeleton for loading
 - Import icons from `lucide-react`
-- Style with TailwindCSS utility classes
-- Export as named function for tree-shaking
+- Style with TailwindCSS classes
+- Add PropTypes validation for all props
+- Export as named function and default
 
-## When to Use
-
-- Creating dashboard cards or widgets
-- Building data display components
-- Implementing async data visualization
-- Adding new UI elements to the frontend
-
-## When NOT to Use
-
-- Page-level layouts (use Dashboard pattern)
-- Utility functions (use hooks)
-- API calls (use api/client.js)
-
-## Implementation Guide
+## Decision Tree
 
 ```
-Does component receive async data?
-├─ Yes → Accept loading, error, data props
-│   └─ Render all 4 states (loading/error/empty/data)
-└─ No → Render data directly
-
-Does component need icons?
-├─ Yes → Import from lucide-react
-│   └─ Use size prop for consistent sizing
-└─ No → Skip icon imports
-
-Does component have interactive elements?
-├─ Yes → Add event handlers and state
-│   └─ Use useCallback for memoization
-└─ No → Keep as pure display component
+Receives async data? → Accept loading, error, data props, render all 4 states
+Needs icons? → Import from lucide-react, use size prop
+Has interactivity? → Add event handlers, useCallback for memoization
+PropTypes? → Always define after component, add defaultProps
 ```
 
-## Examples
-
-**Example 1: Component with All States**
+## Pattern: Component with All States
 
 ```jsx
-// From: frontend/src/components/PredictionCard.jsx:1-35
-import { TrendingUp, TrendingDown, Minus, AlertCircle, Clock } from 'lucide-react';
+// Reference: frontend/src/components/ModelHighlights.jsx
+import { AlertCircle } from 'lucide-react';
+import PropTypes from 'prop-types';
 
-/**
- * PredictionCard - Displays the current trading prediction
- */
-export function PredictionCard({ prediction, loading, error }) {
+export function ModelHighlights({ performance, loading, error }) {
   if (loading) {
     return (
       <div className="bg-gray-800 rounded-lg p-6 animate-pulse">
         <div className="h-4 bg-gray-700 rounded w-1/3 mb-4"></div>
-        <div className="h-16 bg-gray-700 rounded mb-4"></div>
-        <div className="h-4 bg-gray-700 rounded w-2/3"></div>
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-gray-700/50 rounded-lg p-4 mb-2">
+            <div className="h-3 bg-gray-600 rounded w-2/3"></div>
+          </div>
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6 border border-red-500/30">
-        <div className="flex items-center gap-2 text-red-400">
+      <div className="bg-gray-800 rounded-lg p-6 border border-yellow-500/30">
+        <div className="flex items-center gap-2 text-yellow-400">
           <AlertCircle size={20} />
-          <span>Error loading prediction</span>
+          <span>Data unavailable</span>
         </div>
         <p className="text-gray-500 text-sm mt-2">{error}</p>
       </div>
     );
   }
 
-  if (!prediction) {
+  if (!performance || performance?.highlights?.length === 0) {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
-        <p className="text-gray-500">No prediction available</p>
+        <div className="flex items-center gap-2 text-gray-400">
+          <AlertCircle size={20} />
+          <span>No data available</span>
+        </div>
       </div>
     );
   }
 
-  // ... render data state
-}
-```
-
-**Explanation**: Loading shows skeleton with `animate-pulse`. Error shows red border and icon. Empty shows message. All share same base styling.
-
-**Example 2: Data State Rendering**
-
-```jsx
-// From: frontend/src/components/PredictionCard.jsx:37-95
-const { signal, confidence, current_price, symbol, timestamp, timeframe_signals } = prediction;
-
-const getSignalColor = (sig) => {
-  if (sig === 'BUY' || sig === 1) return 'text-green-400';
-  if (sig === 'SELL' || sig === -1) return 'text-red-400';
-  return 'text-gray-400';
-};
-
-const getSignalIcon = (sig) => {
-  if (sig === 'BUY' || sig === 1) return <TrendingUp size={32} />;
-  if (sig === 'SELL' || sig === -1) return <TrendingDown size={32} />;
-  return <Minus size={32} />;
-};
-
-return (
-  <div className="bg-gray-800 rounded-lg p-6 card-hover">
-    <div className="flex justify-between items-start mb-4">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-300">Current Prediction</h2>
-        <p className="text-sm text-gray-500">{symbol || 'EUR/USD'}</p>
-      </div>
-      <div className="flex items-center gap-1 text-gray-500 text-sm">
-        <Clock size={14} />
-        <span>{formatTime(timestamp)}</span>
-      </div>
+  return (
+    <div className="bg-gray-800 rounded-lg p-6">
+      {/* Render data */}
     </div>
-
-    {/* Main Signal */}
-    <div className="flex items-center justify-center gap-4 py-6">
-      <div className={`${getSignalColor(signal)}`}>
-        {getSignalIcon(signal)}
-      </div>
-      <div className="text-center">
-        <span className={`text-4xl font-bold ${getSignalColor(signal)}`}>
-          {getSignalText(signal)}
-        </span>
-        <p className="text-gray-500 text-sm mt-1">
-          @ {current_price?.toFixed(5) || 'N/A'}
-        </p>
-      </div>
-    </div>
-  </div>
-);
-```
-
-**Explanation**: Helper functions for dynamic styling. Destructure props at top. Use optional chaining for nullable values. Responsive grid layout.
-
-**Example 3: Progress Bar Component**
-
-```jsx
-// From: frontend/src/components/PredictionCard.jsx:97-111
-{/* Confidence Bar */}
-<div className="mt-4">
-  <div className="flex justify-between items-center mb-2">
-    <span className="text-sm text-gray-400">Confidence</span>
-    <span className="text-sm font-medium text-gray-300">
-      {((confidence || 0) * 100).toFixed(1)}%
-    </span>
-  </div>
-  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-    <div
-      className={`h-full ${getConfidenceColor(confidence)} transition-all duration-500`}
-      style={{ width: `${(confidence || 0) * 100}%` }}
-    />
-  </div>
-</div>
-```
-
-**Explanation**: Label and value in flex row. Background bar with rounded corners. Inner bar with dynamic width and transition. Color varies by value.
-
-**Example 4: Conditional Section Rendering**
-
-```jsx
-// From: frontend/src/components/PredictionCard.jsx:113-133
-{/* Timeframe Breakdown */}
-{timeframe_signals && Object.keys(timeframe_signals).length > 0 && (
-  <div className="mt-6 pt-4 border-t border-gray-700">
-    <h3 className="text-sm text-gray-400 mb-3">Timeframe Breakdown</h3>
-    <div className="grid grid-cols-3 gap-3">
-      {Object.entries(timeframe_signals).map(([tf, data]) => (
-        <div key={tf} className="bg-gray-700/50 rounded p-3 text-center">
-          <span className="text-xs text-gray-500 block mb-1">{tf}</span>
-          <span className={`text-sm font-medium ${getSignalColor(data.signal || data)}`}>
-            {getSignalText(data.signal || data)}
-          </span>
-          {data.confidence && (
-            <span className="text-xs text-gray-500 block mt-1">
-              {(data.confidence * 100).toFixed(0)}%
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-```
-
-**Explanation**: Conditional rendering with `&&`. Border top for section divider. Grid layout for items. Map with unique `key` prop.
-
-**Example 5: Export Pattern**
-
-```jsx
-// From: frontend/src/components/PredictionCard.jsx:136-138
-export function PredictionCard({ prediction, loading, error }) {
-  // ... component body
+  );
 }
 
-export default PredictionCard;
+ModelHighlights.propTypes = {
+  performance: PropTypes.shape({
+    highlights: PropTypes.arrayOf(PropTypes.shape({
+      title: PropTypes.string,
+      value: PropTypes.string,
+      status: PropTypes.string,
+    })),
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+};
+
+ModelHighlights.defaultProps = {
+  performance: null,
+  loading: false,
+  error: null,
+};
+
+export default ModelHighlights;
 ```
 
-**Explanation**: Named export for tree-shaking. Default export for convenience. Both patterns supported.
+## Pattern: Status-Based Styling
+
+```jsx
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'excellent': return 'text-green-400';
+    case 'good': return 'text-blue-400';
+    case 'moderate': return 'text-yellow-400';
+    case 'poor': return 'text-red-400';
+    default: return 'text-gray-400';
+  }
+};
+```
+
+## Pattern: Safe Data Access
+
+```jsx
+<p className="text-xs text-gray-500">
+  Metrics based on {performance?.metrics?.total_trades?.toLocaleString() ?? 'N/A'} trades
+</p>
+```
 
 ## Quality Checklist
 
-- [ ] Handles loading, error, empty, and data states
-- [ ] Skeleton loader uses `animate-pulse` class
-- [ ] Pattern matches `frontend/src/components/PredictionCard.jsx:6-35`
-- [ ] Icons imported from `lucide-react`
-- [ ] TailwindCSS classes for all styling
-- [ ] Named export function
-- [ ] Props destructured with defaults
+- [ ] Handles loading, error, empty, data states
+- [ ] Skeleton uses `animate-pulse`
+- [ ] Icons from `lucide-react`
+- [ ] PropTypes defined after component
+- [ ] DefaultProps for optional props
+- [ ] Unique `key` in all maps
+- [ ] Optional chaining for nullable values
 
 ## Common Mistakes
 
-- **Missing loading state**: UI shows nothing during fetch
-  - Wrong: `if (!data) return null;`
-  - Correct: `if (loading) return <Skeleton />; if (!data) return <Empty />;`
-
-- **Inline style instead of Tailwind**: Inconsistent styling
-  - Wrong: `style={{ color: 'red' }}`
-  - Correct: `className="text-red-400"`
-
-- **Missing key in map**: React warning
-  - Wrong: `items.map(item => <div>...`
-  - Correct: `items.map(item => <div key={item.id}>...`
-
-## Validation
-
-- [ ] Pattern confirmed in `frontend/src/components/PredictionCard.jsx:6-35`
-- [ ] Tests exist in `frontend/src/components/PredictionCard.test.jsx`
-- [ ] Renders in Dashboard component
+| Wrong | Correct |
+|-------|---------|
+| `if (!data) return null` | `if (loading) return <Skeleton />; if (!data) return <Empty />` |
+| `style={{ color: 'red' }}` | `className="text-red-400"` |
+| `items.map(item => <div>` | `items.map((item, index) => <div key={item.id || index}>` |
+| `performance.metrics.total` | `performance?.metrics?.total ?? 'N/A'` |
 
 ## Related Skills
 
 - `creating-api-clients` - Fetch data for components
 - `writing-vitest-tests` - Test component states
+- `creating-chart-components` - For chart-heavy components
 
 ---
-
-*Version 1.0.0 | Last verified: 2026-01-16 | Source: frontend/src/components/*
+<!-- v1.3.0 | 2026-01-24 -->
