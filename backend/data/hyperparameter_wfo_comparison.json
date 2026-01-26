@@ -1,0 +1,341 @@
+{
+  "timestamp": "2026-01-23T09:13:20.647809",
+  "methodology": "walk-forward-optimization",
+  "num_windows": 4,
+  "windows": [
+    {
+      "train": "2020-01 to 2021-12",
+      "test": "2022-01 to 2022-06"
+    },
+    {
+      "train": "2021-01 to 2022-12",
+      "test": "2023-01 to 2023-06"
+    },
+    {
+      "train": "2022-01 to 2023-12",
+      "test": "2024-01 to 2024-06"
+    },
+    {
+      "train": "2023-01 to 2024-12",
+      "test": "2025-01 to 2025-06"
+    }
+  ],
+  "configs_tested": 5,
+  "results": [
+    {
+      "config_name": "baseline",
+      "description": "Original production configuration (XGBoost defaults)",
+      "hyperparams": {
+        "1H": {
+          "n_estimators": 200,
+          "max_depth": 6,
+          "learning_rate": 0.05
+        },
+        "4H": {
+          "n_estimators": 150,
+          "max_depth": 5,
+          "learning_rate": 0.05
+        },
+        "D": {
+          "n_estimators": 100,
+          "max_depth": 4,
+          "learning_rate": 0.05
+        }
+      },
+      "total_pips": 6718.799999997258,
+      "avg_pips_per_window": 1679.6999999993145,
+      "pips_std": 807.0994153448688,
+      "avg_win_rate": 0.5050298513740455,
+      "avg_profit_factor": 1.5560172164564752,
+      "profitable_windows": 4,
+      "total_windows": 4,
+      "consistency_score": 1.0,
+      "window_details": [
+        {
+          "window_id": 1,
+          "test_period": "2022-01 to 2022-06",
+          "total_trades": 545,
+          "win_rate": 0.5321100917431193,
+          "profit_factor": 1.770288678157615,
+          "total_pips": 2940.4999999991796
+        },
+        {
+          "window_id": 2,
+          "test_period": "2023-01 to 2023-06",
+          "total_trades": 487,
+          "win_rate": 0.46611909650924027,
+          "profit_factor": 1.3005641990081678,
+          "total_pips": 1142.699999999315
+        },
+        {
+          "window_id": 3,
+          "test_period": "2024-01 to 2024-06",
+          "total_trades": 339,
+          "win_rate": 0.584070796460177,
+          "profit_factor": 1.9881174533477084,
+          "total_pips": 1800.3499999996684
+        },
+        {
+          "window_id": 4,
+          "test_period": "2025-01 to 2025-06",
+          "total_trades": 587,
+          "win_rate": 0.43781942078364566,
+          "profit_factor": 1.1650985353124093,
+          "total_pips": 835.2499999990946
+        }
+      ]
+    },
+    {
+      "config_name": "conservative",
+      "description": "More regularized (less depth, fewer trees, lower LR)",
+      "hyperparams": {
+        "1H": {
+          "n_estimators": 150,
+          "max_depth": 5,
+          "learning_rate": 0.03
+        },
+        "4H": {
+          "n_estimators": 120,
+          "max_depth": 4,
+          "learning_rate": 0.03
+        },
+        "D": {
+          "n_estimators": 80,
+          "max_depth": 3,
+          "learning_rate": 0.03
+        }
+      },
+      "total_pips": 7074.199999997315,
+      "avg_pips_per_window": 1768.5499999993287,
+      "pips_std": 759.6390647867152,
+      "avg_win_rate": 0.5124782323049542,
+      "avg_profit_factor": 1.5963451450362804,
+      "profitable_windows": 4,
+      "total_windows": 4,
+      "consistency_score": 1.0,
+      "window_details": [
+        {
+          "window_id": 1,
+          "test_period": "2022-01 to 2022-06",
+          "total_trades": 540,
+          "win_rate": 0.5351851851851852,
+          "profit_factor": 1.777170597129456,
+          "total_pips": 2929.699999999205
+        },
+        {
+          "window_id": 2,
+          "test_period": "2023-01 to 2023-06",
+          "total_trades": 488,
+          "win_rate": 0.47131147540983614,
+          "profit_factor": 1.305937454774889,
+          "total_pips": 1162.699999999337
+        },
+        {
+          "window_id": 3,
+          "test_period": "2024-01 to 2024-06",
+          "total_trades": 338,
+          "win_rate": 0.5976331360946746,
+          "profit_factor": 2.095073079394956,
+          "total_pips": 1959.2499999996548
+        },
+        {
+          "window_id": 4,
+          "test_period": "2025-01 to 2025-06",
+          "total_trades": 581,
+          "win_rate": 0.4457831325301205,
+          "profit_factor": 1.2071994488458213,
+          "total_pips": 1022.5499999991183
+        }
+      ]
+    },
+    {
+      "config_name": "deeper",
+      "description": "More capacity (depth +1)",
+      "hyperparams": {
+        "1H": {
+          "n_estimators": 200,
+          "max_depth": 7,
+          "learning_rate": 0.05
+        },
+        "4H": {
+          "n_estimators": 150,
+          "max_depth": 6,
+          "learning_rate": 0.05
+        },
+        "D": {
+          "n_estimators": 100,
+          "max_depth": 5,
+          "learning_rate": 0.05
+        }
+      },
+      "total_pips": 6700.09999999728,
+      "avg_pips_per_window": 1675.02499999932,
+      "pips_std": 744.7686943776672,
+      "avg_win_rate": 0.5086988707725495,
+      "avg_profit_factor": 1.557862269254452,
+      "profitable_windows": 4,
+      "total_windows": 4,
+      "consistency_score": 1.0,
+      "window_details": [
+        {
+          "window_id": 1,
+          "test_period": "2022-01 to 2022-06",
+          "total_trades": 546,
+          "win_rate": 0.5311355311355311,
+          "profit_factor": 1.7350962412652664,
+          "total_pips": 2829.899999999188
+        },
+        {
+          "window_id": 2,
+          "test_period": "2023-01 to 2023-06",
+          "total_trades": 483,
+          "win_rate": 0.46169772256728775,
+          "profit_factor": 1.272885215262314,
+          "total_pips": 1036.6499999993393
+        },
+        {
+          "window_id": 3,
+          "test_period": "2024-01 to 2024-06",
+          "total_trades": 334,
+          "win_rate": 0.5958083832335329,
+          "profit_factor": 2.0214148286532008,
+          "total_pips": 1831.5499999996464
+        },
+        {
+          "window_id": 4,
+          "test_period": "2025-01 to 2025-06",
+          "total_trades": 585,
+          "win_rate": 0.4461538461538462,
+          "profit_factor": 1.2020527918370274,
+          "total_pips": 1001.999999999106
+        }
+      ]
+    },
+    {
+      "config_name": "more_trees",
+      "description": "More trees with lower learning rate",
+      "hyperparams": {
+        "1H": {
+          "n_estimators": 300,
+          "max_depth": 6,
+          "learning_rate": 0.03
+        },
+        "4H": {
+          "n_estimators": 225,
+          "max_depth": 5,
+          "learning_rate": 0.03
+        },
+        "D": {
+          "n_estimators": 150,
+          "max_depth": 4,
+          "learning_rate": 0.03
+        }
+      },
+      "total_pips": 6247.749999997256,
+      "avg_pips_per_window": 1561.937499999314,
+      "pips_std": 804.4806588531388,
+      "avg_win_rate": 0.5015858570750475,
+      "avg_profit_factor": 1.5160272579002907,
+      "profitable_windows": 4,
+      "total_windows": 4,
+      "consistency_score": 1.0,
+      "window_details": [
+        {
+          "window_id": 1,
+          "test_period": "2022-01 to 2022-06",
+          "total_trades": 551,
+          "win_rate": 0.5245009074410163,
+          "profit_factor": 1.7058442218716952,
+          "total_pips": 2776.6499999991674
+        },
+        {
+          "window_id": 2,
+          "test_period": "2023-01 to 2023-06",
+          "total_trades": 485,
+          "win_rate": 0.46185567010309275,
+          "profit_factor": 1.26397360395395,
+          "total_pips": 1004.0499999993413
+        },
+        {
+          "window_id": 3,
+          "test_period": "2024-01 to 2024-06",
+          "total_trades": 338,
+          "win_rate": 0.5857988165680473,
+          "profit_factor": 1.9583187106872995,
+          "total_pips": 1774.9499999996442
+        },
+        {
+          "window_id": 4,
+          "test_period": "2025-01 to 2025-06",
+          "total_trades": 585,
+          "win_rate": 0.4341880341880342,
+          "profit_factor": 1.1359724950882184,
+          "total_pips": 692.0999999991029
+        }
+      ]
+    },
+    {
+      "config_name": "shallow_fast",
+      "description": "Shallow trees with higher learning rate",
+      "hyperparams": {
+        "1H": {
+          "n_estimators": 250,
+          "max_depth": 4,
+          "learning_rate": 0.08
+        },
+        "4H": {
+          "n_estimators": 200,
+          "max_depth": 3,
+          "learning_rate": 0.08
+        },
+        "D": {
+          "n_estimators": 150,
+          "max_depth": 3,
+          "learning_rate": 0.08
+        }
+      },
+      "total_pips": 5885.099999997221,
+      "avg_pips_per_window": 1471.2749999993052,
+      "pips_std": 804.7015242467627,
+      "avg_win_rate": 0.4925248264521989,
+      "avg_profit_factor": 1.4861356349759478,
+      "profitable_windows": 4,
+      "total_windows": 4,
+      "consistency_score": 1.0,
+      "window_details": [
+        {
+          "window_id": 1,
+          "test_period": "2022-01 to 2022-06",
+          "total_trades": 561,
+          "win_rate": 0.5115864527629234,
+          "profit_factor": 1.6389969156494528,
+          "total_pips": 2620.7499999991546
+        },
+        {
+          "window_id": 2,
+          "test_period": "2023-01 to 2023-06",
+          "total_trades": 488,
+          "win_rate": 0.4549180327868852,
+          "profit_factor": 1.2322320276878291,
+          "total_pips": 909.1999999993262
+        },
+        {
+          "window_id": 3,
+          "test_period": "2024-01 to 2024-06",
+          "total_trades": 339,
+          "win_rate": 0.5781710914454278,
+          "profit_factor": 1.9666389551875854,
+          "total_pips": 1802.24999999965
+        },
+        {
+          "window_id": 4,
+          "test_period": "2025-01 to 2025-06",
+          "total_trades": 590,
+          "win_rate": 0.42542372881355933,
+          "profit_factor": 1.1066746413789241,
+          "total_pips": 552.8999999990904
+        }
+      ]
+    }
+  ]
+}

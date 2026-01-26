@@ -1,15 +1,22 @@
-"""Unit tests for Walk-Forward Optimization drawdown mitigation.
+"""Unit tests for Walk-Forward Optimization risk management.
 
-This test suite validates the Tier 1 drawdown mitigation functionality,
-specifically the get_drawdown_position_multiplier function that implements
-progressive position reduction based on current drawdown levels.
+This test suite validates both Tier 1 and Tier 2 risk management functionality:
 
-Test Coverage:
+TIER 1 - Drawdown Mitigation:
+- get_drawdown_position_multiplier: Progressive position reduction (0-15% drawdown)
 - Normal operation across all drawdown levels (0-5%, 5-7.5%, 7.5-10%, 10-15%, 15%+)
-- Boundary conditions (exact threshold values)
-- Edge cases (negative drawdown, zero drawdown, extreme drawdown)
-- Custom max_allowed parameter
+- Boundary conditions, edge cases, custom max_allowed parameter
 - Circuit breaker integration (halts trading at 15% drawdown)
+
+TIER 2 - Advanced Risk Controls:
+- calculate_volatility_adjusted_risk: Inverse volatility scaling (high vol → smaller size)
+- equity_curve_filter: Equity MA filter (reduce size when below MA)
+- get_regime_position_multiplier: Market regime adjustment (skip/reduce/full size)
+
+INTEGRATION TESTS:
+- Tier 2 multipliers compounding with each other
+- Tier 1 + Tier 2 full compounding (worst case scenarios)
+- Regime skip override (ranging_high_vol blocks all trading)
 """
 
 import pytest
@@ -20,7 +27,12 @@ from pathlib import Path
 scripts_dir = Path(__file__).parent.parent.parent.parent / "scripts"
 sys.path.insert(0, str(scripts_dir))
 
-from walk_forward_optimization import get_drawdown_position_multiplier
+from walk_forward_optimization import (
+    get_drawdown_position_multiplier,
+    calculate_volatility_adjusted_risk,
+    equity_curve_filter,
+    get_regime_position_multiplier,
+)
 
 
 class TestGetDrawdownPositionMultiplier:
@@ -578,3 +590,955 @@ class TestDrawdownPositionMultiplierPerformance:
 
         # Results should be identical (no state changes)
         assert result1 == result2 == result3
+
+
+# ========================================================================
+# TIER 2 FUNCTION TESTS
+# ========================================================================
+
+
+class TestCalculateVolatilityAdjustedRisk:
+    """Tests for volatility-adjusted risk calculation.
+
+    This function implements Tier 2 risk management by scaling position size
+    inversely with volatility:
+    - High volatility → reduce position size (maintain constant dollar risk)
+    - Low volatility → increase position size (capture opportunity)
+    """
+
+    # ========================================================================
+    # NORMAL VOLATILITY CASES
+    # ========================================================================
+
+    def test_normal_volatility_returns_base_risk(self):
+        """Test that equal current and average ATR returns base risk."""
+        base_risk = 0.02  # 2%
+        current_atr = 50.0
+        avg_atr = 50.0
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        assert result == base_risk
+
+    def test_multiple_base_risk_values_at_normal_vol(self):
+        """Test different base risk values at normal volatility."""
+        test_cases = [0.01, 0.015, 0.02, 0.025, 0.03]
+
+        for base_risk in test_cases:
+            result = calculate_volatility_adjusted_risk(base_risk, 50.0, 50.0)
+            assert result == base_risk, f"Expected {base_risk} at normal vol, got {result}"
+
+    # ========================================================================
+    # HIGH VOLATILITY CASES
+    # ========================================================================
+
+    def test_high_volatility_reduces_risk(self):
+        """Test that high volatility reduces position size."""
+        base_risk = 0.02
+        current_atr = 100.0  # Double average
+        avg_atr = 50.0
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        # vol_ratio = 50/100 = 0.5, so result = 0.02 * 0.5 = 0.01
+        assert result == 0.01
+
+    def test_very_high_volatility_hits_minimum(self):
+        """Test that very high volatility is clamped at minimum multiplier."""
+        base_risk = 0.02
+        current_atr = 200.0  # 4x average
+        avg_atr = 50.0
+        min_multiplier = 0.25
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr, min_multiplier=min_multiplier)
+        # vol_ratio = 50/200 = 0.25, exactly at min
+        assert result == base_risk * min_multiplier
+        assert result == 0.005
+
+    def test_extreme_volatility_clamped_at_minimum(self):
+        """Test that extreme volatility is clamped at minimum."""
+        base_risk = 0.02
+        current_atr = 1000.0  # 10x average
+        avg_atr = 100.0
+        min_multiplier = 0.25
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr, min_multiplier=min_multiplier)
+        # vol_ratio = 100/1000 = 0.1, but clamped to 0.25
+        assert result == base_risk * min_multiplier
+        assert result == 0.005
+
+    # ========================================================================
+    # LOW VOLATILITY CASES
+    # ========================================================================
+
+    def test_low_volatility_increases_risk(self):
+        """Test that low volatility increases position size."""
+        base_risk = 0.02
+        current_atr = 50.0
+        avg_atr = 100.0  # Half of average
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        # vol_ratio = 100/50 = 2.0, but capped at max_multiplier (1.5 default)
+        assert result == base_risk * 1.5  # Capped at max
+        assert result == 0.03
+
+    def test_very_low_volatility_hits_maximum(self):
+        """Test that very low volatility is clamped at maximum multiplier."""
+        base_risk = 0.02
+        current_atr = 25.0
+        avg_atr = 100.0  # 4x current
+        max_multiplier = 1.5
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr, max_multiplier=max_multiplier)
+        # vol_ratio = 100/25 = 4.0, but clamped to 1.5
+        assert result == base_risk * max_multiplier
+        assert result == 0.03
+
+    def test_low_volatility_within_max(self):
+        """Test low volatility that doesn't hit maximum."""
+        base_risk = 0.02
+        current_atr = 80.0
+        avg_atr = 100.0
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        # vol_ratio = 100/80 = 1.25 (below max of 1.5)
+        assert result == 0.025
+
+    # ========================================================================
+    # EDGE CASES
+    # ========================================================================
+
+    def test_zero_current_atr_returns_base_risk(self):
+        """Test that zero current ATR returns base risk (safety check)."""
+        base_risk = 0.02
+        current_atr = 0.0
+        avg_atr = 50.0
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        assert result == base_risk
+
+    def test_zero_avg_atr_returns_base_risk(self):
+        """Test that zero average ATR returns base risk (safety check)."""
+        base_risk = 0.02
+        current_atr = 50.0
+        avg_atr = 0.0
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        assert result == base_risk
+
+    def test_both_zero_atr_returns_base_risk(self):
+        """Test that zero for both ATR values returns base risk."""
+        base_risk = 0.02
+
+        result = calculate_volatility_adjusted_risk(base_risk, 0.0, 0.0)
+        assert result == base_risk
+
+    def test_negative_current_atr_returns_base_risk(self):
+        """Test that negative current ATR returns base risk."""
+        base_risk = 0.02
+        current_atr = -50.0
+        avg_atr = 50.0
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        assert result == base_risk
+
+    def test_negative_avg_atr_returns_base_risk(self):
+        """Test that negative average ATR returns base risk."""
+        base_risk = 0.02
+        current_atr = 50.0
+        avg_atr = -50.0
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        assert result == base_risk
+
+    # ========================================================================
+    # CUSTOM MIN/MAX MULTIPLIER PARAMETERS
+    # ========================================================================
+
+    def test_custom_min_multiplier(self):
+        """Test custom minimum multiplier."""
+        base_risk = 0.02
+        current_atr = 400.0  # 4x average
+        avg_atr = 100.0
+        min_multiplier = 0.5  # Higher floor than default 0.25
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr, min_multiplier=min_multiplier)
+        # vol_ratio = 100/400 = 0.25, but clamped to custom min 0.5
+        assert result == base_risk * min_multiplier
+        assert result == 0.01
+
+    def test_custom_max_multiplier(self):
+        """Test custom maximum multiplier."""
+        base_risk = 0.02
+        current_atr = 50.0
+        avg_atr = 200.0  # 4x current
+        max_multiplier = 2.0  # Higher ceiling than default 1.5
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr, max_multiplier=max_multiplier)
+        # vol_ratio = 200/50 = 4.0, but clamped to custom max 2.0
+        assert result == base_risk * max_multiplier
+        assert result == 0.04
+
+    def test_custom_min_and_max_multipliers(self):
+        """Test custom both min and max multipliers."""
+        base_risk = 0.02
+        min_multiplier = 0.5
+        max_multiplier = 2.0
+
+        # Test at minimum
+        result_min = calculate_volatility_adjusted_risk(
+            base_risk, 400.0, 100.0, min_multiplier=min_multiplier, max_multiplier=max_multiplier
+        )
+        assert result_min == base_risk * min_multiplier
+
+        # Test at maximum
+        result_max = calculate_volatility_adjusted_risk(
+            base_risk, 25.0, 100.0, min_multiplier=min_multiplier, max_multiplier=max_multiplier
+        )
+        assert result_max == base_risk * max_multiplier
+
+    # ========================================================================
+    # MIN/MAX CLAMPING VERIFICATION
+    # ========================================================================
+
+    def test_min_multiplier_clamping_works_correctly(self):
+        """Test that minimum multiplier clamping works correctly."""
+        base_risk = 0.02
+        min_multiplier = 0.25
+
+        # Test cases that should hit the minimum
+        test_cases = [
+            (400.0, 100.0),   # vol_ratio = 0.25 (exactly at min)
+            (500.0, 100.0),   # vol_ratio = 0.20 (below min)
+            (1000.0, 100.0),  # vol_ratio = 0.10 (well below min)
+        ]
+
+        for current_atr, avg_atr in test_cases:
+            result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr, min_multiplier=min_multiplier)
+            assert result == base_risk * min_multiplier, (
+                f"Expected {base_risk * min_multiplier} for ATR {current_atr}/{avg_atr}, got {result}"
+            )
+
+    def test_max_multiplier_clamping_works_correctly(self):
+        """Test that maximum multiplier clamping works correctly."""
+        base_risk = 0.02
+        max_multiplier = 1.5
+
+        # Test cases that should hit the maximum
+        test_cases = [
+            (50.0, 75.0),    # vol_ratio = 1.5 (exactly at max)
+            (50.0, 100.0),   # vol_ratio = 2.0 (above max)
+            (25.0, 100.0),   # vol_ratio = 4.0 (well above max)
+        ]
+
+        for current_atr, avg_atr in test_cases:
+            result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr, max_multiplier=max_multiplier)
+            assert result == base_risk * max_multiplier, (
+                f"Expected {base_risk * max_multiplier} for ATR {current_atr}/{avg_atr}, got {result}"
+            )
+
+    # ========================================================================
+    # REALISTIC SCENARIOS
+    # ========================================================================
+
+    def test_realistic_high_volatility_scenario(self):
+        """Test realistic high volatility scenario (2x normal)."""
+        base_risk = 0.02  # 2% base risk
+        current_atr = 100.0  # 100 pips (2x normal)
+        avg_atr = 50.0  # 50 pips normal
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        # Should reduce to 1% risk (vol_ratio = 0.5)
+        assert result == 0.01
+
+    def test_realistic_low_volatility_scenario(self):
+        """Test realistic low volatility scenario (0.7x normal)."""
+        base_risk = 0.02  # 2% base risk
+        current_atr = 35.0  # 35 pips (0.7x normal)
+        avg_atr = 50.0  # 50 pips normal
+
+        result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+        # vol_ratio = 50/35 = 1.428 (below max 1.5)
+        expected = 0.02 * (50.0 / 35.0)
+        assert abs(result - expected) < 1e-6
+
+    # ========================================================================
+    # RETURN TYPE VALIDATION
+    # ========================================================================
+
+    def test_return_type_is_float(self):
+        """Test that function always returns float type."""
+        test_cases = [
+            (0.02, 50.0, 50.0),
+            (0.02, 100.0, 50.0),
+            (0.02, 25.0, 50.0),
+            (0.02, 0.0, 50.0),
+        ]
+
+        for base_risk, current_atr, avg_atr in test_cases:
+            result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+            assert isinstance(result, float), f"Expected float, got {type(result)}"
+
+    def test_return_value_is_positive(self):
+        """Test that return value is always positive."""
+        test_cases = [
+            (0.02, 50.0, 50.0),
+            (0.02, 100.0, 50.0),
+            (0.02, 25.0, 50.0),
+        ]
+
+        for base_risk, current_atr, avg_atr in test_cases:
+            result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+            assert result > 0, f"Expected positive result, got {result}"
+
+
+class TestEquityCurveFilter:
+    """Tests for equity curve filter.
+
+    This function implements Tier 2 risk management by filtering trades
+    based on equity curve health:
+    - Equity above MA → trade normally (1.0x)
+    - Equity below MA → reduce position size based on distance below
+    """
+
+    # ========================================================================
+    # NORMAL CASES - EQUITY ABOVE MA
+    # ========================================================================
+
+    def test_equity_above_ma_returns_full_multiplier(self):
+        """Test that equity above MA returns (True, 1.0)."""
+        equity_history = [100, 102, 104, 106, 108, 110, 112, 114, 116, 118,
+                          120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_equity_exactly_at_ma_returns_full_multiplier(self):
+        """Test that equity exactly at MA returns (True, 1.0)."""
+        # Create flat equity curve
+        equity_history = [100] * 25
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_equity_slightly_above_ma_returns_full_multiplier(self):
+        """Test that equity slightly above MA returns (True, 1.0)."""
+        equity_history = [100] * 20 + [100.01]  # Just above
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    # ========================================================================
+    # EQUITY BELOW MA - REDUCED MULTIPLIERS
+    # ========================================================================
+
+    def test_equity_5_percent_below_ma_reduces_multiplier(self):
+        """Test that equity 5% below MA returns reduced multiplier."""
+        # MA of 100, current equity 95 (5% below)
+        equity_history = [100] * 20 + [95]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        # Multiplier reduced when below MA (approximate due to MA calculation)
+        assert 0.70 < multiplier < 0.85  # Approximately 0.75
+
+    def test_equity_10_percent_below_ma_reduces_multiplier(self):
+        """Test that equity 10% below MA returns reduced multiplier."""
+        # MA of 100, current equity 90 (10% below)
+        equity_history = [100] * 20 + [90]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        # Multiplier significantly reduced when 10% below MA
+        assert 0.45 < multiplier < 0.60  # Approximately 0.5
+
+    def test_equity_15_percent_below_ma_hits_floor(self):
+        """Test that equity 15%+ below MA hits minimum multiplier."""
+        # MA of 100, current equity 85 (15% below)
+        equity_history = [100] * 20 + [85]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        # Multiplier near floor when significantly below MA
+        assert 0.25 <= multiplier < 0.35  # At or near floor of 0.25
+
+    def test_equity_20_percent_below_ma_stays_at_floor(self):
+        """Test that equity 20%+ below MA stays at minimum multiplier."""
+        # MA of 100, current equity 80 (20% below)
+        equity_history = [100] * 20 + [80]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        # pct_below = 0.20, multiplier = max(0.25, 1.0 - 1.0) = 0.25
+        assert multiplier == 0.25
+
+    # ========================================================================
+    # EDGE CASES
+    # ========================================================================
+
+    def test_empty_history_returns_full_multiplier(self):
+        """Test that empty history returns (True, 1.0)."""
+        equity_history = []
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_history_shorter_than_ma_period_returns_full_multiplier(self):
+        """Test that history shorter than MA period returns (True, 1.0)."""
+        equity_history = [100, 105, 110]  # Only 3 values, ma_period=20
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_history_exactly_ma_period_length(self):
+        """Test that history exactly equal to MA period works correctly."""
+        equity_history = [100] * 20  # Exactly 20 values
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_history_one_more_than_ma_period(self):
+        """Test that history one more than MA period works correctly."""
+        equity_history = [100] * 20 + [95]  # 21 values
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert 0.70 < multiplier < 0.85  # Approximately 0.75
+
+    # ========================================================================
+    # INCREASING EQUITY CURVE
+    # ========================================================================
+
+    def test_increasing_equity_curve_returns_full_multiplier(self):
+        """Test that steadily increasing equity returns full multiplier."""
+        equity_history = list(range(100, 125))  # 100, 101, 102, ..., 124
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_sharp_increase_in_equity_returns_full_multiplier(self):
+        """Test that sharp increase in equity returns full multiplier."""
+        equity_history = [100] * 20 + [150]  # Sharp jump
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    # ========================================================================
+    # DECREASING EQUITY CURVE
+    # ========================================================================
+
+    def test_decreasing_equity_curve_reduces_multiplier(self):
+        """Test that decreasing equity curve reduces multiplier."""
+        # Start at 120, decrease to 95 (below initial MA of ~110)
+        equity_history = list(range(120, 95, -1))  # 120, 119, 118, ..., 96, 95
+
+        should_trade, multiplier = equity_curve_filter(equity_history[-21:], ma_period=20)
+        assert should_trade is True
+        assert multiplier < 1.0  # Should be reduced
+
+    def test_sharp_decrease_in_equity_reduces_multiplier(self):
+        """Test that sharp decrease in equity reduces multiplier."""
+        equity_history = [100] * 20 + [80]  # Sharp drop (20% below MA)
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        assert multiplier == 0.25  # At floor
+
+    # ========================================================================
+    # CUSTOM MA PERIOD
+    # ========================================================================
+
+    def test_custom_ma_period_5(self):
+        """Test with custom MA period of 5."""
+        equity_history = [100] * 5 + [95]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=5)
+        assert should_trade is True
+        assert 0.70 < multiplier < 0.85  # Approximately 0.75
+
+    def test_custom_ma_period_10(self):
+        """Test with custom MA period of 10."""
+        equity_history = [100] * 10 + [90]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=10)
+        assert should_trade is True
+        assert 0.45 < multiplier < 0.60  # Approximately 0.5
+
+    def test_custom_ma_period_50(self):
+        """Test with custom MA period of 50."""
+        equity_history = [100] * 50 + [85]
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=50)
+        assert should_trade is True
+        assert 0.25 <= multiplier < 0.35  # Near floor
+
+    # ========================================================================
+    # REALISTIC SCENARIOS
+    # ========================================================================
+
+    def test_realistic_drawdown_scenario(self):
+        """Test realistic drawdown scenario."""
+        # Start at 10000, grow to 11000, then drawdown to 10500
+        equity_history = (
+            list(range(10000, 11000, 50)) +  # Growth phase
+            list(range(11000, 10500, -25))    # Drawdown phase
+        )
+
+        should_trade, multiplier = equity_curve_filter(equity_history[-21:], ma_period=20)
+        assert should_trade is True
+        # Exact multiplier depends on current equity vs MA
+        assert 0.25 <= multiplier <= 1.0
+
+    def test_realistic_recovery_scenario(self):
+        """Test realistic recovery scenario."""
+        # Drawdown then recovery
+        equity_history = (
+            [10000] * 10 +
+            [9500] * 5 +  # Drawdown
+            [9700, 9900, 10100, 10300, 10500]  # Recovery
+        )
+
+        should_trade, multiplier = equity_curve_filter(equity_history, ma_period=20)
+        assert should_trade is True
+        # Should be back to higher multiplier during recovery
+        assert multiplier > 0.5
+
+    # ========================================================================
+    # RETURN TYPE VALIDATION
+    # ========================================================================
+
+    def test_return_type_is_tuple(self):
+        """Test that function returns tuple of (bool, float)."""
+        equity_history = [100] * 25
+
+        result = equity_curve_filter(equity_history, ma_period=20)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert isinstance(result[0], bool)
+        assert isinstance(result[1], float)
+
+    def test_should_trade_is_always_true(self):
+        """Test that should_trade is always True (never skips trades)."""
+        test_cases = [
+            [],  # Empty
+            [100] * 10,  # Short history
+            [100] * 20 + [95],  # Below MA
+            [100] * 20 + [105],  # Above MA
+        ]
+
+        for equity_history in test_cases:
+            should_trade, _ = equity_curve_filter(equity_history, ma_period=20)
+            assert should_trade is True
+
+    def test_multiplier_range_is_valid(self):
+        """Test that multiplier is always between 0.25 and 1.0."""
+        test_cases = [
+            [100] * 20 + [95],   # 5% below
+            [100] * 20 + [90],   # 10% below
+            [100] * 20 + [85],   # 15% below
+            [100] * 20 + [50],   # 50% below (extreme)
+            [100] * 20 + [110],  # 10% above
+        ]
+
+        for equity_history in test_cases:
+            _, multiplier = equity_curve_filter(equity_history, ma_period=20)
+            assert 0.25 <= multiplier <= 1.0, f"Multiplier {multiplier} out of range"
+
+
+class TestGetRegimePositionMultiplier:
+    """Tests for regime-based position multiplier.
+
+    This function implements Tier 2 risk management by adjusting position
+    size based on market regime:
+    - Dangerous regimes (ranging_high_vol) → skip trading (0.0x)
+    - Suboptimal regimes (ranging_normal, trending_high_vol) → reduce (0.75x)
+    - Good regimes (trending_normal, trending_low_vol, ranging_low_vol) → full (1.0x)
+    """
+
+    # ========================================================================
+    # DANGEROUS REGIMES - SKIP TRADING
+    # ========================================================================
+
+    def test_ranging_high_vol_skips_trading(self):
+        """Test that ranging_high_vol returns (False, 0.0) - worst regime."""
+        should_trade, multiplier = get_regime_position_multiplier("ranging_high_vol")
+        assert should_trade is False
+        assert multiplier == 0.0
+
+    # ========================================================================
+    # SUBOPTIMAL REGIMES - REDUCED POSITION SIZE
+    # ========================================================================
+
+    def test_ranging_normal_reduces_position(self):
+        """Test that ranging_normal returns (True, 0.75) - reduced size."""
+        should_trade, multiplier = get_regime_position_multiplier("ranging_normal")
+        assert should_trade is True
+        assert multiplier == 0.75
+
+    def test_trending_high_vol_reduces_position(self):
+        """Test that trending_high_vol returns (True, 0.75) - reduced size."""
+        should_trade, multiplier = get_regime_position_multiplier("trending_high_vol")
+        assert should_trade is True
+        assert multiplier == 0.75
+
+    # ========================================================================
+    # GOOD REGIMES - FULL POSITION SIZE
+    # ========================================================================
+
+    def test_trending_normal_full_position(self):
+        """Test that trending_normal returns (True, 1.0) - ideal regime."""
+        should_trade, multiplier = get_regime_position_multiplier("trending_normal")
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_trending_low_vol_full_position(self):
+        """Test that trending_low_vol returns (True, 1.0) - good regime."""
+        should_trade, multiplier = get_regime_position_multiplier("trending_low_vol")
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_ranging_low_vol_full_position(self):
+        """Test that ranging_low_vol returns (True, 1.0) - acceptable regime."""
+        should_trade, multiplier = get_regime_position_multiplier("ranging_low_vol")
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    # ========================================================================
+    # UNKNOWN/DEFAULT REGIME
+    # ========================================================================
+
+    def test_unknown_regime_returns_default(self):
+        """Test that unknown regime returns (True, 1.0) - default behavior."""
+        should_trade, multiplier = get_regime_position_multiplier("unknown_regime")
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_empty_string_regime_returns_default(self):
+        """Test that empty string returns (True, 1.0) - default behavior."""
+        should_trade, multiplier = get_regime_position_multiplier("")
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    def test_random_string_regime_returns_default(self):
+        """Test that random string returns (True, 1.0) - default behavior."""
+        should_trade, multiplier = get_regime_position_multiplier("random_regime_xyz")
+        assert should_trade is True
+        assert multiplier == 1.0
+
+    # ========================================================================
+    # CASE SENSITIVITY
+    # ========================================================================
+
+    def test_case_sensitivity_uppercase(self):
+        """Test that uppercase regime name returns default (case-sensitive)."""
+        should_trade, multiplier = get_regime_position_multiplier("RANGING_HIGH_VOL")
+        assert should_trade is True
+        assert multiplier == 1.0  # Not recognized, returns default
+
+    def test_case_sensitivity_mixed_case(self):
+        """Test that mixed case regime name returns default (case-sensitive)."""
+        should_trade, multiplier = get_regime_position_multiplier("Trending_Normal")
+        assert should_trade is True
+        assert multiplier == 1.0  # Not recognized, returns default
+
+    # ========================================================================
+    # RETURN TYPE VALIDATION
+    # ========================================================================
+
+    def test_return_type_is_tuple(self):
+        """Test that function returns tuple of (bool, float)."""
+        result = get_regime_position_multiplier("trending_normal")
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert isinstance(result[0], bool)
+        assert isinstance(result[1], (int, float))
+
+    def test_multiplier_values_are_expected_levels(self):
+        """Test that multiplier values are only expected discrete levels."""
+        valid_multipliers = {0.0, 0.75, 1.0}
+
+        test_regimes = [
+            "ranging_high_vol",
+            "ranging_normal",
+            "ranging_low_vol",
+            "trending_high_vol",
+            "trending_normal",
+            "trending_low_vol",
+            "unknown_regime",
+        ]
+
+        for regime in test_regimes:
+            _, multiplier = get_regime_position_multiplier(regime)
+            assert multiplier in valid_multipliers, (
+                f"Regime '{regime}' returned unexpected multiplier {multiplier}"
+            )
+
+    # ========================================================================
+    # ALL REGIME COMBINATIONS
+    # ========================================================================
+
+    def test_all_defined_regimes(self):
+        """Test all explicitly defined regime combinations."""
+        expected_results = {
+            # Skip regimes
+            "ranging_high_vol": (False, 0.0),
+            # Reduced regimes
+            "ranging_normal": (True, 0.75),
+            "trending_high_vol": (True, 0.75),
+            # Full regimes
+            "ranging_low_vol": (True, 1.0),
+            "trending_normal": (True, 1.0),
+            "trending_low_vol": (True, 1.0),
+        }
+
+        for regime, expected in expected_results.items():
+            result = get_regime_position_multiplier(regime)
+            assert result == expected, (
+                f"Regime '{regime}': expected {expected}, got {result}"
+            )
+
+
+class TestTier2Integration:
+    """Integration tests for Tier 2 multipliers compounding correctly.
+
+    Tests that all three Tier 2 multipliers (volatility, equity curve, regime)
+    compound correctly with each other and with Tier 1 (drawdown, consecutive losses).
+    """
+
+    # ========================================================================
+    # TIER 2 ONLY - NO TIER 1
+    # ========================================================================
+
+    def test_all_tier2_at_normal_returns_full_size(self):
+        """Test that all Tier 2 at normal conditions returns 1.0x."""
+        # Volatility: normal
+        vol_multiplier = calculate_volatility_adjusted_risk(0.02, 50.0, 50.0) / 0.02
+
+        # Equity: above MA
+        _, equity_multiplier = equity_curve_filter([100] * 20 + [110], ma_period=20)
+
+        # Regime: trending_normal
+        _, regime_multiplier = get_regime_position_multiplier("trending_normal")
+
+        combined = vol_multiplier * equity_multiplier * regime_multiplier
+        assert combined == 1.0
+
+    def test_tier2_compounding_volatile_below_equity(self):
+        """Test Tier 2 compounding: high volatility + equity below MA."""
+        # Volatility: 2x normal → 0.5x risk
+        vol_multiplier = calculate_volatility_adjusted_risk(0.02, 100.0, 50.0) / 0.02
+        assert vol_multiplier == 0.5
+
+        # Equity: below MA → reduced multiplier
+        _, equity_multiplier = equity_curve_filter([100] * 20 + [95], ma_period=20)
+        assert 0.70 < equity_multiplier < 0.85  # Approximately 0.75
+
+        # Regime: trending_normal → 1.0x
+        _, regime_multiplier = get_regime_position_multiplier("trending_normal")
+        assert regime_multiplier == 1.0
+
+        # Combined: 0.5 * ~0.76 * 1.0 ≈ 0.38
+        combined = vol_multiplier * equity_multiplier * regime_multiplier
+        assert 0.30 < combined < 0.45  # Approximately 0.375
+
+    def test_tier2_compounding_suboptimal_regime(self):
+        """Test Tier 2 compounding: normal vol + equity OK + suboptimal regime."""
+        # Volatility: normal → 1.0x
+        vol_multiplier = calculate_volatility_adjusted_risk(0.02, 50.0, 50.0) / 0.02
+        assert vol_multiplier == 1.0
+
+        # Equity: above MA → 1.0x
+        _, equity_multiplier = equity_curve_filter([100] * 20 + [105], ma_period=20)
+        assert equity_multiplier == 1.0
+
+        # Regime: ranging_normal → 0.75x
+        _, regime_multiplier = get_regime_position_multiplier("ranging_normal")
+        assert regime_multiplier == 0.75
+
+        # Combined: 1.0 * 1.0 * 0.75 = 0.75
+        combined = vol_multiplier * equity_multiplier * regime_multiplier
+        assert combined == 0.75
+
+    def test_tier2_worst_case_compounding(self):
+        """Test Tier 2 worst case: high vol + equity below + suboptimal regime."""
+        # Volatility: 2x normal → 0.5x
+        vol_multiplier = calculate_volatility_adjusted_risk(0.02, 100.0, 50.0) / 0.02
+        assert vol_multiplier == 0.5
+
+        # Equity: significantly below MA → reduced
+        _, equity_multiplier = equity_curve_filter([100] * 20 + [90], ma_period=20)
+        assert 0.45 < equity_multiplier < 0.60  # Approximately 0.5
+
+        # Regime: trending_high_vol → 0.75x
+        _, regime_multiplier = get_regime_position_multiplier("trending_high_vol")
+        assert regime_multiplier == 0.75
+
+        # Combined: 0.5 * ~0.52 * 0.75 ≈ 0.19
+        combined = vol_multiplier * equity_multiplier * regime_multiplier
+        assert 0.15 < combined < 0.25  # Approximately 0.19
+
+    # ========================================================================
+    # TIER 2 + TIER 1 COMPOUNDING
+    # ========================================================================
+
+    def test_tier2_with_tier1_drawdown(self):
+        """Test Tier 2 compounding with Tier 1 drawdown multiplier."""
+        # Tier 2: all normal → 1.0x
+        vol_multiplier = 1.0
+        equity_multiplier = 1.0
+        regime_multiplier = 1.0
+
+        # Tier 1: 8% drawdown → 0.5x
+        dd_multiplier = get_drawdown_position_multiplier(0.08)
+        assert dd_multiplier == 0.5
+
+        # Combined: 1.0 * 0.5 = 0.5
+        combined = vol_multiplier * equity_multiplier * regime_multiplier * dd_multiplier
+        assert combined == 0.5
+
+    def test_tier2_with_tier1_consecutive_losses(self):
+        """Test Tier 2 compounding with Tier 1 consecutive loss reduction."""
+        # Tier 2: suboptimal regime → 0.75x
+        _, regime_multiplier = get_regime_position_multiplier("ranging_normal")
+        assert regime_multiplier == 0.75
+
+        # Tier 1: 2 consecutive losses → 0.5x (simulated)
+        consecutive_loss_multiplier = 0.5
+
+        # Combined: 0.75 * 0.5 = 0.375
+        combined = regime_multiplier * consecutive_loss_multiplier
+        assert combined == 0.375
+
+    def test_full_tier1_and_tier2_compounding(self):
+        """Test full Tier 1 + Tier 2 compounding (worst case scenario)."""
+        # Tier 1: 12% drawdown → 0.25x
+        dd_multiplier = get_drawdown_position_multiplier(0.12)
+        assert dd_multiplier == 0.25
+
+        # Tier 1: 3 consecutive losses → 0.25x (simulated)
+        consecutive_loss_multiplier = 0.25
+
+        # Tier 2: high vol → 0.5x
+        vol_multiplier = 0.5
+
+        # Tier 2: equity 10% below → 0.5x
+        equity_multiplier = 0.5
+
+        # Tier 2: suboptimal regime → 0.75x
+        regime_multiplier = 0.75
+
+        # Combined: 0.25 * 0.25 * 0.5 * 0.5 * 0.75 = 0.00234375 (~0.23% of base risk!)
+        combined = (dd_multiplier * consecutive_loss_multiplier *
+                    vol_multiplier * equity_multiplier * regime_multiplier)
+        expected = 0.25 * 0.25 * 0.5 * 0.5 * 0.75
+        assert abs(combined - expected) < 1e-10
+
+    # ========================================================================
+    # REGIME SKIP OVERRIDES ALL
+    # ========================================================================
+
+    def test_regime_skip_overrides_all_multipliers(self):
+        """Test that regime skip (ranging_high_vol) overrides all other multipliers."""
+        # All other factors favorable
+        vol_multiplier = 1.0
+        equity_multiplier = 1.0
+        dd_multiplier = 1.0
+
+        # But regime says skip
+        should_trade, regime_multiplier = get_regime_position_multiplier("ranging_high_vol")
+        assert should_trade is False
+        assert regime_multiplier == 0.0
+
+        # Combined is zero (no trade)
+        combined = vol_multiplier * equity_multiplier * dd_multiplier * regime_multiplier
+        assert combined == 0.0
+
+    # ========================================================================
+    # REALISTIC COMPOUNDING SCENARIOS
+    # ========================================================================
+
+    def test_realistic_moderate_risk_reduction(self):
+        """Test realistic moderate risk reduction scenario."""
+        # Tier 1: 6% drawdown → 0.75x
+        dd_multiplier = get_drawdown_position_multiplier(0.06)
+
+        # Tier 2: slightly high vol (1.3x) → ~0.77x
+        vol_multiplier = calculate_volatility_adjusted_risk(0.02, 65.0, 50.0) / 0.02
+
+        # Tier 2: equity slightly below MA → ~0.9x
+        _, equity_multiplier = equity_curve_filter([100] * 20 + [98], ma_period=20)
+
+        # Tier 2: good regime → 1.0x
+        _, regime_multiplier = get_regime_position_multiplier("trending_normal")
+
+        combined = dd_multiplier * vol_multiplier * equity_multiplier * regime_multiplier
+        # Should be around 0.52 (roughly 52% of base risk)
+        assert 0.45 < combined < 0.60
+
+    def test_realistic_aggressive_preservation(self):
+        """Test realistic aggressive capital preservation scenario."""
+        # Tier 1: 12% drawdown → 0.25x
+        dd_multiplier = get_drawdown_position_multiplier(0.12)
+
+        # Tier 2: high vol (2x) → 0.5x
+        vol_multiplier = 0.5
+
+        # Tier 2: equity significantly below MA → near floor
+        _, equity_multiplier = equity_curve_filter([100] * 20 + [85], ma_period=20)
+        assert 0.25 <= equity_multiplier < 0.35  # Near floor
+
+        # Tier 2: suboptimal regime → 0.75x
+        _, regime_multiplier = get_regime_position_multiplier("ranging_normal")
+
+        combined = dd_multiplier * vol_multiplier * equity_multiplier * regime_multiplier
+        # Approximately: 0.25 * 0.5 * ~0.28 * 0.75 ≈ 0.026 (~2.6% of base risk)
+        assert 0.02 < combined < 0.04  # Very aggressive capital preservation
+
+
+# ========================================================================
+# PARAMETRIZED TESTS FOR TIER 2 FUNCTIONS
+# ========================================================================
+
+@pytest.mark.parametrize("base_risk,current_atr,avg_atr,expected_multiplier", [
+    (0.02, 50.0, 50.0, 1.0),      # Normal volatility
+    (0.02, 100.0, 50.0, 0.5),     # High volatility (2x)
+    (0.02, 200.0, 50.0, 0.25),    # Very high volatility (4x, hits min)
+    (0.02, 50.0, 100.0, 1.5),     # Low volatility (hits max)
+    (0.02, 25.0, 100.0, 1.5),     # Very low volatility (hits max)
+    (0.02, 0.0, 50.0, 1.0),       # Zero current ATR (edge case)
+    (0.02, 50.0, 0.0, 1.0),       # Zero avg ATR (edge case)
+])
+def test_volatility_adjusted_risk_parametrized(base_risk, current_atr, avg_atr, expected_multiplier):
+    """Parametrized test for volatility-adjusted risk calculation."""
+    result = calculate_volatility_adjusted_risk(base_risk, current_atr, avg_atr)
+    expected = base_risk * expected_multiplier
+    assert abs(result - expected) < 1e-6, (
+        f"ATR {current_atr}/{avg_atr}: expected {expected}, got {result}"
+    )
+
+
+@pytest.mark.parametrize("regime,expected_should_trade,expected_multiplier", [
+    ("ranging_high_vol", False, 0.0),      # Skip
+    ("ranging_normal", True, 0.75),        # Reduced
+    ("ranging_low_vol", True, 1.0),        # Full
+    ("trending_high_vol", True, 0.75),     # Reduced
+    ("trending_normal", True, 1.0),        # Full
+    ("trending_low_vol", True, 1.0),       # Full
+    ("unknown_regime", True, 1.0),         # Default
+    ("", True, 1.0),                       # Empty string default
+])
+def test_regime_position_multiplier_parametrized(regime, expected_should_trade, expected_multiplier):
+    """Parametrized test for regime position multiplier."""
+    should_trade, multiplier = get_regime_position_multiplier(regime)
+    assert should_trade == expected_should_trade, (
+        f"Regime '{regime}': expected should_trade={expected_should_trade}, got {should_trade}"
+    )
+    assert multiplier == expected_multiplier, (
+        f"Regime '{regime}': expected multiplier={expected_multiplier}, got {multiplier}"
+    )

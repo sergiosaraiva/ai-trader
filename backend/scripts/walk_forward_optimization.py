@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 
 from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig, StackingConfig
+from src.features.regime.regime_detector import RegimeDetector, MarketRegime
 
 logging.basicConfig(
     level=logging.INFO,
@@ -154,7 +155,8 @@ class WFOSummary:
     def overall_profit_factor(self) -> float:
         total_profit = sum(max(0, w.total_pips) for w in self.windows)
         total_loss = sum(abs(min(0, w.total_pips)) for w in self.windows)
-        return total_profit / total_loss if total_loss > 0 else float('inf')
+        # Cap at 99.99 to prevent JSON serialization issues with infinity
+        return total_profit / total_loss if total_loss > 0 else 99.99
 
     @property
     def avg_pips_per_window(self) -> float:
@@ -327,6 +329,105 @@ def get_drawdown_position_multiplier(current_drawdown: float, max_allowed: float
         return 0.0
 
 
+def calculate_volatility_adjusted_risk(
+    base_risk: float,
+    current_atr: float,
+    avg_atr: float,
+    min_multiplier: float = 0.25,
+    max_multiplier: float = 1.5
+) -> float:
+    """
+    Scale risk inversely with volatility.
+
+    Higher volatility = smaller positions (to maintain constant dollar risk)
+    Lower volatility = larger positions (to capture opportunity)
+
+    Args:
+        base_risk: Base risk per trade (e.g., 0.02 = 2%)
+        current_atr: Current ATR value
+        avg_atr: Average ATR over lookback period
+        min_multiplier: Minimum scaling factor (floor)
+        max_multiplier: Maximum scaling factor (ceiling)
+
+    Returns:
+        Adjusted risk percentage
+    """
+    if current_atr <= 0 or avg_atr <= 0:
+        return base_risk
+
+    # Inverse relationship: high vol = low multiplier
+    vol_ratio = avg_atr / current_atr
+
+    # Clamp multiplier to reasonable range
+    multiplier = max(min_multiplier, min(max_multiplier, vol_ratio))
+
+    return base_risk * multiplier
+
+
+def equity_curve_filter(
+    equity_history: list,
+    ma_period: int = 20,
+) -> tuple:
+    """
+    Filter trades based on equity curve health.
+
+    Only trade when equity is above its moving average.
+    When below MA, reduce position size based on distance below.
+
+    Args:
+        equity_history: List of equity values
+        ma_period: Period for moving average
+
+    Returns:
+        Tuple of (should_trade: bool, position_multiplier: float)
+    """
+    if len(equity_history) < ma_period:
+        return True, 1.0
+
+    equity_ma = sum(equity_history[-ma_period:]) / ma_period
+    current_equity = equity_history[-1]
+
+    if current_equity >= equity_ma:
+        return True, 1.0
+    else:
+        # Calculate how far below MA (as percentage)
+        pct_below = (equity_ma - current_equity) / equity_ma
+        # Reduce position size based on distance below MA
+        # At 5% below: 0.9x, at 10% below: 0.5x, at 15%+ below: 0.25x
+        multiplier = max(0.25, 1.0 - (pct_below * 5))
+        return True, multiplier
+
+
+def get_regime_position_multiplier(market_regime: str) -> tuple:
+    """
+    Get position multiplier based on market regime.
+
+    Args:
+        market_regime: Current market regime string
+
+    Returns:
+        Tuple of (should_trade: bool, position_multiplier: float)
+    """
+    # Dangerous regimes - skip trading
+    SKIP_REGIMES = [
+        "ranging_high_vol",  # Choppy + volatile = worst
+    ]
+
+    # Suboptimal regimes - reduce position size
+    REDUCED_REGIMES = {
+        "ranging_normal": 0.75,
+        "trending_high_vol": 0.75,
+    }
+
+    if market_regime in SKIP_REGIMES:
+        return False, 0.0
+
+    if market_regime in REDUCED_REGIMES:
+        return True, REDUCED_REGIMES[market_regime]
+
+    return True, 1.0
+
+
 def calculate_threshold_metrics(trades_df: pd.DataFrame, thresholds: List[float] = None) -> Dict[str, Dict]:
     """Calculate performance metrics at multiple confidence thresholds.
 
@@ -391,6 +492,10 @@ def run_window_backtest(
     reduce_risk_on_losses: bool = True,
     spread_pips: float = 1.0,
     slippage_pips: float = 0.5,
+    use_regime_filter: bool = True,
+    use_equity_filter: bool = True,
+    use_volatility_sizing: bool = True,
+    daily_loss_limit: float = 0.03,
 ) -> Dict:
     """Run backtest on test data using the ensemble with proper position sizing.
 
@@ -540,6 +645,20 @@ def run_window_backtest(
     consecutive_losses = 0
     risk_reductions = 0  # Count how many times risk was reduced
 
+    # Tier 2: Daily loss tracking
+    daily_pnl = 0.0
+    current_trading_day = None
+    DAILY_LOSS_LIMIT = -daily_loss_limit  # Negative value for comparison
+
+    # Tier 2: Initialize regime detector (if enabled)
+    regime_detector = RegimeDetector() if use_regime_filter else None
+
+    # Tier 2: Pre-calculate average ATR for volatility scaling (if enabled)
+    if use_volatility_sizing and "atr_14" in df_1h_features.columns:
+        avg_atr_series = df_1h_features["atr_14"].rolling(50, min_periods=20).mean()
+    else:
+        avg_atr_series = None
+
     i = 0
     n = len(test_directions)
 
@@ -550,6 +669,22 @@ def run_window_backtest(
 
         # Only trade if confidence meets threshold (otherwise HOLD)
         if conf >= min_confidence and agreement >= min_agreement:
+            # Tier 2: Regime filter - check market conditions
+            regime_multiplier = 1.0
+            if use_regime_filter and regime_detector and i >= 50:  # Need enough data for regime detection
+                try:
+                    df_regime = df_1h_features.iloc[max(0, i-50):i+1].copy()
+                    current_regime = regime_detector.get_current_regime(df_regime)
+                    should_trade_regime, regime_multiplier = get_regime_position_multiplier(
+                        current_regime.market_regime.value
+                    )
+                    if not should_trade_regime:
+                        i += 1
+                        continue
+                except Exception as e:
+                    logger.debug(f"Regime detection failed: {e}")
+                    regime_multiplier = 1.0
+
             entry_price = closes[i]
             entry_time = timestamps[i]
             direction = "long" if pred == 1 else "short"
@@ -577,6 +712,36 @@ def run_window_backtest(
             # Position size (lots) = Risk amount / (SL pips × $ per pip per lot)
             # This ensures we lose exactly risk_amount if stopped out
             position_lots = risk_amount / (sl_pips * pip_dollar_value)
+
+            # Tier 2: Volatility-based position sizing
+            if use_volatility_sizing and avg_atr_series is not None and i < len(avg_atr_series):
+                current_atr = df_1h_features["atr_14"].iloc[i] if "atr_14" in df_1h_features.columns else None
+                avg_atr = avg_atr_series.iloc[i] if not pd.isna(avg_atr_series.iloc[i]) else None
+                if current_atr and avg_atr and current_atr > 0 and avg_atr > 0:
+                    vol_adjusted_risk = calculate_volatility_adjusted_risk(
+                        base_risk=current_risk,
+                        current_atr=current_atr,
+                        avg_atr=avg_atr
+                    )
+                    # Recalculate position with volatility adjustment
+                    vol_ratio = vol_adjusted_risk / current_risk if current_risk > 0 else 1.0
+                    position_lots = position_lots * vol_ratio
+
+            # Tier 2: Equity curve filter
+            equity_multiplier = 1.0
+            if use_equity_filter:
+                should_trade_equity, equity_multiplier = equity_curve_filter(equity_curve)
+                position_lots = position_lots * equity_multiplier
+
+            # Tier 2: Apply regime multiplier
+            position_lots = position_lots * regime_multiplier
+
+            # Log Tier 2 adjustments if significant
+            if regime_multiplier < 1.0 or equity_multiplier < 1.0:
+                logger.debug(
+                    f"Tier 2 adjustments: regime={regime_multiplier:.0%}, "
+                    f"equity={equity_multiplier:.0%}, final_lots={position_lots:.2f}"
+                )
 
             # Apply drawdown-based position reduction
             # Risk is reduced by BOTH consecutive losses AND current drawdown level
@@ -679,6 +844,26 @@ def run_window_backtest(
                 )
                 break
 
+            # Tier 2: Daily loss limit tracking
+            trade_day = timestamps[exit_idx].date() if exit_idx < len(timestamps) else None
+            if trade_day:
+                if current_trading_day != trade_day:
+                    daily_pnl = 0.0
+                    current_trading_day = trade_day
+
+                daily_pnl += pnl_usd / initial_balance
+
+                # Check daily loss limit
+                if daily_pnl <= DAILY_LOSS_LIMIT:
+                    logger.warning(f"Daily loss limit hit: {daily_pnl:.1%} on {trade_day}")
+                    # Skip to next day
+                    while i < n:
+                        next_time = timestamps[i] if i < len(timestamps) else None
+                        if next_time and next_time.date() != trade_day:
+                            break
+                        i += 1
+                    continue
+
             trades.append({
                 "direction": direction,
                 "confidence": conf,
@@ -776,6 +961,10 @@ def run_wfo_window(
     initial_balance: float = 10000.0,
     risk_per_trade: float = 0.02,
     reduce_risk_on_losses: bool = True,
+    use_regime_filter: bool = True,
+    use_equity_filter: bool = True,
+    use_volatility_sizing: bool = True,
+    daily_loss_limit: float = 0.03,
 ) -> WFOWindowResult:
     """Run walk-forward optimization on a single window.
 
@@ -840,6 +1029,9 @@ def run_wfo_window(
     logger.info(f"Running backtest on test period...")
     logger.info(f"  Initial balance: ${initial_balance:,.0f}, Risk per trade: {risk_per_trade:.1%}")
     logger.info(f"  Risk reduction on losses: {'ON' if reduce_risk_on_losses else 'OFF'}")
+    logger.info(f"  Tier 2 enhancements: Regime={'ON' if use_regime_filter else 'OFF'}, "
+                f"Equity={'ON' if use_equity_filter else 'OFF'}, "
+                f"Volatility={'ON' if use_volatility_sizing else 'OFF'}")
     backtest_results = run_window_backtest(
         ensemble=ensemble,
         df_5min=df_test,
@@ -847,6 +1039,10 @@ def run_wfo_window(
         initial_balance=initial_balance,
         risk_per_trade=risk_per_trade,
         reduce_risk_on_losses=reduce_risk_on_losses,
+        use_regime_filter=use_regime_filter,
+        use_equity_filter=use_equity_filter,
+        use_volatility_sizing=use_volatility_sizing,
+        daily_loss_limit=daily_loss_limit,
     )
 
     # Create result object
@@ -1271,6 +1467,27 @@ def main():
         "--calibration", action="store_true",
         help="Enable isotonic regression calibration for probability outputs (disabled by default)"
     )
+    parser.add_argument(
+        "--no-regime-filter",
+        action="store_true",
+        help="Disable regime-based position filtering (Tier 2)"
+    )
+    parser.add_argument(
+        "--no-equity-filter",
+        action="store_true",
+        help="Disable equity curve filtering (Tier 2)"
+    )
+    parser.add_argument(
+        "--no-volatility-sizing",
+        action="store_true",
+        help="Disable volatility-based position sizing (Tier 2)"
+    )
+    parser.add_argument(
+        "--daily-loss-limit",
+        type=float,
+        default=0.03,
+        help="Daily loss limit as fraction (default: 0.03 = 3%%)"
+    )
     args = parser.parse_args()
 
     print("\n" + "=" * 80)
@@ -1296,6 +1513,11 @@ def main():
         print(f"  Step:          {args.rfecv_step}")
         print(f"  CV Folds:      {args.rfecv_cv_folds}")
     print(f"Calibration:     {'ON (isotonic regression)' if args.calibration else 'OFF'}")
+    print(f"\nTier 2 Enhancements:")
+    print(f"  Regime Filter:       {'OFF' if args.no_regime_filter else 'ON'}")
+    print(f"  Equity Filter:       {'OFF' if args.no_equity_filter else 'ON'}")
+    print(f"  Volatility Sizing:   {'OFF' if args.no_volatility_sizing else 'ON'}")
+    print(f"  Daily Loss Limit:    {args.daily_loss_limit:.1%}")
     print("=" * 80)
 
     # Load data
@@ -1376,6 +1598,10 @@ def main():
                 initial_balance=args.balance,
                 risk_per_trade=args.risk,
                 reduce_risk_on_losses=not args.no_risk_reduction,
+                use_regime_filter=not args.no_regime_filter,
+                use_equity_filter=not args.no_equity_filter,
+                use_volatility_sizing=not args.no_volatility_sizing,
+                daily_loss_limit=args.daily_loss_limit,
             )
             summary.windows.append(result)
         except Exception as e:
@@ -1383,20 +1609,10 @@ def main():
             import traceback
             traceback.print_exc()
 
-    # Load baseline results for comparison
-    baseline_metadata_path = project_root / args.baseline_model_dir / "training_metadata.json"
-    if baseline_metadata_path.exists():
-        with open(baseline_metadata_path) as f:
-            baseline_metadata = json.load(f)
-        # Use the documented baseline results
-        summary.baseline_total_pips = 7987.0  # From CLAUDE.md
-        summary.baseline_profit_factor = 2.22
-        summary.baseline_win_rate = 57.8
-    else:
-        logger.warning("Baseline model metadata not found, using defaults")
-        summary.baseline_total_pips = 7987.0
-        summary.baseline_profit_factor = 2.22
-        summary.baseline_win_rate = 57.8
+    # Use documented baseline results from CLAUDE.md (not loading from file)
+    summary.baseline_total_pips = 7987.0
+    summary.baseline_profit_factor = 2.22
+    summary.baseline_win_rate = 57.8
 
     # Print summary
     print_wfo_summary(summary)

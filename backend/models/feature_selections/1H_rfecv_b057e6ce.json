@@ -1,0 +1,30 @@
+{
+  "timeframe": "1H",
+  "selected_features": [
+    "feature_0",
+    "feature_1",
+    "feature_2",
+    "feature_3",
+    "feature_4"
+  ],
+  "selected_indices": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "cv_scores": {
+    "cv_scores_mean": [
+      0.492
+    ],
+    "cv_scores_std": [
+      0.08059776671843955
+    ],
+    "n_features": [],
+    "optimal_n_features": 5
+  },
+  "config_hash": "b057e6ce",
+  "n_original_features": 5,
+  "n_selected_features": 5
+}

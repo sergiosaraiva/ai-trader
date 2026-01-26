@@ -1,0 +1,1 @@
+Docker build monitoring setup complete. Run './check-docker-status.sh' in the morning to see results.

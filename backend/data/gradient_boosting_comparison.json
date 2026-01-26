@@ -1,0 +1,87 @@
+{
+  "comparison_date": "2026-01-22T12:50:41.549072",
+  "confidence_threshold": 0.55,
+  "baseline_pips": 7987,
+  "results": [
+    {
+      "model_type": "xgboost",
+      "train_time_seconds": 37.8,
+      "backtest_time_seconds": 17.5,
+      "total_pips": 2190,
+      "win_rate": 0.6163,
+      "profit_factor": 3.21,
+      "total_trades": 258,
+      "sharpe_ratio": 7.07,
+      "max_drawdown": 0.04,
+      "avg_pips_per_trade": 8.49,
+      "individual_results": {
+        "1H": {
+          "val_accuracy": 0.6718959506570126,
+          "train_accuracy": 0.8268680729352879
+        },
+        "4H": {
+          "val_accuracy": 0.6602195504443282,
+          "train_accuracy": 0.8427103292109389
+        },
+        "D": {
+          "val_accuracy": 0.5875706214689266,
+          "train_accuracy": 0.9708372530573848
+        }
+      }
+    },
+    {
+      "model_type": "lightgbm",
+      "train_time_seconds": 37.8,
+      "backtest_time_seconds": 18.4,
+      "total_pips": 1210,
+      "win_rate": 0.5236,
+      "profit_factor": 2.2,
+      "total_trades": 212,
+      "sharpe_ratio": 4.7,
+      "max_drawdown": 0.0734,
+      "avg_pips_per_trade": 5.71,
+      "individual_results": {
+        "1H": {
+          "val_accuracy": 0.6767229820327165,
+          "train_accuracy": 0.8210582767250626
+        },
+        "4H": {
+          "val_accuracy": 0.650810245687402,
+          "train_accuracy": 0.8346977878418395
+        },
+        "D": {
+          "val_accuracy": 0.6073446327683616,
+          "train_accuracy": 0.9586077140169332
+        }
+      }
+    },
+    {
+      "model_type": "catboost",
+      "train_time_seconds": 44.2,
+      "backtest_time_seconds": 18.5,
+      "total_pips": 1610,
+      "win_rate": 0.5153,
+      "profit_factor": 2.13,
+      "total_trades": 295,
+      "sharpe_ratio": 5.33,
+      "max_drawdown": 0.0935,
+      "avg_pips_per_trade": 5.46,
+      "individual_results": {
+        "1H": {
+          "val_accuracy": 0.6798069187449718,
+          "train_accuracy": 0.7441902037897747
+        },
+        "4H": {
+          "val_accuracy": 0.6889702038682697,
+          "train_accuracy": 0.7542240027869709
+        },
+        "D": {
+          "val_accuracy": 0.5903954802259888,
+          "train_accuracy": 0.6575729068673566
+        }
+      }
+    }
+  ],
+  "winner": "xgboost",
+  "best_pips": 2190
+}

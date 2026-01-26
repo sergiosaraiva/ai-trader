@@ -11,11 +11,12 @@ The ensemble provides noise reduction through higher timeframe filtering.
 import json
 import logging
 import pickle
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Deque
 
 import numpy as np
 import pandas as pd
@@ -275,8 +276,10 @@ class MTFEnsemble:
         # Current weights (may be adjusted for regime or dynamic adjustment)
         self.current_weights = self.config.weights.copy()
 
-        # Prediction history for dynamic weight adjustment
-        self.prediction_history: List[Dict[str, Any]] = []
+        # Prediction history for dynamic weight adjustment (deque for automatic FIFO)
+        self.prediction_history: Deque[Dict[str, Any]] = deque(
+            maxlen=self.config.dynamic_weight_window * 2
+        )
         self._history_lock = Lock()  # Thread-safe access to prediction_history
 
         # Training metadata
@@ -321,11 +324,7 @@ class MTFEnsemble:
         # Thread-safe update of prediction history
         with self._history_lock:
             self.prediction_history.append(record)
-
-            # Keep only recent history (2x window size for buffer)
-            if len(self.prediction_history) > self.config.dynamic_weight_window * 2:
-                self.prediction_history = self.prediction_history[-self.config.dynamic_weight_window:]
-
+            # deque automatically removes oldest items when maxlen is reached
             history_size = len(self.prediction_history)
 
         logger.debug(
@@ -349,7 +348,7 @@ class MTFEnsemble:
                 return self.config.weights.copy()
 
             # Get recent predictions within the configured window
-            recent = self.prediction_history[-self.config.dynamic_weight_window:].copy()
+            recent = list(self.prediction_history)[-self.config.dynamic_weight_window:]
 
         # Calculate accuracy for each model
         accuracies = {}
@@ -1179,7 +1178,7 @@ class MTFEnsemble:
         if self.config.use_dynamic_weights and self.prediction_history:
             history_path = save_dir / "prediction_history.pkl"
             with open(history_path, "wb") as f:
-                pickle.dump(self.prediction_history, f)
+                pickle.dump(list(self.prediction_history), f)
             logger.info(f"Saved prediction history: {len(self.prediction_history)} records")
 
         # Save stacking meta-learner if enabled and trained
@@ -1224,10 +1223,11 @@ class MTFEnsemble:
         history_path = load_dir / "prediction_history.pkl"
         if history_path.exists():
             with open(history_path, "rb") as f:
-                self.prediction_history = pickle.load(f)
+                loaded_history = pickle.load(f)
+                self.prediction_history = deque(loaded_history, maxlen=self.config.dynamic_weight_window * 2)
             logger.info(f"Loaded prediction history: {len(self.prediction_history)} records")
         else:
-            self.prediction_history = []
+            self.prediction_history = deque(maxlen=self.config.dynamic_weight_window * 2)
 
         # Load stacking meta-learner if enabled
         stacking_path = load_dir / "stacking_meta_learner.pkl"

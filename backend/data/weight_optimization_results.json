@@ -1,0 +1,273 @@
+{
+  "optimization_metric": "pips",
+  "confidence_threshold": 0.55,
+  "step": 0.05,
+  "min_weight": 0.05,
+  "total_combinations": 171,
+  "optimal_weights": {
+    "1H": 0.9,
+    "4H": 0.05,
+    "D": 0.05
+  },
+  "optimal_performance": {
+    "total_trades": 1067,
+    "win_rate": 57.16963448922212,
+    "total_pips": 7289.49999999936,
+    "profit_factor": 2.119549692064194,
+    "high_conf_win_rate": 57.810945273631845,
+    "sharpe_estimate": 5.737067161374666
+  },
+  "current_weights": {
+    "1H": 0.6,
+    "4H": 0.3,
+    "D": 0.1
+  },
+  "current_performance": {
+    "total_trades": 1097,
+    "win_rate": 56.15314494074749,
+    "total_pips": 6994.949999999383,
+    "profit_factor": 2.0163016236241593
+  },
+  "top_20": [
+    {
+      "rank": 1,
+      "weights": {
+        "1H": 0.9,
+        "4H": 0.05,
+        "D": 0.05
+      },
+      "total_trades": 1067,
+      "win_rate": 57.16963448922212,
+      "total_pips": 7289.49999999936,
+      "profit_factor": 2.119549692064194
+    },
+    {
+      "rank": 2,
+      "weights": {
+        "1H": 0.85,
+        "4H": 0.05,
+        "D": 0.1
+      },
+      "total_trades": 1067,
+      "win_rate": 57.16963448922212,
+      "total_pips": 7284.39999999936,
+      "profit_factor": 2.120452832510294
+    },
+    {
+      "rank": 3,
+      "weights": {
+        "1H": 0.8,
+        "4H": 0.15,
+        "D": 0.05
+      },
+      "total_trades": 1075,
+      "win_rate": 57.20930232558139,
+      "total_pips": 7260.349999999366,
+      "profit_factor": 2.103463736397228
+    },
+    {
+      "rank": 4,
+      "weights": {
+        "1H": 0.75,
+        "4H": 0.1,
+        "D": 0.15
+      },
+      "total_trades": 1078,
+      "win_rate": 57.050092764378476,
+      "total_pips": 7237.549999999367,
+      "profit_factor": 2.0956522397322295
+    },
+    {
+      "rank": 5,
+      "weights": {
+        "1H": 0.75,
+        "4H": 0.05,
+        "D": 0.2
+      },
+      "total_trades": 1077,
+      "win_rate": 57.01021355617456,
+      "total_pips": 7225.049999999362,
+      "profit_factor": 2.095925007394475
+    },
+    {
+      "rank": 6,
+      "weights": {
+        "1H": 0.8,
+        "4H": 0.05,
+        "D": 0.15
+      },
+      "total_trades": 1074,
+      "win_rate": 56.98324022346368,
+      "total_pips": 7212.79999999936,
+      "profit_factor": 2.0981478803010245
+    },
+    {
+      "rank": 7,
+      "weights": {
+        "1H": 0.75,
+        "4H": 0.2,
+        "D": 0.05
+      },
+      "total_trades": 1083,
+      "win_rate": 56.87903970452447,
+      "total_pips": 7163.499999999376,
+      "profit_factor": 2.071794603248106
+    },
+    {
+      "rank": 8,
+      "weights": {
+        "1H": 0.55,
+        "4H": 0.25,
+        "D": 0.2
+      },
+      "total_trades": 1107,
+      "win_rate": 56.54923215898826,
+      "total_pips": 7162.149999999345,
+      "profit_factor": 2.035718675661288
+    },
+    {
+      "rank": 9,
+      "weights": {
+        "1H": 0.7,
+        "4H": 0.25,
+        "D": 0.05
+      },
+      "total_trades": 1092,
+      "win_rate": 56.684981684981686,
+      "total_pips": 7154.599999999381,
+      "profit_factor": 2.057199852234827
+    },
+    {
+      "rank": 10,
+      "weights": {
+        "1H": 0.65,
+        "4H": 0.05,
+        "D": 0.3
+      },
+      "total_trades": 1097,
+      "win_rate": 56.517775752051044,
+      "total_pips": 7104.349999999348,
+      "profit_factor": 2.0358988940164857
+    },
+    {
+      "rank": 11,
+      "weights": {
+        "1H": 0.85,
+        "4H": 0.1,
+        "D": 0.05
+      },
+      "total_trades": 1073,
+      "win_rate": 56.66356011183598,
+      "total_pips": 7095.949999999367,
+      "profit_factor": 2.0696337051551392
+    },
+    {
+      "rank": 12,
+      "weights": {
+        "1H": 0.8,
+        "4H": 0.1,
+        "D": 0.1
+      },
+      "total_trades": 1072,
+      "win_rate": 56.623134328358205,
+      "total_pips": 7091.699999999365,
+      "profit_factor": 2.071545133117642
+    },
+    {
+      "rank": 13,
+      "weights": {
+        "1H": 0.7,
+        "4H": 0.1,
+        "D": 0.2
+      },
+      "total_trades": 1084,
+      "win_rate": 56.64206642066421,
+      "total_pips": 7088.199999999367,
+      "profit_factor": 2.052551861366316
+    },
+    {
+      "rank": 14,
+      "weights": {
+        "1H": 0.65,
+        "4H": 0.2,
+        "D": 0.15
+      },
+      "total_trades": 1095,
+      "win_rate": 56.529680365296805,
+      "total_pips": 7083.699999999367,
+      "profit_factor": 2.038917040046225
+    },
+    {
+      "rank": 15,
+      "weights": {
+        "1H": 0.6,
+        "4H": 0.2,
+        "D": 0.2
+      },
+      "total_trades": 1105,
+      "win_rate": 56.289592760180994,
+      "total_pips": 7045.399999999339,
+      "profit_factor": 2.0146975163284515
+    },
+    {
+      "rank": 16,
+      "weights": {
+        "1H": 0.6,
+        "4H": 0.35,
+        "D": 0.05
+      },
+      "total_trades": 1097,
+      "win_rate": 56.15314494074749,
+      "total_pips": 7038.549999999385,
+      "profit_factor": 2.0243403722729596
+    },
+    {
+      "rank": 17,
+      "weights": {
+        "1H": 0.55,
+        "4H": 0.3,
+        "D": 0.15
+      },
+      "total_trades": 1106,
+      "win_rate": 56.14828209764918,
+      "total_pips": 7032.199999999354,
+      "profit_factor": 2.0110127091838446
+    },
+    {
+      "rank": 18,
+      "weights": {
+        "1H": 0.6,
+        "4H": 0.25,
+        "D": 0.15
+      },
+      "total_trades": 1099,
+      "win_rate": 56.23293903548681,
+      "total_pips": 7027.099999999363,
+      "profit_factor": 2.0198391965632134
+    },
+    {
+      "rank": 19,
+      "weights": {
+        "1H": 0.7,
+        "4H": 0.05,
+        "D": 0.25
+      },
+      "total_trades": 1081,
+      "win_rate": 56.52173913043478,
+      "total_pips": 7024.849999999365,
+      "profit_factor": 2.0456913618838004
+    },
+    {
+      "rank": 20,
+      "weights": {
+        "1H": 0.65,
+        "4H": 0.1,
+        "D": 0.25
+      },
+      "total_trades": 1096,
+      "win_rate": 56.38686131386861,
+      "total_pips": 7012.849999999362,
+      "profit_factor": 2.0215963056841137
+    }
+  ]
+}
