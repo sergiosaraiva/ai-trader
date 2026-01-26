@@ -75,9 +75,10 @@ mlruns/
 mlartifacts/
 
 # Data files
-# Keep sample, forex combined, crypto, and sentiment data
+# Keep sample, forex combined, and sentiment data (crypto excluded to save space)
 data/forex/*
 !data/forex/*_combined.csv
+data/crypto/
 *.parquet
 *.h5
 *.hdf5
@@ -85,7 +86,8 @@ data/forex/*
 # Model files (ignore root models, keep backend models for deployment)
 /models/*
 !/models/README.md
-!/models/models_trained.tar.gz.part_*
+# Ignore tar archive parts to save disk space
+*.tar.gz.part_*
 
 # Ignore model formats (but not .pkl - needed for backend)
 *.pt

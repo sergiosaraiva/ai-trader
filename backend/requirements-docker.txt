@@ -1,0 +1,47 @@
+# AI Assets Trader API - Docker Requirements (CPU-ONLY)
+# Minimal dependencies optimized for CPU without GPU packages
+
+# Core data processing
+numpy>=1.24.0,<3.0.0
+pandas>=2.0.0,<4.0.0
+pyarrow>=14.0.0,<25.0.0  # For parquet support
+
+# ML Models - CPU only versions
+scikit-learn>=1.3.0,<2.0.0
+scipy>=1.10.0,<2.0.0
+
+# Technical Analysis
+pandas-ta>=0.4.0b0
+
+# Data Sources
+yfinance>=0.2.28,<2.0.0
+
+# Database
+sqlalchemy>=2.0.0,<3.0.0
+psycopg2-binary>=2.9.0,<3.0.0
+
+# API Framework
+fastapi>=0.100.0,<1.0.0
+uvicorn[standard]>=0.23.0,<1.0.0
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+httpx>=0.25.0,<1.0.0
+aiohttp>=3.9.0,<4.0.0
+
+# Scheduling
+apscheduler>=3.10.0,<4.0.0
+
+# Utilities
+python-dotenv>=1.0.0,<2.0.0
+
+# Rate Limiting
+slowapi>=0.1.9,<1.0.0
+
+# FRED API for sentiment data
+fredapi>=0.5.0,<1.0.0
+
+# LLM for explanations
+openai>=1.0.0,<2.0.0
+
+# NOTE: XGBoost installed separately in Dockerfile as CPU-only wheel
+# NOTE: catboost and lightgbm excluded - only used for training

@@ -1,4 +1,4 @@
-# Agent Container Dockerfile
+# CPU-Only Agent Container Dockerfile
 # Autonomous trading agent that monitors predictions and executes trades
 FROM python:3.12-slim
 
@@ -16,12 +16,21 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Python dependencies
-COPY requirements-api.txt .
-RUN pip install --no-cache-dir -r requirements-api.txt
+# Upgrade pip and install wheel
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install additional agent dependencies (if not in requirements-api.txt)
-# aiohttp for health server is already in requirements-api.txt
+# Install core scientific packages first (large downloads)
+RUN pip install --no-cache-dir --default-timeout=600 numpy "pandas>=2.0.0,<4.0.0" "scipy>=1.10.0,<2.0.0"
+RUN pip install --no-cache-dir --default-timeout=600 "pyarrow>=14.0.0,<25.0.0"
+RUN pip install --no-cache-dir --default-timeout=600 "scikit-learn>=1.3.0,<2.0.0"
+
+# Install XGBoost (includes CUDA libs but will use CPU if no GPU present)
+# Split into smaller retries to handle network timeouts
+RUN pip install --no-cache-dir --default-timeout=900 --retries=10 "xgboost>=2.0.0,<3.0.0"
+
+# Install remaining packages
+COPY requirements-docker.txt .
+RUN pip install --no-cache-dir --default-timeout=300 -r requirements-docker.txt
 
 # Copy static data first (changes less frequently)
 COPY models/ ./models/

@@ -3,6 +3,14 @@
 # Use this for development-specific settings that shouldn't be in production
 
 services:
+  postgres:
+    # Limit log file sizes to save disk space
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   backend:
     # Mount source code for hot reload in development
     volumes:
@@ -12,6 +20,12 @@ services:
     environment:
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
+    # Limit log file sizes to save disk space
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
 
   agent:
     # Mount source code for hot reload in development
@@ -29,8 +43,20 @@ services:
     # In development, agent can restart more quickly
     healthcheck:
       start_period: 30s
+    # Limit log file sizes to save disk space
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
 
   frontend:
     # No override needed for frontend in development
     environment:
       - ENVIRONMENT=development
+    # Limit log file sizes to save disk space
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
