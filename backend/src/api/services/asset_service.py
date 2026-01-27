@@ -10,11 +10,9 @@ from threading import Lock
 from typing import Dict, Optional
 
 from ..schemas.asset import AssetMetadata
+from ...config import trading_config
 
 logger = logging.getLogger(__name__)
-
-# Maximum number of cached asset metadata entries
-MAX_CACHE_SIZE = 100
 
 
 class AssetService:
@@ -22,6 +20,9 @@ class AssetService:
 
     Uses singleton pattern - metadata is cached and shared across requests.
     Provides thread-safe asset detection with pattern matching.
+
+    Cache configuration is centralized via TradingConfig:
+    - asset_cache_max_size: Maximum asset metadata cache entries (default: 100)
     """
 
     def __init__(self):
@@ -64,8 +65,9 @@ class AssetService:
             if symbol in self._cache:
                 return self._cache[symbol]
 
-            # Limit cache size (FIFO eviction)
-            if len(self._cache) >= MAX_CACHE_SIZE:
+            # Limit cache size (FIFO eviction) using centralized config
+            max_cache_size = trading_config.cache.asset_cache_max_size
+            if len(self._cache) >= max_cache_size:
                 # Remove oldest entry (first inserted)
                 oldest_key = next(iter(self._cache))
                 del self._cache[oldest_key]

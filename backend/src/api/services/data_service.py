@@ -24,6 +24,7 @@ import yfinance as yf
 
 from ..utils.validation import safe_iloc
 from ..utils.logging import log_exception
+from ...config import trading_config
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ class DataService:
     - Combining historical + live data
     - Calculating features and resampling
     - Updating cache files
+
+    Cache configuration is centralized via TradingConfig:
+    - price_cache_max_size: Maximum price cache entries (default: 50)
+    - ohlcv_cache_max_size: Maximum OHLCV cache entries (default: 20)
     """
 
     # Yahoo Finance symbols
@@ -58,10 +63,6 @@ class DataService:
     VIX_CACHE_TTL = timedelta(hours=4)
     OHLCV_CACHE_TTL = timedelta(minutes=15)
     HISTORICAL_CACHE_TTL = timedelta(hours=24)  # Historical data rarely changes
-
-    # Cache size limits (prevent unbounded memory growth)
-    MAX_PRICE_CACHE_SIZE = 50
-    MAX_OHLCV_CACHE_SIZE = 20  # Each DataFrame can be 1-5MB
 
     def __init__(self):
         self._lock = Lock()
@@ -302,10 +303,11 @@ class DataService:
 
             price = float(df["close"].iloc[-1])
 
-            # Cache the result (with size limit to prevent memory leak)
+            # Cache the result (with size limit from centralized config)
+            max_price_cache_size = trading_config.cache.price_cache_max_size
             with self._lock:
                 # Evict oldest entries if cache is full
-                if len(self._price_cache) >= self.MAX_PRICE_CACHE_SIZE:
+                if len(self._price_cache) >= max_price_cache_size:
                     oldest_key = min(
                         self._price_cache.keys(),
                         key=lambda k: self._price_cache[k][1]
@@ -371,10 +373,11 @@ class DataService:
             # Keep only OHLCV columns
             df = df[["open", "high", "low", "close", "volume"]].copy()
 
-            # Cache result (with size limit to prevent memory leak)
+            # Cache result (with size limit from centralized config)
+            max_ohlcv_cache_size = trading_config.cache.ohlcv_cache_max_size
             with self._lock:
                 # Evict oldest entries if cache is full
-                if len(self._ohlcv_cache) >= self.MAX_OHLCV_CACHE_SIZE:
+                if len(self._ohlcv_cache) >= max_ohlcv_cache_size:
                     oldest_key = min(
                         self._ohlcv_cache.keys(),
                         key=lambda k: self._ohlcv_cache[k][1]

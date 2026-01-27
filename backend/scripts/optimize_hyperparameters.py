@@ -5,7 +5,7 @@ This script uses Bayesian optimization (Optuna) to find optimal XGBoost
 hyperparameters for each timeframe model (1H, 4H, Daily). It uses
 TimeSeriesSplit for cross-validation to prevent data leakage.
 
-The best hyperparameters are saved to backend/configs/optimized_hyperparams.json
+The best hyperparameters are saved to backend/data/optimized_hyperparams.json
 and can be loaded by train_mtf_ensemble.py with --use-optimized-params flag.
 """
 

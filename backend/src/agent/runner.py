@@ -21,7 +21,6 @@ from .trading_cycle import TradingCycle
 from .broker_manager import BrokerManager
 from .trade_executor import TradeExecutor
 from .safety_manager import SafetyManager
-from .safety_config import SafetyConfig
 from .metrics import agent_metrics, CycleMetrics
 
 logger = logging.getLogger(__name__)
@@ -64,15 +63,8 @@ class AgentRunner:
         self._command_handler = CommandHandler(get_session)
         self._state_manager = StateManager(get_session)
 
-        # Initialize safety manager
-        safety_config = SafetyConfig(
-            max_consecutive_losses=config.max_consecutive_losses,
-            max_drawdown_percent=config.max_drawdown_percent,
-            max_daily_loss_percent=config.max_daily_loss_percent,
-            enable_model_degradation=config.enable_model_degradation,
-        )
+        # Initialize safety manager (now uses centralized TradingConfig)
         self._safety_manager = SafetyManager(
-            config=safety_config,
             initial_equity=config.initial_capital,
             db_session_factory=get_session,
         )

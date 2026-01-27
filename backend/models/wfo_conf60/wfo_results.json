@@ -1,0 +1,569 @@
+{
+  "timestamp": "2026-01-27T18:48:45.297997",
+  "config": {
+    "train_months": 24,
+    "test_months": 6,
+    "step_months": 6,
+    "min_confidence": 0.6,
+    "sentiment": true,
+    "stacking": true,
+    "stacking_blend": 0.0,
+    "initial_balance": 10000.0,
+    "risk_per_trade": 0.02,
+    "use_calibration": false
+  },
+  "windows": [
+    {
+      "window_id": 1,
+      "train_period": "2020-01 to 2021-12",
+      "test_period": "2022-01 to 2022-06",
+      "total_trades": 173,
+      "win_rate": 58.95953757225434,
+      "total_pips": 1308.1999999997595,
+      "profit_factor": 2.2484015650344777,
+      "model_accuracies": {
+        "1H": 0.6612772837510105,
+        "4H": 0.6709677419354839,
+        "D": 0.5445544554455446
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 21831.547270749914,
+      "total_return_pct": 118.31547270749914,
+      "max_drawdown_pct": 15.02250349875109,
+      "total_pnl_usd": 18342.73915331904,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 173,
+          "winning_trades": 102,
+          "losing_trades": 71,
+          "win_rate": 58.95953757225434,
+          "total_pips": 1308.1999999997595,
+          "avg_pips": 7.561849710981269,
+          "profit_factor": 2.2484015650344777
+        },
+        "0.60": {
+          "total_trades": 173,
+          "winning_trades": 102,
+          "losing_trades": 71,
+          "win_rate": 58.95953757225434,
+          "total_pips": 1308.1999999997595,
+          "avg_pips": 7.561849710981269,
+          "profit_factor": 2.2484015650344777
+        },
+        "0.65": {
+          "total_trades": 158,
+          "winning_trades": 93,
+          "losing_trades": 65,
+          "win_rate": 58.86075949367089,
+          "total_pips": 1186.8499999997794,
+          "avg_pips": 7.511708860758097,
+          "profit_factor": 2.217032403609169
+        },
+        "0.70": {
+          "total_trades": 137,
+          "winning_trades": 84,
+          "losing_trades": 53,
+          "win_rate": 61.31386861313869,
+          "total_pips": 1172.849999999801,
+          "avg_pips": 8.560948905108036,
+          "profit_factor": 2.463501372597558
+        },
+        "0.75": {
+          "total_trades": 121,
+          "winning_trades": 78,
+          "losing_trades": 43,
+          "win_rate": 64.46280991735537,
+          "total_pips": 1175.9999999998238,
+          "avg_pips": 9.719008264461353,
+          "profit_factor": 2.805758157389178
+        }
+      }
+    },
+    {
+      "window_id": 2,
+      "train_period": "2020-07 to 2022-06",
+      "test_period": "2022-07 to 2022-12",
+      "total_trades": 117,
+      "win_rate": 58.119658119658126,
+      "total_pips": 883.7499999998189,
+      "profit_factor": 2.1769994006788695,
+      "model_accuracies": {
+        "1H": 0.6298096395301742,
+        "4H": 0.5702746365105008,
+        "D": 0.32673267326732675
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 17522.610779852126,
+      "total_return_pct": 75.22610779852126,
+      "max_drawdown_pct": 15.01111955752313,
+      "total_pnl_usd": 11476.845979469981,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 117,
+          "winning_trades": 68,
+          "losing_trades": 49,
+          "win_rate": 58.119658119658126,
+          "total_pips": 883.7499999998189,
+          "avg_pips": 7.553418803417255,
+          "profit_factor": 2.1769994006788695
+        },
+        "0.60": {
+          "total_trades": 117,
+          "winning_trades": 68,
+          "losing_trades": 49,
+          "win_rate": 58.119658119658126,
+          "total_pips": 883.7499999998189,
+          "avg_pips": 7.553418803417255,
+          "profit_factor": 2.1769994006788695
+        },
+        "0.65": {
+          "total_trades": 104,
+          "winning_trades": 61,
+          "losing_trades": 43,
+          "win_rate": 58.65384615384615,
+          "total_pips": 805.2499999998396,
+          "avg_pips": 7.742788461536919,
+          "profit_factor": 2.2240632362997013
+        },
+        "0.70": {
+          "total_trades": 93,
+          "winning_trades": 57,
+          "losing_trades": 36,
+          "win_rate": 61.29032258064516,
+          "total_pips": 815.7499999998574,
+          "avg_pips": 8.771505376342553,
+          "profit_factor": 2.484936743423638
+        },
+        "0.75": {
+          "total_trades": 84,
+          "winning_trades": 50,
+          "losing_trades": 34,
+          "win_rate": 59.523809523809526,
+          "total_pips": 675.2499999998718,
+          "avg_pips": 8.03869047618895,
+          "profit_factor": 2.302691231792812
+        }
+      }
+    },
+    {
+      "window_id": 3,
+      "train_period": "2021-01 to 2022-12",
+      "test_period": "2023-01 to 2023-06",
+      "total_trades": 191,
+      "win_rate": 52.879581151832454,
+      "total_pips": 958.9499999997231,
+      "profit_factor": 1.7316040434862723,
+      "model_accuracies": {
+        "1H": 0.6711165048543689,
+        "4H": 0.6951612903225807,
+        "D": 0.58
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 14013.420058509795,
+      "total_return_pct": 40.13420058509795,
+      "max_drawdown_pct": 15.001648821057586,
+      "total_pnl_usd": 8826.879339918747,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 191,
+          "winning_trades": 101,
+          "losing_trades": 90,
+          "win_rate": 52.879581151832454,
+          "total_pips": 958.9499999997231,
+          "avg_pips": 5.020680628270801,
+          "profit_factor": 1.7316040434862723
+        },
+        "0.60": {
+          "total_trades": 191,
+          "winning_trades": 101,
+          "losing_trades": 90,
+          "win_rate": 52.879581151832454,
+          "total_pips": 958.9499999997231,
+          "avg_pips": 5.020680628270801,
+          "profit_factor": 1.7316040434862723
+        },
+        "0.65": {
+          "total_trades": 179,
+          "winning_trades": 97,
+          "losing_trades": 82,
+          "win_rate": 54.18994413407822,
+          "total_pips": 959.349999999739,
+          "avg_pips": 5.359497206702453,
+          "profit_factor": 1.7913143894087076
+        },
+        "0.70": {
+          "total_trades": 169,
+          "winning_trades": 93,
+          "losing_trades": 76,
+          "win_rate": 55.02958579881657,
+          "total_pips": 944.8499999997529,
+          "avg_pips": 5.590828402365402,
+          "profit_factor": 1.8370022589357855
+        },
+        "0.75": {
+          "total_trades": 157,
+          "winning_trades": 87,
+          "losing_trades": 70,
+          "win_rate": 55.4140127388535,
+          "total_pips": 888.9999999997688,
+          "avg_pips": 5.662420382164132,
+          "profit_factor": 1.8498637732418928
+        }
+      }
+    },
+    {
+      "window_id": 4,
+      "train_period": "2021-07 to 2023-06",
+      "test_period": "2023-07 to 2023-12",
+      "total_trades": 82,
+      "win_rate": 50.0,
+      "total_pips": 272.34999999988133,
+      "profit_factor": 1.4432419236713383,
+      "model_accuracies": {
+        "1H": 0.6762212353653613,
+        "4H": 0.7133655394524959,
+        "D": 0.6336633663366337
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 11004.248442109923,
+      "total_return_pct": 10.042484421099235,
+      "max_drawdown_pct": 15.007369267138495,
+      "total_pnl_usd": 3197.919620251193,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 82,
+          "winning_trades": 41,
+          "losing_trades": 41,
+          "win_rate": 50.0,
+          "total_pips": 272.34999999988133,
+          "avg_pips": 3.321341463413187,
+          "profit_factor": 1.4432419236713383
+        },
+        "0.60": {
+          "total_trades": 82,
+          "winning_trades": 41,
+          "losing_trades": 41,
+          "win_rate": 50.0,
+          "total_pips": 272.34999999988133,
+          "avg_pips": 3.321341463413187,
+          "profit_factor": 1.4432419236713383
+        },
+        "0.65": {
+          "total_trades": 76,
+          "winning_trades": 39,
+          "losing_trades": 37,
+          "win_rate": 51.31578947368421,
+          "total_pips": 285.34999999989094,
+          "avg_pips": 3.75460526315646,
+          "profit_factor": 1.5165173318849894
+        },
+        "0.70": {
+          "total_trades": 67,
+          "winning_trades": 32,
+          "losing_trades": 35,
+          "win_rate": 47.76119402985074,
+          "total_pips": 167.09999999990453,
+          "avg_pips": 2.4940298507448437,
+          "profit_factor": 1.3204525841401626
+        },
+        "0.75": {
+          "total_trades": 63,
+          "winning_trades": 32,
+          "losing_trades": 31,
+          "win_rate": 50.79365079365079,
+          "total_pips": 229.09999999991106,
+          "avg_pips": 3.6365079365065247,
+          "profit_factor": 1.4986396778754774
+        }
+      }
+    },
+    {
+      "window_id": 5,
+      "train_period": "2022-01 to 2023-12",
+      "test_period": "2024-01 to 2024-06",
+      "total_trades": 54,
+      "win_rate": 64.81481481481481,
+      "total_pips": 417.44999999993246,
+      "profit_factor": 2.5614363194310124,
+      "model_accuracies": {
+        "1H": 0.6476306196840826,
+        "4H": 0.6365105008077544,
+        "D": 0.52
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 14533.826276177795,
+      "total_return_pct": 45.338262761777955,
+      "max_drawdown_pct": 15.029540842217608,
+      "total_pnl_usd": 7085.91614031658,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 54,
+          "winning_trades": 35,
+          "losing_trades": 19,
+          "win_rate": 64.81481481481481,
+          "total_pips": 417.44999999993246,
+          "avg_pips": 7.730555555554305,
+          "profit_factor": 2.5614363194310124
+        },
+        "0.60": {
+          "total_trades": 54,
+          "winning_trades": 35,
+          "losing_trades": 19,
+          "win_rate": 64.81481481481481,
+          "total_pips": 417.44999999993246,
+          "avg_pips": 7.730555555554305,
+          "profit_factor": 2.5614363194310124
+        },
+        "0.65": {
+          "total_trades": 53,
+          "winning_trades": 35,
+          "losing_trades": 18,
+          "win_rate": 66.0377358490566,
+          "total_pips": 432.9499999999341,
+          "avg_pips": 8.168867924527058,
+          "profit_factor": 2.719078816755531
+        },
+        "0.70": {
+          "total_trades": 52,
+          "winning_trades": 35,
+          "losing_trades": 17,
+          "win_rate": 67.3076923076923,
+          "total_pips": 448.4499999999358,
+          "avg_pips": 8.624038461537227,
+          "profit_factor": 2.89739792680296
+        },
+        "0.75": {
+          "total_trades": 51,
+          "winning_trades": 35,
+          "losing_trades": 16,
+          "win_rate": 68.62745098039215,
+          "total_pips": 463.9499999999374,
+          "avg_pips": 9.097058823528185,
+          "profit_factor": 3.1007471134248523
+        }
+      }
+    },
+    {
+      "window_id": 6,
+      "train_period": "2022-07 to 2024-06",
+      "test_period": "2024-07 to 2024-12",
+      "total_trades": 264,
+      "win_rate": 54.166666666666664,
+      "total_pips": 1235.4499999997272,
+      "profit_factor": 1.7969102754303143,
+      "model_accuracies": {
+        "1H": 0.6543610547667342,
+        "4H": 0.6585760517799353,
+        "D": 0.5
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 18859.426144912246,
+      "total_return_pct": 88.59426144912246,
+      "max_drawdown_pct": 15.029819388493426,
+      "total_pnl_usd": 14450.41046880192,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 264,
+          "winning_trades": 143,
+          "losing_trades": 121,
+          "win_rate": 54.166666666666664,
+          "total_pips": 1235.4499999997272,
+          "avg_pips": 4.6797348484838155,
+          "profit_factor": 1.7969102754303143
+        },
+        "0.60": {
+          "total_trades": 264,
+          "winning_trades": 143,
+          "losing_trades": 121,
+          "win_rate": 54.166666666666664,
+          "total_pips": 1235.4499999997272,
+          "avg_pips": 4.6797348484838155,
+          "profit_factor": 1.7969102754303143
+        },
+        "0.65": {
+          "total_trades": 246,
+          "winning_trades": 133,
+          "losing_trades": 113,
+          "win_rate": 54.0650406504065,
+          "total_pips": 1181.2499999997408,
+          "avg_pips": 4.8018292682916295,
+          "profit_factor": 1.8134770332619214
+        },
+        "0.70": {
+          "total_trades": 217,
+          "winning_trades": 119,
+          "losing_trades": 98,
+          "win_rate": 54.83870967741935,
+          "total_pips": 1146.8499999997705,
+          "avg_pips": 5.285023041473597,
+          "profit_factor": 1.8998077752929836
+        },
+        "0.75": {
+          "total_trades": 201,
+          "winning_trades": 111,
+          "losing_trades": 90,
+          "win_rate": 55.223880597014926,
+          "total_pips": 1069.249999999775,
+          "avg_pips": 5.319651741292413,
+          "profit_factor": 1.9020922973084304
+        }
+      }
+    },
+    {
+      "window_id": 7,
+      "train_period": "2023-01 to 2024-12",
+      "test_period": "2025-01 to 2025-06",
+      "total_trades": 5,
+      "win_rate": 60.0,
+      "total_pips": 23.599999999994733,
+      "profit_factor": 1.7612903225803955,
+      "model_accuracies": {
+        "1H": 0.6515580736543909,
+        "4H": 0.6564516129032258,
+        "D": 0.8415841584158416
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 9053.504676983794,
+      "total_return_pct": -9.464953230162063,
+      "max_drawdown_pct": 15.10220457850264,
+      "total_pnl_usd": 322.73701053254257,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 5,
+          "winning_trades": 3,
+          "losing_trades": 2,
+          "win_rate": 60.0,
+          "total_pips": 23.599999999994733,
+          "avg_pips": 4.719999999998946,
+          "profit_factor": 1.7612903225803955
+        },
+        "0.60": {
+          "total_trades": 5,
+          "winning_trades": 3,
+          "losing_trades": 2,
+          "win_rate": 60.0,
+          "total_pips": 23.599999999994733,
+          "avg_pips": 4.719999999998946,
+          "profit_factor": 1.7612903225803955
+        },
+        "0.65": {
+          "total_trades": 4,
+          "winning_trades": 2,
+          "losing_trades": 2,
+          "win_rate": 50.0,
+          "total_pips": -0.9000000000036756,
+          "avg_pips": -0.2250000000009189,
+          "profit_factor": 0.9709677419353684
+        },
+        "0.70": {
+          "total_trades": 3,
+          "winning_trades": 1,
+          "losing_trades": 2,
+          "win_rate": 33.33333333333333,
+          "total_pips": -25.400000000002088,
+          "avg_pips": -8.466666666667363,
+          "profit_factor": 0.18064516129034106
+        },
+        "0.75": {
+          "total_trades": 3,
+          "winning_trades": 1,
+          "losing_trades": 2,
+          "win_rate": 33.33333333333333,
+          "total_pips": -25.400000000002088,
+          "avg_pips": -8.466666666667363,
+          "profit_factor": 0.18064516129034106
+        }
+      }
+    },
+    {
+      "window_id": 8,
+      "train_period": "2023-07 to 2025-06",
+      "test_period": "2025-07 to 2025-12",
+      "total_trades": 175,
+      "win_rate": 50.28571428571429,
+      "total_pips": 613.8499999997492,
+      "profit_factor": 1.4624279633882162,
+      "model_accuracies": {
+        "1H": 0.6445709638064254,
+        "4H": 0.6547811993517018,
+        "D": 0.6336633663366337
+      },
+      "initial_balance": 10000.0,
+      "final_balance": 12501.897546251896,
+      "total_return_pct": 25.018975462518956,
+      "max_drawdown_pct": 15.101894743728439,
+      "total_pnl_usd": 6192.185784549158,
+      "by_threshold": {
+        "0.55": {
+          "total_trades": 175,
+          "winning_trades": 88,
+          "losing_trades": 87,
+          "win_rate": 50.28571428571429,
+          "total_pips": 613.8499999997492,
+          "avg_pips": 3.507714285712853,
+          "profit_factor": 1.4624279633882162
+        },
+        "0.60": {
+          "total_trades": 175,
+          "winning_trades": 88,
+          "losing_trades": 87,
+          "win_rate": 50.28571428571429,
+          "total_pips": 613.8499999997492,
+          "avg_pips": 3.507714285712853,
+          "profit_factor": 1.4624279633882162
+        },
+        "0.65": {
+          "total_trades": 166,
+          "winning_trades": 82,
+          "losing_trades": 84,
+          "win_rate": 49.39759036144578,
+          "total_pips": 545.3999999997561,
+          "avg_pips": 3.2855421686732296,
+          "profit_factor": 1.4257777430810736
+        },
+        "0.70": {
+          "total_trades": 155,
+          "winning_trades": 76,
+          "losing_trades": 79,
+          "win_rate": 49.03225806451613,
+          "total_pips": 487.5499999997745,
+          "avg_pips": 3.145483870966287,
+          "profit_factor": 1.405126926752026
+        },
+        "0.75": {
+          "total_trades": 138,
+          "winning_trades": 69,
+          "losing_trades": 69,
+          "win_rate": 50.0,
+          "total_pips": 485.9999999998043,
+          "avg_pips": 3.5217391304333643,
+          "profit_factor": 1.463541418283901
+        }
+      }
+    }
+  ],
+  "summary": {
+    "total_windows": 8,
+    "profitable_windows": 8,
+    "consistency_rate": 1.0,
+    "total_trades": 1061,
+    "overall_win_rate": 54.759660697455224,
+    "overall_profit_factor": 99.99,
+    "total_pips": 5713.599999998586,
+    "avg_pips_per_window": 714.1999999998233,
+    "pips_std": 430.62132364169963,
+    "min_pips_window": 23.599999999994733,
+    "max_pips_window": 1308.1999999997595,
+    "initial_balance": 10000.0,
+    "total_return_pct": 698.9563349715916,
+    "avg_return_per_window": 49.15060149443436,
+    "max_drawdown": 15.10220457850264
+  },
+  "baseline_comparison": {
+    "baseline_total_pips": 7987.0,
+    "baseline_profit_factor": 2.22,
+    "baseline_win_rate": 57.8,
+    "pips_diff": -2273.400000001414,
+    "pf_diff": 97.77
+  }
+}

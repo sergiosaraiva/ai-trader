@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any, Callable
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
-from .safety_config import SafetyConfig
+from ..config import trading_config
 from ..trading.circuit_breakers.manager import CircuitBreakerManager
 from ..trading.circuit_breakers.base import TradeResult, TradingState, CircuitBreakerState
 from ..trading.safety.kill_switch import KillSwitch, KillSwitchConfig, TriggerType
@@ -109,22 +109,32 @@ class SafetyManager:
 
     def __init__(
         self,
-        config: SafetyConfig,
         initial_equity: float,
         db_session_factory: Callable[[], Session],
+        config: Optional[Dict[str, Any]] = None,  # Backward compatibility
     ):
         """Initialize safety manager.
 
+        Now uses centralized TradingConfig for all safety parameters.
+        The config parameter is deprecated but kept for backward compatibility.
+
         Args:
-            config: Safety configuration
             initial_equity: Starting account equity
             db_session_factory: Factory function to create database sessions
+            config: DEPRECATED - Legacy config dict (ignored, uses TradingConfig)
         """
-        self.config = config
         self.initial_equity = initial_equity
         self.db_session_factory = db_session_factory
 
+        # Warn if legacy config passed
+        if config is not None:
+            logger.warning(
+                "SafetyManager config parameter is deprecated. "
+                "Using centralized TradingConfig instead."
+            )
+
         # Create moderate risk profile for circuit breaker manager
+        # Now reads from centralized config
         risk_profile = RiskProfile(
             name="Agent Safety",
             description="Safety profile for agent circuit breakers",
@@ -134,15 +144,15 @@ class SafetyManager:
             max_position_pct=0.05,
             base_position_pct=0.02,
             kelly_fraction=0.50,
-            max_daily_loss_pct=config.max_daily_loss_percent,
-            max_weekly_loss_pct=config.max_daily_loss_percent * 2,
-            max_drawdown_pct=config.max_drawdown_percent,
-            consecutive_loss_halt=config.max_consecutive_losses,
+            max_daily_loss_pct=trading_config.risk.max_daily_loss_percent,
+            max_weekly_loss_pct=trading_config.risk.max_daily_loss_percent * 2,
+            max_drawdown_pct=trading_config.risk.max_drawdown_percent,  # CRITICAL: 15.0
+            consecutive_loss_halt=trading_config.risk.max_consecutive_losses,
             cooldown_hours=12,
             max_portfolio_heat=0.10,
             max_correlation_exposure=0.06,
             max_positions=5,
-            max_trades_per_day=config.max_daily_trades,
+            max_trades_per_day=trading_config.risk.max_trades_per_day,
             min_trade_interval_seconds=300,
         )
 
@@ -154,13 +164,13 @@ class SafetyManager:
 
         # Initialize kill switch
         kill_switch_config = KillSwitchConfig(
-            max_daily_loss_pct=config.max_daily_loss_percent,
-            max_daily_loss_amount=config.max_daily_loss_amount,
-            max_daily_trades=config.max_daily_trades,
-            max_trades_per_hour=config.max_trades_per_hour,
-            max_disconnection_seconds=config.max_disconnection_seconds,
-            auto_reset_next_day=config.auto_reset_next_day,
-            require_authorization_code=config.require_token_for_reset,
+            max_daily_loss_pct=trading_config.risk.max_daily_loss_percent,
+            max_daily_loss_amount=trading_config.risk.max_daily_loss_amount,
+            max_daily_trades=trading_config.risk.max_trades_per_day,
+            max_trades_per_hour=trading_config.risk.max_trades_per_hour,
+            max_disconnection_seconds=trading_config.agent.max_reconnect_delay,
+            auto_reset_next_day=True,  # Always auto-reset
+            require_authorization_code=True,  # Always require authorization
         )
 
         self.kill_switch = KillSwitch(config=kill_switch_config)
@@ -173,10 +183,15 @@ class SafetyManager:
         self._daily_start_equity = initial_equity
         self._current_equity = initial_equity
 
+        # Register callback for risk config changes
+        trading_config.register_callback("risk", self._on_risk_config_change)
+        trading_config.register_callback("agent", self._on_agent_config_change)
+
         logger.info(
-            f"SafetyManager initialized: "
+            f"SafetyManager initialized with centralized config: "
             f"initial_equity=${initial_equity:,.2f}, "
-            f"config={config}"
+            f"max_drawdown={trading_config.risk.max_drawdown_percent}%, "
+            f"max_daily_loss={trading_config.risk.max_daily_loss_percent}%"
         )
 
     def check_safety(
@@ -559,3 +574,59 @@ class SafetyManager:
         finally:
             if session:
                 session.close()
+
+    def _on_risk_config_change(self, risk_params) -> None:
+        """Callback when risk configuration changes.
+
+        Updates circuit breaker and kill switch with new risk parameters.
+
+        Args:
+            risk_params: New RiskParameters from TradingConfig
+        """
+        try:
+            logger.info("Risk configuration changed, updating safety mechanisms...")
+
+            # Update circuit breaker risk profile
+            self.circuit_breaker_manager.risk_profile.max_daily_loss_pct = risk_params.max_daily_loss_percent
+            self.circuit_breaker_manager.risk_profile.max_weekly_loss_pct = risk_params.max_daily_loss_percent * 2
+            self.circuit_breaker_manager.risk_profile.max_drawdown_pct = risk_params.max_drawdown_percent
+            self.circuit_breaker_manager.risk_profile.consecutive_loss_halt = risk_params.max_consecutive_losses
+            self.circuit_breaker_manager.risk_profile.max_trades_per_day = risk_params.max_trades_per_day
+
+            # Update kill switch config
+            self.kill_switch.config.max_daily_loss_pct = risk_params.max_daily_loss_percent
+            self.kill_switch.config.max_daily_loss_amount = risk_params.max_daily_loss_amount
+            self.kill_switch.config.max_daily_trades = risk_params.max_trades_per_day
+            self.kill_switch.config.max_trades_per_hour = risk_params.max_trades_per_hour
+
+            logger.info(
+                f"Safety mechanisms updated: "
+                f"max_drawdown={risk_params.max_drawdown_percent}%, "
+                f"max_daily_loss={risk_params.max_daily_loss_percent}%, "
+                f"max_daily_trades={risk_params.max_trades_per_day}"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to update safety mechanisms after config change: {e}")
+
+    def _on_agent_config_change(self, agent_params) -> None:
+        """Callback when agent configuration changes.
+
+        Updates kill switch disconnection timeout.
+
+        Args:
+            agent_params: New AgentParameters from TradingConfig
+        """
+        try:
+            logger.info("Agent configuration changed, updating kill switch...")
+
+            # Update kill switch disconnection timeout
+            self.kill_switch.config.max_disconnection_seconds = agent_params.max_reconnect_delay
+
+            logger.info(
+                f"Kill switch updated: "
+                f"max_disconnection={agent_params.max_reconnect_delay}s"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to update kill switch after config change: {e}")

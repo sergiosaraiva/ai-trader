@@ -19,7 +19,7 @@ from datetime import datetime
 
 from .indicator_config import IndicatorParameters
 from .model_config import ModelHyperparameters
-from .feature_config import FeatureParameters
+from .feature_config import FeatureParameters as FeatureEngineeringParameters
 from .training_config import TrainingParameters
 from .labeling_config import LabelingParameters
 
@@ -340,7 +340,7 @@ class TradingConfig:
         # New configuration sections (Week 1 - Configuration Centralization)
         self.indicators = IndicatorParameters()
         self.hyperparameters = ModelHyperparameters()
-        self.feature_engineering = FeatureParameters()  # Note: renamed to avoid conflict with existing 'features'
+        self.feature_engineering = FeatureEngineeringParameters()  # Feature engineering parameters (lag, session, cyclical)
         self.training = TrainingParameters()
         self.labeling = LabelingParameters()
 
@@ -1481,7 +1481,7 @@ class TradingConfig:
                 "conservative_hybrid": ConservativeHybridParameters(),
                 "indicators": IndicatorParameters(),
                 "hyperparameters": ModelHyperparameters(),
-                "feature_engineering": FeatureParameters(),
+                "feature_engineering": FeatureEngineeringParameters(),
                 "training": TrainingParameters(),
                 "labeling": LabelingParameters(),
             }

@@ -1,0 +1,258 @@
+{
+  "metadata": {
+    "generated_at": "2026-01-27T20:24:58.590911",
+    "confidence_threshold": 0.6,
+    "aggregation_period": "M",
+    "period_name": "month",
+    "total_periods": 22,
+    "total_trades": 1070
+  },
+  "results": [
+    {
+      "year_month": "2021-07",
+      "trades": 39,
+      "win_rate": 61.5,
+      "total_pips": 310.4,
+      "pnl_usd": 3672.53,
+      "balance_end": 13035.01,
+      "balance_change": 3035.01,
+      "month_return_pct": 36.73
+    },
+    {
+      "year_month": "2022-01",
+      "trades": 44,
+      "win_rate": 59.1,
+      "total_pips": 255.4,
+      "pnl_usd": 2892.91,
+      "balance_end": 12581.11,
+      "balance_change": -453.89999999999964,
+      "month_return_pct": 22.19
+    },
+    {
+      "year_month": "2022-02",
+      "trades": 70,
+      "win_rate": 48.6,
+      "total_pips": 266.1,
+      "pnl_usd": 2704.29,
+      "balance_end": 14683.59,
+      "balance_change": 2102.4799999999996,
+      "month_return_pct": 21.49
+    },
+    {
+      "year_month": "2022-03",
+      "trades": 59,
+      "win_rate": 59.3,
+      "total_pips": 485.5,
+      "pnl_usd": 10643.74,
+      "balance_end": 24510.45,
+      "balance_change": 9826.86,
+      "month_return_pct": 72.49
+    },
+    {
+      "year_month": "2022-07",
+      "trades": 79,
+      "win_rate": 54.4,
+      "total_pips": 495.5,
+      "pnl_usd": 4001.55,
+      "balance_end": 13381.1,
+      "balance_change": -11129.35,
+      "month_return_pct": 16.33
+    },
+    {
+      "year_month": "2022-08",
+      "trades": 37,
+      "win_rate": 73.0,
+      "total_pips": 480.6,
+      "pnl_usd": 10168.43,
+      "balance_end": 23364.56,
+      "balance_change": 9983.460000000001,
+      "month_return_pct": 75.99
+    },
+    {
+      "year_month": "2023-01",
+      "trades": 66,
+      "win_rate": 54.5,
+      "total_pips": 358.8,
+      "pnl_usd": 3535.07,
+      "balance_end": 13319.57,
+      "balance_change": -10044.990000000002,
+      "month_return_pct": 15.13
+    },
+    {
+      "year_month": "2023-02",
+      "trades": 73,
+      "win_rate": 49.3,
+      "total_pips": 271.1,
+      "pnl_usd": 1288.02,
+      "balance_end": 14537.32,
+      "balance_change": 1217.75,
+      "month_return_pct": 9.67
+    },
+    {
+      "year_month": "2023-03",
+      "trades": 62,
+      "win_rate": 59.7,
+      "total_pips": 473.7,
+      "pnl_usd": 7916.16,
+      "balance_end": 21370.51,
+      "balance_change": 6833.189999999999,
+      "month_return_pct": 54.45
+    },
+    {
+      "year_month": "2023-07",
+      "trades": 55,
+      "win_rate": 41.8,
+      "total_pips": 42.0,
+      "pnl_usd": 115.88,
+      "balance_end": 9879.56,
+      "balance_change": -11490.949999999999,
+      "month_return_pct": 0.54
+    },
+    {
+      "year_month": "2023-08",
+      "trades": 27,
+      "win_rate": 63.0,
+      "total_pips": 206.0,
+      "pnl_usd": 2075.27,
+      "balance_end": 11954.83,
+      "balance_change": 2075.2700000000004,
+      "month_return_pct": 21.01
+    },
+    {
+      "year_month": "2024-01",
+      "trades": 49,
+      "win_rate": 65.3,
+      "total_pips": 472.1,
+      "pnl_usd": 7026.03,
+      "balance_end": 16805.38,
+      "balance_change": 4850.550000000001,
+      "month_return_pct": 58.77
+    },
+    {
+      "year_month": "2024-02",
+      "trades": 3,
+      "win_rate": 66.7,
+      "total_pips": 33.5,
+      "pnl_usd": 537.26,
+      "balance_end": 17104.4,
+      "balance_change": 299.02000000000044,
+      "month_return_pct": 3.2
+    },
+    {
+      "year_month": "2024-07",
+      "trades": 40,
+      "win_rate": 55.0,
+      "total_pips": 138.7,
+      "pnl_usd": 1797.55,
+      "balance_end": 11638.6,
+      "balance_change": -5465.800000000001,
+      "month_return_pct": 10.51
+    },
+    {
+      "year_month": "2024-08",
+      "trades": 49,
+      "win_rate": 59.2,
+      "total_pips": 273.8,
+      "pnl_usd": 3273.2,
+      "balance_end": 14569.59,
+      "balance_change": 2930.99,
+      "month_return_pct": 28.12
+    },
+    {
+      "year_month": "2024-09",
+      "trades": 45,
+      "win_rate": 53.3,
+      "total_pips": 163.2,
+      "pnl_usd": 1417.17,
+      "balance_end": 15081.09,
+      "balance_change": 511.5,
+      "month_return_pct": 9.73
+    },
+    {
+      "year_month": "2025-01",
+      "trades": 62,
+      "win_rate": 51.6,
+      "total_pips": 219.2,
+      "pnl_usd": 1131.99,
+      "balance_end": 10677.95,
+      "balance_change": -4403.139999999999,
+      "month_return_pct": 7.51
+    },
+    {
+      "year_month": "2025-02",
+      "trades": 11,
+      "win_rate": 45.5,
+      "total_pips": 29.5,
+      "pnl_usd": -95.96,
+      "balance_end": 10582.0,
+      "balance_change": -95.95000000000073,
+      "month_return_pct": -0.9
+    },
+    {
+      "year_month": "2025-07",
+      "trades": 68,
+      "win_rate": 51.5,
+      "total_pips": 282.2,
+      "pnl_usd": 2297.73,
+      "balance_end": 11919.51,
+      "balance_change": 1337.5100000000002,
+      "month_return_pct": 21.71
+    },
+    {
+      "year_month": "2025-08",
+      "trades": 62,
+      "win_rate": 48.4,
+      "total_pips": 198.0,
+      "pnl_usd": 1883.29,
+      "balance_end": 13056.31,
+      "balance_change": 1136.7999999999993,
+      "month_return_pct": 15.8
+    },
+    {
+      "year_month": "2025-09",
+      "trades": 60,
+      "win_rate": 46.7,
+      "total_pips": 99.8,
+      "pnl_usd": 2445.52,
+      "balance_end": 14644.61,
+      "balance_change": 1588.300000000001,
+      "month_return_pct": 18.73
+    },
+    {
+      "year_month": "2025-10",
+      "trades": 10,
+      "win_rate": 60.0,
+      "total_pips": 49.1,
+      "pnl_usd": 241.53,
+      "balance_end": 14812.87,
+      "balance_change": 168.26000000000022,
+      "month_return_pct": 1.65
+    }
+  ],
+  "summary": {
+    "total_pips": 5604.2,
+    "total_pnl_usd": 70969.15999999999,
+    "avg_month_trades": 48.63636363636363,
+    "avg_month_return_pct": 23.675,
+    "best_month": {
+      "year_month": "2022-03",
+      "trades": 59,
+      "win_rate": 59.3,
+      "total_pips": 485.5,
+      "pnl_usd": 10643.74,
+      "balance_end": 24510.45,
+      "balance_change": 9826.86,
+      "month_return_pct": 72.49
+    },
+    "worst_month": {
+      "year_month": "2025-02",
+      "trades": 11,
+      "win_rate": 45.5,
+      "total_pips": 29.5,
+      "pnl_usd": -95.96,
+      "balance_end": 10582.0,
+      "balance_change": -95.95000000000073,
+      "month_return_pct": -0.9
+    }
+  }
+}

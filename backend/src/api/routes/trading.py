@@ -383,7 +383,7 @@ async def get_backtest_periods() -> Dict[str, Any]:
 @router.get("/trading/whatif-performance", response_model=Dict[str, Any])
 async def get_whatif_performance(
     days: int = Query(default=30, ge=7, le=90, description="Number of days to simulate"),
-    confidence_threshold: float = Query(default=0.70, ge=0.5, le=0.9, description="Minimum confidence to trade"),
+    confidence_threshold: float = Query(default=0.60, ge=0.5, le=0.9, description="Minimum confidence to trade (Config C)"),
     require_agreement: bool = Query(default=True, description="Require at least 2 models to agree on direction"),
 ) -> Dict[str, Any]:
     """Get simulated 'What If' performance for the last N days.

@@ -21,18 +21,23 @@
 
 Production-ready **Multi-Timeframe (MTF) Ensemble** forex trading system using XGBoost models (1H, 4H, Daily) with sentiment analysis. Includes React frontend + FastAPI backend.
 
-**Status:** WFO Validated | Docker/Railway Ready | Tier 1 Risk Management Active
+**Status:** WFO Validated | Docker/Railway Ready | Config C Active
 
-| Metric | Value (All Time) | Value (75% Conf) |
-|--------|------------------|------------------|
-| Total Pips | +15,705 | +14,890 |
-| Win Rate | 53.5% | 54.8% |
-| Profit Factor | 1.75x | 1.85x |
-| Max Drawdown | 15.1% | ~12% |
-| Total Trades | 3,298 | 2,815 |
-| WFO Windows | 8/8 profitable (100% consistency) |
+| Metric | WFO (9 Windows) | Config C Details |
+|--------|-----------------|------------------|
+| Total Trades | 1,257 | 60% confidence threshold |
+| Win Rate | 53.9% | Consistent across windows |
+| Total Pips | +6,202 | All test periods |
+| Max Drawdown | 15.1% | Circuit breaker limit |
+| Profitable Windows | 9/9 (100%) | Perfect consistency |
+| Test Period | 4.5 years | 2021-2025 validation |
 
-**Risk Management (Tier 1):** Progressive position reduction + 15% circuit breaker
+**Active Configuration (Config C):**
+- Confidence Threshold: 60%
+- Training Window: 18 months
+- Model Directory: `models/wfo_conf60_18mo/window_9`
+- Validation Method: Walk-Forward Optimization (18mo train, 6mo test, 6mo roll)
+- Risk Management: Progressive risk reduction + 15% circuit breaker
 
 ## Architecture
 
@@ -73,15 +78,17 @@ ai-trader/
 All commands from `backend/` directory unless noted.
 
 ```bash
-# Training
-python scripts/train_mtf_ensemble.py --sentiment --stacking          # Production (recommended)
-python scripts/train_mtf_ensemble.py --sentiment                     # Without stacking
+# WFO Validation (MANDATORY for model validation) - Config C defaults
+python scripts/walk_forward_optimization.py --sentiment --stacking    # 18mo train, 60% conf
+python scripts/walk_forward_optimization.py --sentiment --stacking --confidence 0.65  # Test higher threshold
 
-# Backtesting
-python scripts/backtest_mtf_ensemble.py --model-dir models/mtf_ensemble --confidence 0.70
+# Training (for production deployment only - NOT for validation)
+python scripts/train_mtf_ensemble.py --sentiment --stacking          # Train on full dataset
+# ⚠️ WARNING: Always validate with WFO first before training production model
 
-# WFO Validation
-python scripts/walk_forward_optimization.py --sentiment --stacking
+# Backtesting - Config C
+python scripts/backtest_mtf_ensemble.py --model-dir models/wfo_conf60_18mo/window_9 --confidence 0.60
+# ⚠️ Only use for specific analysis - WFO is the authoritative validation
 
 # Docker (from project root)
 docker-compose up --build       # Build and start
@@ -121,7 +128,14 @@ uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8001
 
 ## Configuration
 
+**Config C (Active Production Settings):**
 ```python
+# Trading Parameters
+confidence_threshold = 0.60  # Minimum confidence to trade
+training_window = 18  # months
+model_directory = "models/wfo_conf60_18mo/window_9"
+
+# Model Ensemble
 MTFEnsembleConfig(
     weights={"1H": 0.6, "4H": 0.3, "D": 0.1},
     use_stacking=True,
@@ -144,8 +158,102 @@ MTFEnsembleConfig(
 ## Coding Conventions
 
 - **Python:** PEP 8, type hints, Google docstrings, max 100 chars
-- **Time Series:** CRITICAL - chronological splits only (no future data leakage), Train/Val/Test 60/20/20
+- **Time Series:** CRITICAL - See "Data Leakage Prevention" section below
 - **Models:** Use `ImprovedTimeframeModel` and `EnhancedFeatureEngine`
+
+## Data Leakage Prevention
+
+**ZERO TOLERANCE FOR DATA LEAKAGE.** This is the most critical aspect of the project.
+
+### Mandatory Validation Method: Walk-Forward Optimization (WFO)
+
+**NEVER train with simple 60/20/20 split.** Always use WFO for model validation:
+
+```bash
+# CORRECT: WFO validation (mandatory)
+cd backend
+python scripts/walk_forward_optimization.py --sentiment --stacking
+
+# WRONG: Single train/test split (DO NOT USE for validation)
+python scripts/train_mtf_ensemble.py --sentiment --stacking
+```
+
+### WFO Configuration
+
+- **Training window:** 24 months
+- **Test window:** 6 months (out-of-sample, never seen during training)
+- **Step size:** 6 months (roll forward)
+- **Result:** 8 independent test windows across different market regimes
+
+### Pre-Backtest Checklist
+
+Before running ANY backtest, verify:
+
+1. ✅ **Check model training dates:**
+   ```bash
+   cat models/mtf_ensemble/training_metadata.json
+   # Note: train_end date
+   ```
+
+2. ✅ **Verify backtest uses ONLY test data:**
+   - Backtest start date MUST be >= train_end date
+   - NO overlap between training and testing data
+   - Example: If trained on 2020-2023, backtest ONLY on 2024+
+
+3. ✅ **Use WFO results for validation:**
+   ```bash
+   cat models/wfo_validation/wfo_results.json
+   # Review all 8 windows for consistency
+   ```
+
+4. ✅ **Check for data availability:**
+   ```bash
+   tail data/forex/EURUSD_*.csv  # Verify date range
+   tail data/sentiment/*.csv      # Verify sentiment coverage
+   ```
+
+### Data Leakage Red Flags
+
+🚨 **STOP IMMEDIATELY** if you see:
+
+1. Backtest returns > 1000% over 2-3 years
+2. Win rate > 70% consistently
+3. Max drawdown = 0.0% or exactly 15.0%
+4. Sharpe ratio > 5.0
+5. Profit factor > 5.0
+
+These are signs of data leakage. Verify train/test split immediately.
+
+### Training Data Splits
+
+**Within each WFO window (for model training only):**
+- Training: 80% of window data
+- Validation: 20% of window data
+- **NEVER touch test data during training**
+
+**For chronological data:**
+```python
+# CORRECT: Chronological split (no shuffling)
+train_size = int(len(df) * 0.8)
+df_train = df.iloc[:train_size]
+df_val = df.iloc[train_size:]
+
+# WRONG: Random split (causes data leakage in time series)
+train_test_split(df, shuffle=True)  # DO NOT USE
+```
+
+### WFO Results Location
+
+- **WFO models:** `backend/models/wfo_validation/window_*/`
+- **WFO results:** `backend/models/wfo_validation/wfo_results.json`
+- **Window 7 analysis:** `backend/docs/WFO_WINDOW_7_ANALYSIS.md` (only 3 trades - regime change)
+
+### Documentation
+
+All WFO validation details are in:
+- `backend/scripts/walk_forward_optimization.py` - WFO implementation
+- `backend/docs/WFO_WINDOW_7_ANALYSIS.md` - Window anomaly analysis
+- `backend/models/wfo_validation/wfo_results.json` - 8-window results
 
 ## Technology Stack
 

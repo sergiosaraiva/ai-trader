@@ -60,7 +60,7 @@ export function PredictionCard({ prediction, loading, error }) {
   // Determine if this is a BUY signal (else SELL)
   const isBuySignal = rawSignal === 'BUY' || rawSignal === 'long' || rawSignal === 1;
 
-  // HOLD when confidence is below 70% threshold (should_trade = false)
+  // HOLD when confidence is below threshold (should_trade = false)
   const isHold = should_trade === false;
 
   // Final recommendation considering should_trade
@@ -72,7 +72,7 @@ export function PredictionCard({ prediction, loading, error }) {
     const underlyingSignal = isBuySignal ? 'bullish' : 'bearish';
 
     if (isHold) {
-      return `Model shows ${underlyingSignal} bias but confidence (${confidencePct}%) is below 70% threshold. Wait for stronger signal.`;
+      return `Model shows ${underlyingSignal} bias but confidence (${confidencePct}%) is below threshold. Wait for stronger signal.`;
     }
 
     if (isBuySignal) {

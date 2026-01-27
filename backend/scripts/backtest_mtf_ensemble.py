@@ -183,7 +183,7 @@ class MTFEnsembleBacktester:
             p_1h, c_1h = preds_1h[i], confs_1h[i]
 
             # Find corresponding 4H prediction (most recent at or before this timestamp)
-            ts_4h = ts.floor("4H")
+            ts_4h = ts.floor("4h")
             if ts_4h in pred_4h_map:
                 p_4h, c_4h = pred_4h_map[ts_4h]
             else:
@@ -321,7 +321,7 @@ class MTFEnsembleBacktester:
                 ts = timestamps[i]
                 p_1h, c_1h = preds_1h[i], confs_1h[i]
 
-                ts_4h = ts.floor("4H")
+                ts_4h = ts.floor("4h")
                 if ts_4h in pred_4h_map:
                     p_4h, c_4h = pred_4h_map[ts_4h]
                 else:
@@ -438,7 +438,7 @@ class MTFEnsembleBacktester:
                     ts = timestamps[entry_idx]
                     p_1h_entry, c_1h_entry = preds_1h[entry_idx], confs_1h[entry_idx]
 
-                    ts_4h = ts.floor("4H")
+                    ts_4h = ts.floor("4h")
                     if ts_4h in pred_4h_map:
                         p_4h_entry, c_4h_entry = pred_4h_map[ts_4h]
                     else:
@@ -671,7 +671,7 @@ def main():
     parser = argparse.ArgumentParser(description="Backtest MTF Ensemble")
     parser.add_argument("--data", type=str, default="data/forex/EURUSD_20200101_20251231_5min_combined.csv")
     parser.add_argument("--model-dir", type=str, default="models/mtf_ensemble")
-    parser.add_argument("--confidence", type=float, default=0.55)
+    parser.add_argument("--confidence", type=float, default=0.60)
     parser.add_argument("--agreement", type=float, default=0.5)
     parser.add_argument("--test-ratio", type=float, default=0.2)
     parser.add_argument("--compare", action="store_true", help="Compare to individual models")

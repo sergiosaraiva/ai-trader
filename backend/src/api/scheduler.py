@@ -23,8 +23,12 @@ from .services.data_service import data_service
 from .services.model_service import model_service
 from .services.trading_service import trading_service
 from .services.pipeline_service import pipeline_service
+from ..config import TradingConfig
 
 logger = logging.getLogger(__name__)
+
+# Load centralized configuration for scheduler
+config = TradingConfig()
 
 # Global scheduler instance
 scheduler: Optional[BackgroundScheduler] = None
@@ -234,44 +238,48 @@ def start_scheduler() -> BackgroundScheduler:
 
     scheduler = BackgroundScheduler()
 
-    # Job 1: Run data pipeline every hour at :55 (before predictions)
+    # Job 1: Run data pipeline every hour at configured minute (before predictions)
     scheduler.add_job(
         run_data_pipeline,
-        trigger=CronTrigger(minute=55),  # Run at :55 each hour
+        trigger=CronTrigger(minute=config.scheduler.pipeline_cron_minute),  # From centralized config
         id="run_data_pipeline",
         name="Run Data Pipeline",
         replace_existing=True,
         max_instances=1,
+        misfire_grace_time=config.scheduler.misfire_grace_time_seconds,  # From centralized config
     )
 
-    # Job 2: Fetch market data every 5 minutes (for display)
+    # Job 2: Fetch market data at configured interval (for display)
     scheduler.add_job(
         fetch_market_data,
-        trigger=IntervalTrigger(minutes=5),
+        trigger=IntervalTrigger(minutes=config.scheduler.market_data_interval_minutes),  # From centralized config
         id="fetch_market_data",
         name="Fetch Market Data",
         replace_existing=True,
         max_instances=1,
+        misfire_grace_time=config.scheduler.misfire_grace_time_seconds,  # From centralized config
     )
 
-    # Job 3: Check positions every 5 minutes
+    # Job 3: Check positions at configured interval
     scheduler.add_job(
         check_positions,
-        trigger=IntervalTrigger(minutes=5),
+        trigger=IntervalTrigger(minutes=config.scheduler.position_check_interval_minutes),  # From centralized config
         id="check_positions",
         name="Check Positions",
         replace_existing=True,
         max_instances=1,
+        misfire_grace_time=config.scheduler.misfire_grace_time_seconds,  # From centralized config
     )
 
-    # Job 4: Generate prediction at the start of each hour
+    # Job 4: Generate prediction at configured minute each hour
     scheduler.add_job(
         generate_prediction,
-        trigger=CronTrigger(minute=1),  # Run at :01 each hour
+        trigger=CronTrigger(minute=config.scheduler.prediction_cron_minute),  # From centralized config
         id="generate_prediction",
         name="Generate Prediction",
         replace_existing=True,
         max_instances=1,
+        misfire_grace_time=config.scheduler.misfire_grace_time_seconds,  # From centralized config
     )
 
     # Job 5: Save performance snapshot every hour
@@ -282,6 +290,7 @@ def start_scheduler() -> BackgroundScheduler:
         name="Save Performance",
         replace_existing=True,
         max_instances=1,
+        misfire_grace_time=config.scheduler.misfire_grace_time_seconds,  # From centralized config
     )
 
     # Job 6: Periodic memory cleanup every 4 hours
@@ -292,6 +301,7 @@ def start_scheduler() -> BackgroundScheduler:
         name="Memory Cleanup",
         replace_existing=True,
         max_instances=1,
+        misfire_grace_time=config.scheduler.misfire_grace_time_seconds,  # From centralized config
     )
 
     scheduler.start()

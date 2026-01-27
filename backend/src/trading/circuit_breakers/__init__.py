@@ -26,6 +26,7 @@ from .manager import (
     RecoveryPhase,
     RecoveryState,
 )
+from .conservative_hybrid import TradingCircuitBreaker
 
 __all__ = [
     # Base types
@@ -40,6 +41,7 @@ __all__ = [
     'ConsecutiveLossBreaker',
     'DrawdownBreaker',
     'ModelDegradationBreaker',
+    'TradingCircuitBreaker',  # Conservative Hybrid breaker
     # Manager
     'CircuitBreakerManager',
     'RecoveryProtocol',

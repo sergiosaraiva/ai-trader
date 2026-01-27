@@ -28,13 +28,16 @@ import logging
 import pickle
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
+
+if TYPE_CHECKING:
+    from ...config import TradingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -155,13 +158,21 @@ class StackingMetaLearner:
     data leakage. Time-series cross-validation ensures temporal ordering.
     """
 
-    def __init__(self, config: Optional[StackingConfig] = None):
+    def __init__(self, config: Optional[StackingConfig] = None, trading_config: Optional["TradingConfig"] = None):
         """Initialize the stacking meta-learner.
 
         Args:
             config: Stacking configuration. Uses defaults if None.
+            trading_config: Optional centralized trading config for CV parameters.
         """
         self.config = config or StackingConfig.default()
+        self.trading_config = trading_config
+
+        # Override config with centralized parameters if available
+        if trading_config is not None:
+            self.config.n_folds = trading_config.training.stacking.n_folds
+            self.config.min_train_size = trading_config.training.stacking.min_train_size
+
         self.meta_model = None
         self.meta_scaler: Optional[StandardScaler] = None
         self.feature_names: List[str] = []

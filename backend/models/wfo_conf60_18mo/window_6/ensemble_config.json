@@ -1,0 +1,89 @@
+{
+  "weights": {
+    "1H": 0.6,
+    "4H": 0.3,
+    "D": 0.1
+  },
+  "agreement_bonus": 0.05,
+  "use_regime_adjustment": true,
+  "regime_weights": {
+    "trending": {
+      "1H": 0.5,
+      "4H": 0.35,
+      "D": 0.15
+    },
+    "ranging": {
+      "1H": 0.7,
+      "4H": 0.25,
+      "D": 0.05
+    },
+    "volatile": {
+      "1H": 0.6,
+      "4H": 0.35,
+      "D": 0.05
+    }
+  },
+  "use_dynamic_weights": false,
+  "dynamic_weight_window": 50,
+  "dynamic_weight_min": 0.1,
+  "dynamic_weight_blend": 0.5,
+  "min_confidence": 0.55,
+  "min_agreement": 0.5,
+  "training_results": {
+    "1H": {
+      "train_accuracy": 0.8604714169601734,
+      "val_accuracy": 0.6634146341463415,
+      "train_samples": 7382,
+      "val_samples": 1845,
+      "val_acc_conf_55": 0.6964877402253148,
+      "val_samples_conf_55": 1509,
+      "val_acc_conf_60": 0.7382198952879581,
+      "val_samples_conf_60": 1146,
+      "val_acc_conf_65": 0.793144208037825,
+      "val_samples_conf_65": 846,
+      "val_acc_conf_70": 0.8378839590443686,
+      "val_samples_conf_70": 586
+    },
+    "4H": {
+      "train_accuracy": 0.8865248226950354,
+      "val_accuracy": 0.6179039301310044,
+      "train_samples": 1833,
+      "val_samples": 458,
+      "val_acc_conf_55": 0.6178660049627791,
+      "val_samples_conf_55": 403,
+      "val_acc_conf_60": 0.6292134831460674,
+      "val_samples_conf_60": 356,
+      "val_acc_conf_65": 0.6308724832214765,
+      "val_samples_conf_65": 298,
+      "val_acc_conf_70": 0.6751054852320675,
+      "val_samples_conf_70": 237
+    },
+    "D": {
+      "train_accuracy": 0.9280575539568345,
+      "val_accuracy": 0.5507246376811594,
+      "train_samples": 278,
+      "val_samples": 69,
+      "val_acc_conf_55": 0.5660377358490566,
+      "val_samples_conf_55": 53,
+      "val_acc_conf_60": 0.5833333333333334,
+      "val_samples_conf_60": 48,
+      "val_acc_conf_65": 0.5853658536585366,
+      "val_samples_conf_65": 41,
+      "val_acc_conf_70": 0.625,
+      "val_samples_conf_70": 32
+    },
+    "stacking": {
+      "meta_train_accuracy": 0.6258992805755396,
+      "meta_val_accuracy": 0.3142857142857143,
+      "train_samples": 139,
+      "val_samples": 35,
+      "meta_val_acc_conf_55": 0.38095238095238093,
+      "meta_val_samples_conf_55": 21,
+      "meta_val_acc_conf_60": 0.46153846153846156,
+      "meta_val_samples_conf_60": 13,
+      "meta_val_acc_conf_65": 1.0,
+      "meta_val_samples_conf_65": 4
+    }
+  },
+  "use_stacking": true
+}

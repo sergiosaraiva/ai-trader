@@ -317,7 +317,7 @@ class MTFEnsemble:
         self.stacking_meta_learner: Optional[StackingMetaLearner] = None
         if self.config.use_stacking:
             stacking_config = self.config.stacking_config or StackingConfig.default()
-            self.stacking_meta_learner = StackingMetaLearner(stacking_config)
+            self.stacking_meta_learner = StackingMetaLearner(stacking_config, trading_config=self.trading_config)
             logger.info("Stacking meta-learner initialized")
 
     def _validate_with_centralized_config(self) -> None:
@@ -566,21 +566,27 @@ class MTFEnsemble:
     def train(
         self,
         df_5min: pd.DataFrame,
-        train_ratio: float = 0.6,
-        val_ratio: float = 0.2,
+        train_ratio: float = None,
+        val_ratio: float = None,
         timeframes: Optional[List[str]] = None,
     ) -> Dict[str, Dict]:
         """Train all timeframe models.
 
         Args:
             df_5min: 5-minute OHLCV data
-            train_ratio: Fraction of data for training
-            val_ratio: Fraction of data for validation
+            train_ratio: Fraction of data for training (uses config if None)
+            val_ratio: Fraction of data for validation (uses config if None)
             timeframes: Which timeframes to train (default: all)
 
         Returns:
             Dict mapping timeframe to training metrics
         """
+        # Load train/val ratios from centralized config if not provided
+        if train_ratio is None:
+            train_ratio = self.trading_config.training.splits.train_ratio
+        if val_ratio is None:
+            val_ratio = self.trading_config.training.splits.validation_ratio
+
         if timeframes is None:
             timeframes = list(self.models.keys())
 
@@ -608,7 +614,7 @@ class MTFEnsemble:
             # Prepare features and labels
             X, y, feature_cols = model.prepare_data(df_tf, higher_tf_data)
 
-            # Split chronologically
+            # Split chronologically (using centralized config)
             n_train = int(len(X) * train_ratio)
             n_val = int(len(X) * val_ratio)
 
@@ -636,16 +642,22 @@ class MTFEnsemble:
 
                 logger.info(f"Train (for model): {len(X_train_model)}, Calibration: {len(X_calib)}")
 
-                # Train model on reduced training set
-                tf_results = model.train(X_train_model, y_train_model, X_val, y_val, feature_cols)
+                # Train model on reduced training set (with centralized early stopping config)
+                tf_results = model.train(
+                    X_train_model, y_train_model, X_val, y_val, feature_cols,
+                    early_stopping_config=self.trading_config.training.early_stopping,
+                )
                 results[tf] = tf_results
 
                 # Fit calibrator on truly held-out data (model never saw this)
                 logger.info(f"Fitting calibrator for {tf} with {len(X_calib)} samples (truly held-out)")
                 model.fit_calibrator(X_calib, y_calib)
             else:
-                # Train on full training set when calibration disabled
-                tf_results = model.train(X_train, y_train, X_val, y_val, feature_cols)
+                # Train on full training set when calibration disabled (with centralized early stopping config)
+                tf_results = model.train(
+                    X_train, y_train, X_val, y_val, feature_cols,
+                    early_stopping_config=self.trading_config.training.early_stopping,
+                )
                 results[tf] = tf_results
 
         self.training_results = results
@@ -1325,7 +1337,7 @@ class MTFEnsemble:
         if stacking_path.exists():
             self.config.use_stacking = True
             if self.stacking_meta_learner is None:
-                self.stacking_meta_learner = StackingMetaLearner()
+                self.stacking_meta_learner = StackingMetaLearner(trading_config=self.trading_config)
             self.stacking_meta_learner.load(stacking_path)
             logger.info("Loaded stacking meta-learner")
 

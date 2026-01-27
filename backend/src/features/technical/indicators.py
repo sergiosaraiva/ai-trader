@@ -3,6 +3,7 @@
 from typing import List, Optional
 import pandas as pd
 
+from src.config.trading_config import TradingConfig
 from .trend import TrendIndicators
 from .momentum import MomentumIndicators
 from .volatility import VolatilityIndicators
@@ -16,8 +17,13 @@ class TechnicalIndicators:
     Combines trend, momentum, volatility, and volume indicators.
     """
 
-    def __init__(self):
-        """Initialize technical indicators calculator."""
+    def __init__(self, config: Optional[TradingConfig] = None):
+        """Initialize technical indicators calculator.
+
+        Args:
+            config: Optional TradingConfig instance. If None, uses defaults.
+        """
+        self.config = config
         self.trend = TrendIndicators()
         self.momentum = MomentumIndicators()
         self.volatility = VolatilityIndicators()
@@ -27,6 +33,7 @@ class TechnicalIndicators:
         self,
         df: pd.DataFrame,
         include_groups: Optional[List[str]] = None,
+        config: Optional[TradingConfig] = None,
     ) -> pd.DataFrame:
         """
         Calculate all technical indicators.
@@ -36,24 +43,28 @@ class TechnicalIndicators:
             include_groups: List of indicator groups to include
                            ('trend', 'momentum', 'volatility', 'volume')
                            If None, includes all groups.
+            config: Optional TradingConfig instance. If None, uses instance config or defaults.
 
         Returns:
             DataFrame with all calculated indicators
         """
+        # Use parameter config, then instance config, then defaults
+        active_config = config or self.config
+
         result = df.copy()
         include_groups = include_groups or ["trend", "momentum", "volatility", "volume"]
 
         if "trend" in include_groups:
-            result = self.trend.calculate_all(result)
+            result = self.trend.calculate_all(result, config=active_config)
 
         if "momentum" in include_groups:
-            result = self.momentum.calculate_all(result)
+            result = self.momentum.calculate_all(result, config=active_config)
 
         if "volatility" in include_groups:
-            result = self.volatility.calculate_all(result)
+            result = self.volatility.calculate_all(result, config=active_config)
 
         if "volume" in include_groups:
-            result = self.volume.calculate_all(result)
+            result = self.volume.calculate_all(result, config=active_config)
 
         return result
 

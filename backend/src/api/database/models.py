@@ -63,6 +63,9 @@ class Prediction(Base):
     used_by_agent = Column(Boolean, default=False)
     agent_cycle_number = Column(Integer, nullable=True)
 
+    # Dynamic threshold tracking
+    dynamic_threshold_used = Column(Float, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
@@ -106,6 +109,7 @@ class Trade(Base):
 
     # Trade metadata
     confidence = Column(Float, nullable=True)
+    risk_percentage_used = Column(Float, nullable=True)  # Risk % used for position sizing
     status = Column(String(20), nullable=False, default="open")  # "open", "closed"
 
     # Agent execution fields
@@ -253,22 +257,137 @@ class TradeExplanation(Base):
 
 
 class CircuitBreakerEvent(Base):
-    """Audit trail for safety system triggers."""
+    """Audit trail for safety system triggers.
+
+    Persists circuit breaker state across service restarts to enforce daily loss limits.
+    """
 
     __tablename__ = "circuit_breaker_events"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    breaker_type = Column(String(50), nullable=False)  # consecutive_loss, drawdown, model_degradation
-    severity = Column(String(20), nullable=False)  # warning, critical
-    action = Column(String(20), nullable=False)  # triggered, recovered, reset
-    reason = Column(Text, nullable=True)
-    value = Column(Float, nullable=True)
-    threshold = Column(Float, nullable=True)
-    triggered_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    recovered_at = Column(DateTime, nullable=True)
+    breaker_type = Column(String(50), nullable=False, index=True)  # daily_loss_limit, consecutive_losses, etc.
+    action = Column(String(20), nullable=False)  # "triggered" or "recovered"
+    triggered_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    recovered_at = Column(DateTime(timezone=True), nullable=True)
+    value = Column(Float, nullable=False)  # The value that caused trigger
+    event_metadata = Column(JSON, nullable=True)  # Additional context (renamed from 'metadata' to avoid SQLAlchemy reserved word)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.utcnow())
 
     __table_args__ = (
-        Index("idx_circuit_breaker_type", "breaker_type"),
-        Index("idx_circuit_breaker_severity", "severity"),
+        Index("idx_circuit_breaker_type_action", "breaker_type", "action"),
         Index("idx_circuit_breaker_triggered", "triggered_at"),
+    )
+
+
+class ConfigurationSetting(Base):
+    """Centralized configuration settings with versioning."""
+
+    __tablename__ = "configuration_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    category = Column(String(50), nullable=False, index=True)  # trading, model, risk, system
+    key = Column(String(100), nullable=False, index=True)
+    value = Column(JSON, nullable=False)  # Stores any JSON-serializable value
+    value_type = Column(String(20), nullable=False)  # int, float, str, bool, dict, list
+    description = Column(Text, nullable=True)
+
+    # Versioning
+    version = Column(Integer, nullable=False, default=1)
+
+    # Audit trail
+    updated_by = Column(String(100), nullable=True)  # User/service that made the change
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Validation constraints (optional JSON schema for validation)
+    constraints = Column(JSON, nullable=True)  # {"min": 0, "max": 1, "choices": [...]}
+
+    __table_args__ = (
+        Index("idx_config_category_key", "category", "key", unique=True),
+        Index("idx_config_updated", "updated_at"),
+    )
+
+
+class ConfigurationHistory(Base):
+    """Change history for configuration settings."""
+
+    __tablename__ = "configuration_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    setting_id = Column(Integer, ForeignKey("configuration_settings.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Snapshot of change
+    category = Column(String(50), nullable=False)
+    key = Column(String(100), nullable=False)
+    old_value = Column(JSON, nullable=True)
+    new_value = Column(JSON, nullable=False)
+    version = Column(Integer, nullable=False)
+
+    # Audit info
+    changed_by = Column(String(100), nullable=True)
+    changed_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    reason = Column(Text, nullable=True)  # Optional reason for change
+
+    __table_args__ = (
+        Index("idx_config_history_setting", "setting_id"),
+        Index("idx_config_history_changed", "changed_at"),
+        Index("idx_config_history_category_key", "category", "key"),
+    )
+
+
+class ThresholdHistory(Base):
+    """Historical record of dynamic confidence threshold calculations."""
+
+    __tablename__ = "threshold_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+
+    # Calculated threshold value
+    threshold_value = Column(Float, nullable=False)
+
+    # Threshold components
+    short_term_component = Column(Float, nullable=True)
+    medium_term_component = Column(Float, nullable=True)
+    long_term_component = Column(Float, nullable=True)
+    blended_value = Column(Float, nullable=True)
+    performance_adjustment = Column(Float, nullable=True)
+
+    # Data counts used
+    prediction_count_7d = Column(Integer, nullable=False, default=0)
+    prediction_count_14d = Column(Integer, nullable=False, default=0)
+    prediction_count_30d = Column(Integer, nullable=False, default=0)
+
+    # Performance metrics
+    trade_win_rate_25 = Column(Float, nullable=True)
+    trade_count_25 = Column(Integer, nullable=True)
+
+    # Metadata
+    reason = Column(String(200), nullable=True)  # "dynamic", "fallback_insufficient_data", etc.
+    config_version = Column(Integer, nullable=True)  # Track which config was used
+
+    __table_args__ = (
+        Index("idx_threshold_history_timestamp", "timestamp"),
+        Index("idx_threshold_history_reason", "reason"),
+    )
+
+
+class RiskReductionState(Base):
+    """Track consecutive losses and progressive risk reduction state.
+
+    Single-row singleton table that persists the current risk reduction state
+    to survive service restarts.
+    """
+
+    __tablename__ = "risk_reduction_state"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    consecutive_losses = Column(Integer, nullable=False, default=0)
+    risk_reduction_factor = Column(Float, nullable=False, default=1.0)
+    last_trade_id = Column(Integer, ForeignKey("trades.id", ondelete="SET NULL"), nullable=True, index=True)
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
+
+    __table_args__ = (
+        Index("idx_risk_reduction_updated", "updated_at"),
     )

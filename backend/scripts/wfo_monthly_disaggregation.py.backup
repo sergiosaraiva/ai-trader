@@ -1,0 +1,524 @@
+#!/usr/bin/env python3
+"""
+Monthly Disaggregation of WFO Results.
+
+This script takes the 8 WFO validation windows and disaggregates the results
+into month-by-month performance across the entire test period (2022-2025).
+
+Output:
+- CSV with monthly gains/losses
+- JSON with monthly metrics
+- Summary statistics by month
+"""
+
+import argparse
+import json
+import logging
+import sys
+from pathlib import Path
+from typing import Dict, List
+
+import numpy as np
+import pandas as pd
+
+# Add parent directory to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from src.models.multi_timeframe import MTFEnsemble
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def load_wfo_results() -> Dict:
+    """Load WFO results JSON."""
+    wfo_path = project_root / "models" / "wfo_validation" / "wfo_results.json"
+    if not wfo_path.exists():
+        raise FileNotFoundError(f"WFO results not found at {wfo_path}")
+
+    with open(wfo_path) as f:
+        return json.load(f)
+
+
+def load_data(data_path: Path) -> pd.DataFrame:
+    """Load 5-minute OHLCV data."""
+    logger.info(f"Loading data from {data_path}")
+    df = pd.read_csv(data_path, index_col=0, parse_dates=True)
+    df.columns = [c.lower() for c in df.columns]
+    df = df.sort_index()
+    logger.info(f"Loaded {len(df)} bars from {df.index[0]} to {df.index[-1]}")
+    return df
+
+
+def run_monthly_backtest(
+    window_id: int,
+    window_dir: Path,
+    df_test: pd.DataFrame,
+    min_confidence: float = 0.70,
+    min_agreement: float = 0.5,
+    tp_pips: float = 25.0,
+    sl_pips: float = 15.0,
+    max_holding_bars: int = 12,
+    initial_balance: float = 10000.0,
+    risk_per_trade: float = 0.02,
+    spread_pips: float = 1.0,
+    slippage_pips: float = 0.5,
+) -> List[Dict]:
+    """
+    Run backtest on a window and return trade-level data with timestamps.
+
+    Returns:
+        List of trade dicts with: timestamp, direction, pnl_pips, pnl_usd, confidence, exit_reason
+    """
+    from src.features.technical.calculator import TechnicalIndicatorCalculator
+
+    # Load ensemble for this window
+    ensemble = MTFEnsemble(model_dir=window_dir)
+    ensemble.load()  # Load the models
+    if not ensemble.is_trained:
+        logger.warning(f"Could not load ensemble for window {window_id}")
+        return []
+
+    calc = TechnicalIndicatorCalculator(model_type="short_term")
+
+    # Prepare 1H data (primary trading timeframe)
+    model_1h = ensemble.models["1H"]
+    df_1h = ensemble.resample_data(df_test, "1H")
+    higher_tf_data_1h = ensemble.prepare_higher_tf_data(df_test, "1H")
+    df_1h_features = calc.calculate(df_1h)
+    df_1h_features = model_1h.feature_engine.add_all_features(df_1h_features, higher_tf_data_1h)
+    df_1h_features = df_1h_features.dropna()
+
+    if len(df_1h_features) == 0:
+        logger.warning(f"No features available for window {window_id}")
+        return []
+
+    feature_cols_1h = model_1h.feature_names
+    available_cols_1h = [c for c in feature_cols_1h if c in df_1h_features.columns]
+    X_1h = df_1h_features[available_cols_1h].values
+
+    # Get predictions
+    preds_1h, confs_1h = model_1h.predict_batch(X_1h)
+
+    # Prepare 4H predictions
+    model_4h = ensemble.models["4H"]
+    df_4h = ensemble.resample_data(df_test, "4H")
+    higher_tf_data_4h = ensemble.prepare_higher_tf_data(df_test, "4H")
+    df_4h_features = calc.calculate(df_4h)
+    df_4h_features = model_4h.feature_engine.add_all_features(df_4h_features, higher_tf_data_4h)
+    df_4h_features = df_4h_features.dropna()
+
+    feature_cols_4h = model_4h.feature_names
+    available_cols_4h = [c for c in feature_cols_4h if c in df_4h_features.columns]
+    X_4h = df_4h_features[available_cols_4h].values
+    preds_4h_all, confs_4h_all = model_4h.predict_batch(X_4h)
+    pred_4h_map = dict(zip(df_4h_features.index, zip(preds_4h_all, confs_4h_all)))
+
+    # Prepare Daily predictions
+    model_d = ensemble.models["D"]
+    df_d = ensemble.resample_data(df_test, "D")
+    df_d_features = calc.calculate(df_d)
+    df_d_features = model_d.feature_engine.add_all_features(df_d_features, {})
+    df_d_features = df_d_features.dropna()
+
+    feature_cols_d = model_d.feature_names
+    available_cols_d = [c for c in feature_cols_d if c in df_d_features.columns]
+    X_d = df_d_features[available_cols_d].values
+    preds_d_all, confs_d_all = model_d.predict_batch(X_d)
+    pred_d_map = dict(zip(df_d_features.index.date, zip(preds_d_all, confs_d_all)))
+
+    # Combine predictions
+    weights = ensemble._normalize_weights(ensemble.config.weights)
+    w_1h, w_4h, w_d = weights.get("1H", 0.6), weights.get("4H", 0.3), weights.get("D", 0.1)
+
+    closes = df_1h_features["close"].values
+    highs = df_1h_features["high"].values
+    lows = df_1h_features["low"].values
+    timestamps = df_1h_features.index
+
+    # Generate ensemble predictions
+    test_directions = []
+    test_confidences = []
+
+    for i, ts in enumerate(timestamps):
+        p_1h, c_1h = preds_1h[i], confs_1h[i]
+
+        ts_4h = ts.floor("4H")
+        if ts_4h in pred_4h_map:
+            p_4h, c_4h = pred_4h_map[ts_4h]
+        else:
+            prev_4h = [t for t in pred_4h_map.keys() if t <= ts]
+            p_4h, c_4h = pred_4h_map[max(prev_4h)] if prev_4h else (p_1h, c_1h)
+
+        day = ts.date()
+        if day in pred_d_map:
+            p_d, c_d = pred_d_map[day]
+        else:
+            prev_days = [d for d in pred_d_map.keys() if d <= day]
+            p_d, c_d = pred_d_map[max(prev_days)] if prev_days else (p_1h, c_1h)
+
+        prob_up_1h = c_1h if p_1h == 1 else 1 - c_1h
+        prob_up_4h = c_4h if p_4h == 1 else 1 - c_4h
+        prob_up_d = c_d if p_d == 1 else 1 - c_d
+
+        weighted_prob_up = w_1h * prob_up_1h + w_4h * prob_up_4h + w_d * prob_up_d
+        direction = 1 if weighted_prob_up > 0.5 else 0
+        base_conf = abs(weighted_prob_up - 0.5) * 2 + 0.5
+
+        agreement_count = sum([1 for p in [p_1h, p_4h, p_d] if p == direction])
+        if agreement_count == 3:
+            conf = min(base_conf + ensemble.config.agreement_bonus, 1.0)
+        else:
+            conf = base_conf
+
+        test_directions.append(direction)
+        test_confidences.append(conf)
+
+    test_directions = np.array(test_directions)
+    test_confidences = np.array(test_confidences)
+
+    # Simulate trading
+    pip_price_value = 0.0001
+    pip_dollar_value = 10.0
+
+    trades = []
+    balance = initial_balance
+    consecutive_losses = 0
+
+    i = 0
+    n = len(test_directions)
+
+    while i < n - max_holding_bars:
+        conf = test_confidences[i]
+        pred = test_directions[i]
+
+        if conf >= min_confidence:
+            entry_price = closes[i]
+            entry_time = timestamps[i]
+            direction = "long" if pred == 1 else "short"
+
+            # Calculate risk
+            if consecutive_losses == 0:
+                current_risk = risk_per_trade
+            elif consecutive_losses == 1:
+                current_risk = risk_per_trade * 0.75
+            elif consecutive_losses == 2:
+                current_risk = risk_per_trade * 0.50
+            else:
+                current_risk = risk_per_trade * 0.25
+
+            risk_amount = balance * current_risk
+            position_lots = risk_amount / (sl_pips * pip_dollar_value)
+            position_lots = min(position_lots, 5.0)
+
+            # Apply spread
+            if direction == "long":
+                entry_price += spread_pips * pip_price_value
+                tp_price = entry_price + tp_pips * pip_price_value
+                sl_price = entry_price - sl_pips * pip_price_value
+            else:
+                entry_price -= spread_pips * pip_price_value
+                tp_price = entry_price - tp_pips * pip_price_value
+                sl_price = entry_price + sl_pips * pip_price_value
+
+            exit_price = None
+            exit_reason = None
+            exit_idx = i
+            exit_time = entry_time
+
+            for j in range(i + 1, min(i + max_holding_bars + 1, n)):
+                if direction == "long":
+                    if highs[j] >= tp_price:
+                        exit_price = tp_price - slippage_pips * pip_price_value
+                        exit_reason = "take_profit"
+                        exit_idx = j
+                        exit_time = timestamps[j]
+                        break
+                    if lows[j] <= sl_price:
+                        exit_price = sl_price - slippage_pips * pip_price_value
+                        exit_reason = "stop_loss"
+                        exit_idx = j
+                        exit_time = timestamps[j]
+                        break
+                else:
+                    if lows[j] <= tp_price:
+                        exit_price = tp_price + slippage_pips * pip_price_value
+                        exit_reason = "take_profit"
+                        exit_idx = j
+                        exit_time = timestamps[j]
+                        break
+                    if highs[j] >= sl_price:
+                        exit_price = sl_price + slippage_pips * pip_price_value
+                        exit_reason = "stop_loss"
+                        exit_idx = j
+                        exit_time = timestamps[j]
+                        break
+
+            if exit_price is None:
+                exit_idx = min(i + max_holding_bars, n - 1)
+                exit_price = closes[exit_idx]
+                exit_time = timestamps[exit_idx]
+                exit_reason = "timeout"
+
+            if direction == "long":
+                pnl_pips = (exit_price - entry_price) / pip_price_value
+            else:
+                pnl_pips = (entry_price - exit_price) / pip_price_value
+
+            pnl_usd = pnl_pips * position_lots * pip_dollar_value
+            balance += pnl_usd
+
+            if pnl_pips > 0:
+                consecutive_losses = 0
+            else:
+                consecutive_losses += 1
+
+            trades.append({
+                "timestamp": exit_time,  # Use exit time for monthly grouping
+                "entry_time": entry_time,
+                "exit_time": exit_time,
+                "direction": direction,
+                "confidence": conf,
+                "pnl_pips": pnl_pips,
+                "pnl_usd": pnl_usd,
+                "balance_after": balance,
+                "exit_reason": exit_reason,
+            })
+
+            i = exit_idx
+
+        i += 1
+
+    logger.info(f"Window {window_id}: Generated {len(trades)} trades")
+    return trades
+
+
+def aggregate_by_period(trades: List[Dict], period: str = "M") -> pd.DataFrame:
+    """
+    Aggregate trades by time period.
+
+    Args:
+        trades: List of trade dictionaries
+        period: Aggregation period - 'W' (weekly), 'M' (monthly), 'Q' (quarterly)
+
+    Returns:
+        DataFrame with columns: period_label, trades, win_rate, total_pips, pnl_usd, balance_end
+    """
+    if not trades:
+        return pd.DataFrame()
+
+    # Map period codes to labels
+    period_labels = {
+        "W": "week",
+        "M": "month",
+        "Q": "quarter"
+    }
+
+    period_label = period_labels.get(period, "period")
+
+    df = pd.DataFrame(trades)
+    df["period"] = df["timestamp"].dt.to_period(period)
+
+    aggregated = df.groupby("period").agg({
+        "pnl_pips": ["count", "sum", lambda x: (x > 0).sum()],
+        "pnl_usd": "sum",
+        "balance_after": "last",
+    })
+
+    aggregated.columns = ["trades", "total_pips", "wins", "pnl_usd", "balance_end"]
+    aggregated["win_rate"] = (aggregated["wins"] / aggregated["trades"] * 100).round(1)
+    aggregated["total_pips"] = aggregated["total_pips"].round(1)
+    aggregated["pnl_usd"] = aggregated["pnl_usd"].round(2)
+    aggregated["balance_end"] = aggregated["balance_end"].round(2)
+
+    aggregated = aggregated.reset_index()
+    aggregated["period"] = aggregated["period"].astype(str)
+
+    # Rename column to reflect period type
+    aggregated = aggregated.rename(columns={"period": f"year_{period_label}"})
+
+    return aggregated[[f"year_{period_label}", "trades", "win_rate", "total_pips", "pnl_usd", "balance_end"]]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Time-based disaggregation of WFO results")
+    parser.add_argument(
+        "--data",
+        type=str,
+        default="data/forex/EURUSD_20200101_20251231_5min_combined.csv",
+        help="Path to 5-minute data",
+    )
+    parser.add_argument(
+        "--output-csv",
+        type=str,
+        default="data/wfo_monthly_results.csv",
+        help="Output CSV file",
+    )
+    parser.add_argument(
+        "--output-json",
+        type=str,
+        default="data/wfo_monthly_results.json",
+        help="Output JSON file",
+    )
+    parser.add_argument(
+        "--confidence",
+        type=float,
+        default=0.70,
+        help="Minimum confidence threshold",
+    )
+    parser.add_argument(
+        "--period",
+        type=str,
+        default="M",
+        choices=["W", "M", "Q"],
+        help="Aggregation period: W (weekly), M (monthly), Q (quarterly). Default: M",
+    )
+    args = parser.parse_args()
+
+    print("\n" + "=" * 80)
+    print("WFO MONTHLY DISAGGREGATION")
+    print("=" * 80)
+
+    # Load WFO results
+    wfo_results = load_wfo_results()
+    print(f"\nLoaded WFO results: {wfo_results['summary']['total_windows']} windows")
+
+    # Load data
+    data_path = project_root / args.data
+    df_5min = load_data(data_path)
+
+    # Process each window
+    all_trades = []
+
+    for window in wfo_results["windows"]:
+        window_id = window["window_id"]
+        test_period = window["test_period"]
+
+        print(f"\nProcessing Window {window_id}: {test_period}")
+
+        # Parse test period
+        start_str, end_str = test_period.split(" to ")
+        start_date = pd.Timestamp(f"{start_str}-01")
+        end_date = pd.Timestamp(f"{end_str}-28") + pd.offsets.MonthEnd(0)
+
+        # Filter test data
+        df_test = df_5min[(df_5min.index >= start_date) & (df_5min.index <= end_date)].copy()
+
+        if len(df_test) < 1000:
+            print(f"  Warning: Insufficient test data ({len(df_test)} bars), skipping")
+            continue
+
+        # Load window model
+        window_dir = project_root / "models" / "wfo_validation" / f"window_{window_id}"
+        if not window_dir.exists():
+            print(f"  Warning: Window directory not found, skipping")
+            continue
+
+        # Run backtest and get trades
+        trades = run_monthly_backtest(
+            window_id=window_id,
+            window_dir=window_dir,
+            df_test=df_test,
+            min_confidence=args.confidence,
+        )
+
+        all_trades.extend(trades)
+
+    if not all_trades:
+        print("\n❌ No trades generated. Check WFO models and data availability.")
+        return
+
+    print(f"\n✅ Total trades across all windows: {len(all_trades)}")
+
+    # Aggregate by period
+    period_name = {"W": "week", "M": "month", "Q": "quarter"}[args.period]
+    print(f"\nAggregating by {period_name}...")
+    monthly_df = aggregate_by_period(all_trades, period=args.period)
+
+    # Add cumulative balance
+    monthly_df["balance_change"] = monthly_df["balance_end"].diff()
+    monthly_df.loc[0, "balance_change"] = monthly_df.loc[0, "balance_end"] - 10000.0
+
+    # Calculate returns (column name reflects period)
+    period_col = f"{period_name}_return_pct"
+    monthly_df[period_col] = (
+        monthly_df["pnl_usd"] / monthly_df["balance_end"].shift(1).fillna(10000.0) * 100
+    ).round(2)
+
+    # Save CSV
+    output_csv = project_root / args.output_csv
+    monthly_df.to_csv(output_csv, index=False)
+    print(f"\n✅ CSV saved to: {output_csv}")
+
+    # Save JSON
+    output_json = project_root / args.output_json
+    monthly_json = {
+        "metadata": {
+            "generated_at": pd.Timestamp.now().isoformat(),
+            "confidence_threshold": args.confidence,
+            "aggregation_period": args.period,
+            "period_name": period_name,
+            "total_periods": len(monthly_df),
+            "total_trades": int(monthly_df["trades"].sum()),
+        },
+        "results": monthly_df.to_dict(orient="records"),
+        "summary": {
+            "total_pips": float(monthly_df["total_pips"].sum()),
+            "total_pnl_usd": float(monthly_df["pnl_usd"].sum()),
+            f"avg_{period_name}_trades": float(monthly_df["trades"].mean()),
+            f"avg_{period_name}_return_pct": float(monthly_df[period_col].mean()),
+            f"best_{period_name}": monthly_df.loc[monthly_df["pnl_usd"].idxmax()].to_dict(),
+            f"worst_{period_name}": monthly_df.loc[monthly_df["pnl_usd"].idxmin()].to_dict(),
+        },
+    }
+
+    with open(output_json, "w") as f:
+        json.dump(monthly_json, f, indent=2)
+    print(f"✅ JSON saved to: {output_json}")
+
+    # Print summary
+    period_col_name = list(monthly_df.columns)[0]  # First column is period identifier
+    print("\n" + "=" * 80)
+    print(f"{period_name.upper()} SUMMARY")
+    print("=" * 80)
+    print(f"\nPeriod: {monthly_df[period_col_name].iloc[0]} to {monthly_df[period_col_name].iloc[-1]}")
+    print(f"Total {period_name.capitalize()}s: {len(monthly_df)}")
+    print(f"Total Trades: {monthly_df['trades'].sum()}")
+    print(f"Avg Trades/{period_name.capitalize()}: {monthly_df['trades'].mean():.1f}")
+    print(f"Total Pips: {monthly_df['total_pips'].sum():+.1f}")
+    print(f"Total PnL: ${monthly_df['pnl_usd'].sum():,.2f}")
+    print(f"Avg {period_name.capitalize()} Return: {monthly_df[period_col].mean():+.2f}%")
+
+    print(f"\nBest {period_name.capitalize()}: {monthly_json['summary'][f'best_{period_name}'][period_col_name]}")
+    print(f"  PnL: ${monthly_json['summary'][f'best_{period_name}']['pnl_usd']:,.2f}")
+    print(f"  Return: {monthly_json['summary'][f'best_{period_name}'][period_col]:+.2f}%")
+
+    print(f"\nWorst {period_name.capitalize()}: {monthly_json['summary'][f'worst_{period_name}'][period_col_name]}")
+    print(f"  PnL: ${monthly_json['summary'][f'worst_{period_name}']['pnl_usd']:,.2f}")
+    print(f"  Return: {monthly_json['summary'][f'worst_{period_name}'][period_col]:+.2f}%")
+
+    # Print period breakdown
+    print("\n" + "=" * 80)
+    print(f"{period_name.upper()}-BY-{period_name.upper()} BREAKDOWN")
+    print("=" * 80)
+    print(f"\n{period_name.capitalize():<14} {'Trades':>7} {'Win%':>7} {'Pips':>9} {'PnL ($)':>12} {'Return%':>9} {'Balance':>12}")
+    print("-" * 80)
+
+    for _, row in monthly_df.iterrows():
+        print(
+            f"{row[period_col_name]:<14} "
+            f"{row['trades']:>7.0f} "
+            f"{row['win_rate']:>6.1f}% "
+            f"{row['total_pips']:>+9.1f} "
+            f"{row['pnl_usd']:>+12.2f} "
+            f"{row[period_col]:>+8.2f}% "
+            f"${row['balance_end']:>11,.2f}"
+        )
+
+    print("=" * 80)
+    print(f"\n✅ {period_name.capitalize()} disaggregation complete!")
+
+
+if __name__ == "__main__":
+    main()

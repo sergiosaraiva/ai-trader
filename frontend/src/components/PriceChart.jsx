@@ -237,7 +237,7 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
         const isBuy = sig === 'BUY' || sig === 'long' || sig === 1;
         const isSell = sig === 'SELL' || sig === 'short' || sig === -1 || sig === 0;
 
-        // HOLD when confidence is below 70% threshold (should_trade = false)
+        // HOLD when confidence is below threshold (should_trade = false)
         const isHold = prediction.should_trade === false;
         const recommendation = isHold ? 'HOLD' : (isBuy ? 'BUY' : 'SELL');
 
@@ -246,7 +246,7 @@ export function PriceChart({ candles, prediction, loading, error, onRefresh }) {
         // Generate short explanation
         const confidencePct = ((prediction.confidence || 0) * 100).toFixed(0);
         const reason = isHold
-          ? `Confidence ${confidencePct}% below 70% threshold`
+          ? `Confidence ${confidencePct}% below threshold`
           : isBuy
             ? `Bullish with ${confidencePct}% confidence`
             : `Bearish with ${confidencePct}% confidence`;

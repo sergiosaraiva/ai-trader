@@ -78,12 +78,12 @@ export function AboutSection({ tradingPair = "EURUSD", modelWeights, vixValue, a
     {
       icon: TrendingUp,
       title: 'Walk-Forward Validated',
-      description: 'Backtested on 8 rolling time periods (2022-2025) with 100% consistency',
+      description: 'Backtested on 9 rolling time periods (2021-2025) with 100% consistency',
     },
     {
       icon: Shield,
       title: 'Risk-Optimized',
-      description: '70% confidence threshold filters low-quality signals',
+      description: '60% confidence threshold optimized via WFO validation',
     },
   ];
 

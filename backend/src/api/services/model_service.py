@@ -22,6 +22,8 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from ...config import trading_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,16 +32,15 @@ class ModelService:
 
     Uses singleton pattern - model is loaded once and shared across requests.
     Provides thread-safe prediction with caching.
+
+    Cache configuration is centralized via TradingConfig:
+    - prediction_cache_ttl_seconds: Cache TTL (default: 60s)
+    - prediction_cache_max_size: Maximum cache entries (default: 100)
     """
 
-    # Default model directory
-    DEFAULT_MODEL_DIR = PROJECT_ROOT / "models" / "mtf_ensemble"
+    # Default model directory - Config C (60% confidence, 18mo training)
+    DEFAULT_MODEL_DIR = PROJECT_ROOT / "models" / "wfo_conf60_18mo" / "window_9"
 
-    # Cache TTL
-    PREDICTION_CACHE_TTL = timedelta(minutes=1)
-
-    # Cache size limit (prevent unbounded memory growth)
-    MAX_CACHE_SIZE = 100
 
     def __init__(self, model_dir: Optional[Path] = None):
         self._lock = Lock()
@@ -56,6 +57,9 @@ class ModelService:
         # Status
         self._initialized = False
         self._initialization_error: Optional[str] = None
+
+        # Register callback for cache config changes
+        trading_config.register_callback("cache", self._on_cache_config_change)
 
     @property
     def is_loaded(self) -> bool:
@@ -126,8 +130,10 @@ class ModelService:
             logger.warning("No training_metadata.json found, using defaults")
             metadata = {}
 
-        # Extract configuration from metadata (with defaults for backwards compatibility)
-        weights = metadata.get("weights", {"1H": 0.6, "4H": 0.3, "D": 0.1})
+        # Extract configuration from metadata (with defaults from centralized config)
+        # Prefer metadata values (from training), fallback to centralized config
+        model_params = trading_config.model
+        weights = metadata.get("weights", model_params.get_weights())
         include_sentiment = metadata.get("include_sentiment", True)
         sentiment_source = metadata.get("sentiment_source", "epu")
         sentiment_by_timeframe = metadata.get(
@@ -161,11 +167,12 @@ class ModelService:
             )
             logger.info(f"Stacking enabled with blend={stacking_blend}, enhanced_features={use_enhanced_meta_features}")
 
-        # Create config from loaded metadata
+        # Create config from loaded metadata (use centralized config for agreement_bonus)
+        model_params = trading_config.model
         self._config = MTFEnsembleConfig(
             weights=weights,
-            agreement_bonus=0.05,
-            use_regime_adjustment=True,
+            agreement_bonus=model_params.agreement_bonus,
+            use_regime_adjustment=model_params.use_regime_adjustment,
             include_sentiment=include_sentiment,
             sentiment_source=sentiment_source,
             sentiment_by_timeframe=sentiment_by_timeframe,
@@ -242,18 +249,21 @@ class ModelService:
         if not self.is_loaded:
             raise RuntimeError("Model not loaded. Call initialize() first.")
 
-        # Generate cache key from latest timestamp
+        # Generate cache key from latest timestamp AND config version
+        # This ensures cache is invalidated when config changes
+        config_version = trading_config.get_config_version()
         if df_5min is not None and len(df_5min) > 0:
-            cache_key = str(df_5min.index[-1])
+            cache_key = f"{df_5min.index[-1]}_{config_version}"
         else:
-            cache_key = "unknown"
+            cache_key = f"unknown_{config_version}"
 
-        # Check cache
+        # Check cache (using centralized config for TTL)
+        cache_ttl = timedelta(seconds=trading_config.cache.prediction_cache_ttl_seconds)
         with self._lock:
             if use_cache and cache_key in self._cache:
                 cached = self._cache[cache_key]
                 cache_age = datetime.now() - cached["cached_at"]
-                if cache_age < self.PREDICTION_CACHE_TTL:
+                if cache_age < cache_ttl:
                     logger.debug(f"Returning cached prediction ({cache_age.seconds}s old)")
                     return cached["prediction"]
 
@@ -262,13 +272,25 @@ class ModelService:
             with self._lock:
                 prediction = self._ensemble.predict(df_5min)
 
+            # Calculate dynamic threshold
+            from .threshold_service import threshold_service
+            if threshold_service.is_initialized:
+                confidence_threshold = threshold_service.calculate_threshold()
+            else:
+                # Fallback to static threshold
+                confidence_threshold = trading_config.trading.confidence_threshold
+                logger.debug("Threshold service not initialized, using static threshold")
+
             # Convert to dict (clamp values to [0, 1] range for API validation)
+
             result = {
                 "direction": "long" if prediction.direction == 1 else "short",
                 "confidence": float(min(1.0, max(0.0, prediction.confidence))),
                 "prob_up": float(min(1.0, max(0.0, prediction.prob_up))),
                 "prob_down": float(min(1.0, max(0.0, prediction.prob_down))),
-                "should_trade": prediction.confidence >= 0.70,  # 70% threshold
+                "should_trade": bool(
+                    prediction.confidence >= confidence_threshold and prediction.all_agree
+                ),
                 "agreement_count": prediction.agreement_count,
                 "agreement_score": float(min(1.0, max(0.0, prediction.agreement_score))),
                 "all_agree": prediction.all_agree,
@@ -284,7 +306,16 @@ class ModelService:
                 },
                 "timestamp": datetime.now().isoformat(),
                 "symbol": symbol,
+                "dynamic_threshold_used": confidence_threshold,
             }
+
+            # Record prediction for future threshold calculations
+            if threshold_service.is_initialized:
+                threshold_service.record_prediction(
+                    pred_id=None,  # Will be set after DB save
+                    confidence=prediction.confidence,
+                    timestamp=datetime.now()
+                )
 
             # Cache result (with size limit to prevent memory leak)
             with self._lock:
@@ -352,23 +383,41 @@ class ModelService:
             self._cache.clear()
         logger.info("Model prediction cache cleared")
 
+    def _on_cache_config_change(self, cache_params) -> None:
+        """Callback for cache configuration changes.
+
+        Clears cache when cache parameters are updated to ensure
+        new TTL and size limits take effect immediately.
+
+        Args:
+            cache_params: Updated CacheParameters object
+        """
+        logger.info(
+            f"Cache config changed: TTL={cache_params.prediction_cache_ttl_seconds}s, "
+            f"MaxSize={cache_params.prediction_cache_max_size}"
+        )
+        self.clear_cache()
+
     def _cleanup_cache_if_needed(self) -> None:
         """Clean up expired entries and enforce cache size limit.
 
+        Uses centralized configuration for TTL and max size.
         Must be called while holding self._lock.
         """
         now = datetime.now()
+        cache_ttl = timedelta(seconds=trading_config.cache.prediction_cache_ttl_seconds)
+        max_cache_size = trading_config.cache.prediction_cache_max_size
 
         # First, remove expired entries
         expired_keys = [
             k for k, v in self._cache.items()
-            if now - v["cached_at"] > self.PREDICTION_CACHE_TTL
+            if now - v["cached_at"] > cache_ttl
         ]
         for key in expired_keys:
             del self._cache[key]
 
         # Then enforce size limit by removing oldest entries
-        if len(self._cache) >= self.MAX_CACHE_SIZE:
+        if len(self._cache) >= max_cache_size:
             # Remove 20% of oldest entries
             entries_to_remove = max(1, len(self._cache) // 5)
             sorted_keys = sorted(
@@ -417,15 +466,18 @@ class ModelService:
                 return self.predict(df, use_cache=use_cache)
             raise RuntimeError("No data available for prediction")
 
-        # Generate cache key from latest 1H timestamp
-        cache_key = f"pipeline_{df_1h.index[-1]}"
+        # Generate cache key from latest 1H timestamp AND config version
+        # This ensures cache is invalidated when config changes
+        config_version = trading_config.get_config_version()
+        cache_key = f"pipeline_{df_1h.index[-1]}_{config_version}"
 
-        # Check cache
+        # Check cache (using centralized config for TTL)
+        cache_ttl = timedelta(seconds=trading_config.cache.prediction_cache_ttl_seconds)
         with self._lock:
             if use_cache and cache_key in self._cache:
                 cached = self._cache[cache_key]
                 cache_age = datetime.now() - cached["cached_at"]
-                if cache_age < self.PREDICTION_CACHE_TTL:
+                if cache_age < cache_ttl:
                     logger.debug(f"Returning cached pipeline prediction ({cache_age.seconds}s old)")
                     return cached["prediction"]
 
@@ -445,6 +497,15 @@ class ModelService:
                     # The 1H model will use the pre-calculated features
                     prediction = self._ensemble.predict(df_1h)
 
+            # Calculate dynamic threshold
+            from .threshold_service import threshold_service
+            if threshold_service.is_initialized:
+                confidence_threshold = threshold_service.calculate_threshold()
+            else:
+                # Fallback to static threshold
+                confidence_threshold = trading_config.trading.confidence_threshold
+                logger.debug("Threshold service not initialized, using static threshold")
+
             # Extract data timestamp safely (handle NaT or missing isoformat)
             data_timestamp = None
             try:
@@ -455,12 +516,15 @@ class ModelService:
                 logger.warning("Could not extract data timestamp from 1H data")
 
             # Convert to dict (clamp values to [0, 1] range for API validation)
+
             result = {
                 "direction": "long" if prediction.direction == 1 else "short",
                 "confidence": float(min(1.0, max(0.0, prediction.confidence))),
                 "prob_up": float(min(1.0, max(0.0, prediction.prob_up))),
                 "prob_down": float(min(1.0, max(0.0, prediction.prob_down))),
-                "should_trade": prediction.confidence >= 0.70,  # 70% threshold
+                "should_trade": bool(
+                    prediction.confidence >= confidence_threshold and prediction.all_agree
+                ),
                 "agreement_count": prediction.agreement_count,
                 "agreement_score": float(min(1.0, max(0.0, prediction.agreement_score))),
                 "all_agree": prediction.all_agree,
@@ -478,7 +542,16 @@ class ModelService:
                 "symbol": symbol,
                 "data_source": "pipeline",
                 "data_timestamp": data_timestamp,
+                "dynamic_threshold_used": confidence_threshold,
             }
+
+            # Record prediction for future threshold calculations
+            if threshold_service.is_initialized:
+                threshold_service.record_prediction(
+                    pred_id=None,  # Will be set after DB save
+                    confidence=prediction.confidence,
+                    timestamp=datetime.now()
+                )
 
             # Cache result (with size limit to prevent memory leak)
             with self._lock:

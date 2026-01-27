@@ -1,0 +1,91 @@
+{
+  "initial_balance": 1000.0,
+  "final_balance": 1272.0028401685302,
+  "total_return_pct": 27.200284016853015,
+  "total_pips": 2410.0500000001125,
+  "total_trades": 202,
+  "winning_trades": 155,
+  "losing_trades": 47,
+  "win_rate": 76.73267326732673,
+  "profit_factor": 4.287702066707875,
+  "max_drawdown_pct": 0.822281988420184,
+  "sharpe_ratio": 11.339320205970907,
+  "avg_monthly_return": 6.327685321085873,
+  "best_month": {
+    "month": "2020-03",
+    "pnl": 161.95303013582776
+  },
+  "worst_month": {
+    "month": "2020-04",
+    "pnl": 9.148772546737531
+  },
+  "monthly_stats": [
+    {
+      "month": "2020-01",
+      "trades_count": 35,
+      "wins": 28,
+      "losses": 7,
+      "win_rate": 80.0,
+      "total_pips": 318.7000000000029,
+      "monthly_pnl_eur": 32.33599414308348,
+      "cumulative_balance_eur": 1032.3359941430836,
+      "return_pct": 3.2335994143083475,
+      "drawdown_pct": 0.0,
+      "avg_threshold_used": 0.6741259104183742,
+      "best_trade_pips": 23.500000000000743,
+      "worst_trade_pips": -16.499999999999293
+    },
+    {
+      "month": "2020-02",
+      "trades_count": 47,
+      "wins": 41,
+      "losses": 6,
+      "win_rate": 87.2340425531915,
+      "total_pips": 643.9000000000241,
+      "monthly_pnl_eur": 68.56504334288073,
+      "cumulative_balance_eur": 1100.9010374859643,
+      "return_pct": 6.641737160370434,
+      "drawdown_pct": 0.0,
+      "avg_threshold_used": 0.75,
+      "best_trade_pips": 23.500000000000743,
+      "worst_trade_pips": -16.499999999999293
+    },
+    {
+      "month": "2020-03",
+      "trades_count": 105,
+      "wins": 78,
+      "losses": 27,
+      "win_rate": 74.28571428571429,
+      "total_pips": 1374.9500000000746,
+      "monthly_pnl_eur": 161.95303013582776,
+      "cumulative_balance_eur": 1262.854067621792,
+      "return_pct": 14.710952630734763,
+      "drawdown_pct": 0.0,
+      "avg_threshold_used": 0.7493240960423909,
+      "best_trade_pips": 23.500000000000743,
+      "worst_trade_pips": -16.499999999999293
+    },
+    {
+      "month": "2020-04",
+      "trades_count": 15,
+      "wins": 8,
+      "losses": 7,
+      "win_rate": 53.333333333333336,
+      "total_pips": 72.50000000001091,
+      "monthly_pnl_eur": 9.148772546737531,
+      "cumulative_balance_eur": 1272.0028401685295,
+      "return_pct": 0.7244520789299518,
+      "drawdown_pct": 0.0,
+      "avg_threshold_used": 0.75,
+      "best_trade_pips": 23.500000000000743,
+      "worst_trade_pips": -16.499999999999293
+    }
+  ],
+  "avg_threshold_used": 0.7365021631143274,
+  "threshold_std": 0.03220163325117061,
+  "avg_win_pips": 20.278064516129568,
+  "avg_loss_pips": 15.596808510637677,
+  "tp_hits": 122,
+  "sl_hits": 44,
+  "timeouts": 36
+}

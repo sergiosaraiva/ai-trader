@@ -8,14 +8,16 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import predictions, trading, health, market, pipeline, cron, performance, agent
-from .database.session import init_db
+from .routes import predictions, trading, health, market, pipeline, cron, performance, agent, config, threshold
+from .database.session import init_db, get_session
 from .services.data_service import data_service
 from .services.model_service import model_service
 from .services.trading_service import trading_service
 from .services.pipeline_service import pipeline_service
+from .services.threshold_service import threshold_service
 from .utils.logging import log_exception
 from .utils.rate_limiter import setup_rate_limiting
+from ..config import trading_config
 
 # Configure logging
 logging.basicConfig(
@@ -37,6 +39,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize database
     logger.info("Initializing database...")
     init_db()
+
+    # Initialize configuration system
+    logger.info("Initializing configuration system...")
+    try:
+        db = get_session()
+        trading_config.initialize(db_session=db)
+        db.close()
+        logger.info("Configuration system initialized")
+    except Exception as e:
+        log_exception(logger, "Configuration system initialization failed", e)
+        logger.warning("Continuing with default configuration")
 
     # Initialize services
     logger.info("Initializing data service...")
@@ -78,6 +91,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log_exception(logger, "Trading service initialization failed: database connection error", e)
     except Exception as e:
         log_exception(logger, "Trading service initialization failed with unexpected error", e)
+
+    logger.info("Initializing threshold service...")
+    try:
+        threshold_service.initialize()
+        logger.info(f"Threshold service initialized with {threshold_service.get_status()['predictions_30d']} predictions")
+    except ConnectionError as e:
+        log_exception(logger, "Threshold service initialization failed: database connection error", e)
+    except Exception as e:
+        log_exception(logger, "Threshold service initialization failed with unexpected error", e)
 
     # Seed historical predictions if database is empty
     logger.info("Checking prediction history...")
@@ -188,6 +210,8 @@ def create_app() -> FastAPI:
     app.include_router(cron.router, prefix="/api/v1", tags=["Cron"])
     app.include_router(performance.router, prefix="/api/v1", tags=["Performance"])
     app.include_router(agent.router, tags=["Agent"])
+    app.include_router(config.router, tags=["Configuration"])
+    app.include_router(threshold.router, prefix="/api/v1", tags=["Threshold"])
 
     return app
 

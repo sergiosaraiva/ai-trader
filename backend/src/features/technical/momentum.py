@@ -1,8 +1,11 @@
 """Momentum indicators for technical analysis."""
 
-from typing import List
+from typing import List, Optional
 import numpy as np
 import pandas as pd
+
+from src.config.trading_config import TradingConfig
+from src.config.indicator_config import MomentumIndicators as MomentumConfig
 
 
 class MomentumIndicators:
@@ -16,20 +19,51 @@ class MomentumIndicators:
         """Get list of generated feature names."""
         return self._feature_names.copy()
 
-    def calculate_all(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate all momentum indicators."""
+    def calculate_all(self, df: pd.DataFrame, config: Optional[TradingConfig] = None) -> pd.DataFrame:
+        """Calculate all momentum indicators.
+
+        Args:
+            df: DataFrame with OHLCV data
+            config: Optional TradingConfig instance. If None, uses fresh defaults.
+
+        Returns:
+            DataFrame with momentum indicators added
+        """
+        # Use fresh default config if none provided (avoid singleton)
+        if config is None:
+            momentum_config = MomentumConfig()
+        else:
+            momentum_config = config.indicators.momentum
+
         df = df.copy()
         self._feature_names = []
 
-        df = self.rsi(df, periods=[7, 14, 21])
-        df = self.stochastic(df, k_period=14, d_period=3)
-        df = self.macd(df)
-        df = self.cci(df, periods=[14, 20])
-        df = self.momentum(df, periods=[10, 14])
-        df = self.roc(df, periods=[10, 14])
-        df = self.williams_r(df, period=14)
-        df = self.mfi(df, period=14)
-        df = self.tsi(df)
+        df = self.rsi(df, periods=momentum_config.rsi_periods)
+        df = self.stochastic(
+            df,
+            k_period=momentum_config.stochastic_k_period,
+            d_period=momentum_config.stochastic_d_period,
+        )
+        df = self.macd(
+            df,
+            fast=momentum_config.macd_fast,
+            slow=momentum_config.macd_slow,
+            signal=momentum_config.macd_signal,
+        )
+        df = self.cci(
+            df,
+            periods=momentum_config.cci_periods,
+            constant=momentum_config.cci_constant,
+        )
+        df = self.momentum(df, periods=momentum_config.momentum_periods)
+        df = self.roc(df, periods=momentum_config.roc_periods)
+        df = self.williams_r(df, period=momentum_config.williams_period)
+        df = self.mfi(df, period=momentum_config.mfi_period)
+        df = self.tsi(
+            df,
+            long=momentum_config.tsi_long,
+            short=momentum_config.tsi_short,
+        )
         df = self.ultimate_oscillator(df)
 
         return df
@@ -92,14 +126,23 @@ class MomentumIndicators:
         self._feature_names.extend(["macd", "macd_signal", "macd_hist"])
         return df
 
-    def cci(self, df: pd.DataFrame, periods: List[int]) -> pd.DataFrame:
-        """Commodity Channel Index."""
+    def cci(self, df: pd.DataFrame, periods: List[int], constant: float = 0.015) -> pd.DataFrame:
+        """Commodity Channel Index.
+
+        Args:
+            df: DataFrame with OHLC data
+            periods: List of periods to calculate
+            constant: CCI constant (default 0.015)
+
+        Returns:
+            DataFrame with CCI columns added
+        """
         tp = (df["high"] + df["low"] + df["close"]) / 3
 
         for period in periods:
             sma = tp.rolling(window=period).mean()
             mad = tp.rolling(window=period).apply(lambda x: np.abs(x - x.mean()).mean(), raw=True)
-            cci = (tp - sma) / (0.015 * mad + 1e-10)
+            cci = (tp - sma) / (constant * mad + 1e-10)
 
             col_name = f"cci_{period}"
             df[col_name] = cci

@@ -1,8 +1,11 @@
 """Trend indicators for technical analysis."""
 
-from typing import List
+from typing import List, Optional
 import numpy as np
 import pandas as pd
+
+from src.config.trading_config import TradingConfig
+from src.config.indicator_config import TrendIndicators as TrendConfig
 
 
 class TrendIndicators:
@@ -16,25 +19,39 @@ class TrendIndicators:
         """Get list of generated feature names."""
         return self._feature_names.copy()
 
-    def calculate_all(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate all trend indicators."""
+    def calculate_all(self, df: pd.DataFrame, config: Optional[TradingConfig] = None) -> pd.DataFrame:
+        """Calculate all trend indicators.
+
+        Args:
+            df: DataFrame with OHLCV data
+            config: Optional TradingConfig instance. If None, uses fresh defaults.
+
+        Returns:
+            DataFrame with trend indicators added
+        """
+        # Use fresh default config if none provided (avoid singleton)
+        if config is None:
+            trend_config = TrendConfig()
+        else:
+            trend_config = config.indicators.trend
+
         df = df.copy()
         self._feature_names = []
 
         # Moving averages
-        df = self.sma(df, periods=[5, 10, 20, 50, 100, 200])
-        df = self.ema(df, periods=[5, 10, 20, 50, 100, 200])
-        df = self.wma(df, periods=[10, 20, 50])
+        df = self.sma(df, periods=trend_config.sma_periods)
+        df = self.ema(df, periods=trend_config.ema_periods)
+        df = self.wma(df, periods=trend_config.wma_periods)
 
         # Trend direction
-        df = self.adx(df, period=14)
-        df = self.aroon(df, period=25)
+        df = self.adx(df, period=trend_config.adx_period)
+        df = self.aroon(df, period=trend_config.aroon_period)
 
         # Price relative to MAs
         df = self.price_to_ma(df)
 
         # MA crossovers
-        df = self.ma_crossovers(df)
+        df = self.ma_crossovers(df, trend_config=trend_config)
 
         return df
 
@@ -166,15 +183,25 @@ class TrendIndicators:
 
         return df
 
-    def ma_crossovers(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate moving average crossover signals."""
-        crossovers = [
-            ("sma_5", "sma_20"),
-            ("sma_20", "sma_50"),
-            ("sma_50", "sma_200"),
-            ("ema_5", "ema_20"),
-            ("ema_12", "ema_26"),
-        ]
+    def ma_crossovers(self, df: pd.DataFrame, trend_config: Optional[TrendConfig] = None) -> pd.DataFrame:
+        """Calculate moving average crossover signals.
+
+        Args:
+            df: DataFrame with moving average columns
+            trend_config: Optional TrendConfig instance. If None, uses fresh defaults.
+
+        Returns:
+            DataFrame with crossover signals added
+        """
+        if trend_config is None:
+            trend_config = TrendConfig()
+
+        # Build crossover pairs from config
+        crossovers = []
+        for fast, slow in trend_config.sma_crossover_pairs:
+            crossovers.append((f"sma_{fast}", f"sma_{slow}"))
+        for fast, slow in trend_config.ema_crossover_pairs:
+            crossovers.append((f"ema_{fast}", f"ema_{slow}"))
 
         for fast, slow in crossovers:
             if fast in df.columns and slow in df.columns:

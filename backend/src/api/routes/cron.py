@@ -130,6 +130,7 @@ async def cron_tick(x_cron_key: Optional[str] = Header(None)) -> Dict[str, Any]:
                 market_price=current_price,
                 vix_value=vix_value,
                 trade_executed=False,
+                should_trade=prediction["should_trade"],
             )
             db.add(pred_record)
             db.commit()

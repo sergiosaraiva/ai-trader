@@ -11,10 +11,13 @@ This module adds sophisticated features that capture:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from ...config import TradingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,7 @@ class EnhancedFeatureEngine:
         us_only_sentiment: bool = True,  # Use US-only sentiment (for EPU/VIX)
         sentiment_source: str = "epu",  # 'epu' (daily VIX/EPU), 'gdelt' (hourly), or 'both'
         gdelt_path: Optional[Path] = None,
+        config: Optional["TradingConfig"] = None,  # Optional centralized config
     ):
         self.base_timeframe = base_timeframe
         self.include_time_features = include_time_features
@@ -51,10 +55,17 @@ class EnhancedFeatureEngine:
         self.include_sentiment_features = include_sentiment_features
         self.sentiment_path = sentiment_path or DEFAULT_SENTIMENT_PATH
         self.trading_pair = trading_pair
-        self.lag_periods = lag_periods or [1, 2, 3, 6, 12]
         self.us_only_sentiment = us_only_sentiment  # US-only is recommended for EPU
         self.sentiment_source = sentiment_source.lower()  # 'epu', 'gdelt', or 'both'
         self.gdelt_path = gdelt_path or DEFAULT_GDELT_PATH
+
+        # Load from centralized config or use defaults
+        if config is not None:
+            self.config = config
+            self.lag_periods = lag_periods or config.feature_engineering.lags.standard_lags
+        else:
+            self.config = None
+            self.lag_periods = lag_periods or [1, 2, 3, 6, 12]
 
         # Sentiment components (lazy loaded)
         self._sentiment_loader = None
@@ -117,33 +128,53 @@ class EnhancedFeatureEngine:
             logger.warning("DataFrame index is not DatetimeIndex, skipping time features")
             return df
 
+        # Get session parameters and cyclical encoding from config if available
+        if self.config is not None:
+            asian_start, asian_end = self.config.feature_engineering.sessions.asian_session
+            london_start, london_end = self.config.feature_engineering.sessions.london_session
+            ny_start, ny_end = self.config.feature_engineering.sessions.ny_session
+            overlap_start = max(london_start, ny_start)
+            overlap_end = min(london_end, ny_end)
+            hour_cycles = self.config.feature_engineering.cyclical.hour_encoding_cycles
+            dow_cycles = self.config.feature_engineering.cyclical.day_of_week_cycles
+            dom_cycles = self.config.feature_engineering.cyclical.day_of_month_cycles
+        else:
+            # Fallback to hardcoded defaults
+            asian_start, asian_end = 0, 8
+            london_start, london_end = 8, 16
+            ny_start, ny_end = 13, 22
+            overlap_start, overlap_end = 13, 16
+            hour_cycles = 24
+            dow_cycles = 7
+            dom_cycles = 31
+
         # Hour of day (cyclical encoding)
         hour = df.index.hour
-        df["hour_sin"] = np.sin(2 * np.pi * hour / 24)
-        df["hour_cos"] = np.cos(2 * np.pi * hour / 24)
+        df["hour_sin"] = np.sin(2 * np.pi * hour / hour_cycles)
+        df["hour_cos"] = np.cos(2 * np.pi * hour / hour_cycles)
 
         # Day of week (cyclical encoding)
         dow = df.index.dayofweek
-        df["dow_sin"] = np.sin(2 * np.pi * dow / 7)
-        df["dow_cos"] = np.cos(2 * np.pi * dow / 7)
+        df["dow_sin"] = np.sin(2 * np.pi * dow / dow_cycles)
+        df["dow_cos"] = np.cos(2 * np.pi * dow / dow_cycles)
 
         # Trading sessions (UTC times, adjust for your data timezone)
-        df["is_asian"] = ((hour >= 0) & (hour < 8)).astype(int)
-        df["is_london"] = ((hour >= 8) & (hour < 16)).astype(int)
-        df["is_newyork"] = ((hour >= 13) & (hour < 22)).astype(int)
-        df["is_overlap"] = ((hour >= 13) & (hour < 16)).astype(int)  # London-NY overlap
+        df["is_asian"] = ((hour >= asian_start) & (hour < asian_end)).astype(int)
+        df["is_london"] = ((hour >= london_start) & (hour < london_end)).astype(int)
+        df["is_newyork"] = ((hour >= ny_start) & (hour < ny_end)).astype(int)
+        df["is_overlap"] = ((hour >= overlap_start) & (hour < overlap_end)).astype(int)  # London-NY overlap
 
         # Session open indicators (first bar of session)
-        df["london_open"] = ((hour == 8) & (df.index.minute == 0)).astype(int)
-        df["ny_open"] = ((hour == 13) & (df.index.minute == 0)).astype(int)
+        df["london_open"] = ((hour == london_start) & (df.index.minute == 0)).astype(int)
+        df["ny_open"] = ((hour == ny_start) & (df.index.minute == 0)).astype(int)
 
         # Week position (Monday=0, Friday=4)
         df["week_position"] = dow / 4.0  # 0 to 1 scale
 
         # Month position (cyclical)
         day_of_month = df.index.day
-        df["month_sin"] = np.sin(2 * np.pi * day_of_month / 31)
-        df["month_cos"] = np.cos(2 * np.pi * day_of_month / 31)
+        df["month_sin"] = np.sin(2 * np.pi * day_of_month / dom_cycles)
+        df["month_cos"] = np.cos(2 * np.pi * day_of_month / dom_cycles)
 
         return df
 
@@ -152,48 +183,70 @@ class EnhancedFeatureEngine:
 
         Captures momentum of indicators, not just their values.
         """
+        # Get ROC periods from config if available
+        if self.config is not None:
+            rsi_roc_periods = self.config.feature_engineering.lags.rsi_roc_periods
+            macd_roc_periods = self.config.feature_engineering.lags.macd_roc_periods
+            adx_roc_periods = self.config.feature_engineering.lags.adx_roc_periods
+            atr_roc_periods = self.config.feature_engineering.lags.atr_roc_periods
+            price_roc_periods = self.config.feature_engineering.lags.price_roc_periods
+            volume_roc_periods = self.config.feature_engineering.lags.volume_roc_periods
+        else:
+            # Fallback to hardcoded defaults
+            rsi_roc_periods = [3, 6]
+            macd_roc_periods = [3]
+            adx_roc_periods = [3]
+            atr_roc_periods = [3, 6]
+            price_roc_periods = [1, 3, 6, 12]
+            volume_roc_periods = [3, 6]
+
         # Key indicators to compute ROC for
         roc_columns = []
 
         # Find RSI columns
         rsi_cols = [c for c in df.columns if c.startswith("rsi_")]
         for col in rsi_cols:
-            df[f"{col}_roc3"] = df[col].diff(3)
-            df[f"{col}_roc6"] = df[col].diff(6)
-            roc_columns.extend([f"{col}_roc3", f"{col}_roc6"])
+            for period in rsi_roc_periods:
+                df[f"{col}_roc{period}"] = df[col].diff(period)
+                roc_columns.append(f"{col}_roc{period}")
 
         # Find MACD columns
         if "macd" in df.columns:
-            df["macd_roc3"] = df["macd"].diff(3)
-            df["macd_hist_roc3"] = df["macd_hist"].diff(3) if "macd_hist" in df.columns else 0
-            roc_columns.extend(["macd_roc3", "macd_hist_roc3"])
+            for period in macd_roc_periods:
+                df[f"macd_roc{period}"] = df["macd"].diff(period)
+                roc_columns.append(f"macd_roc{period}")
+            if "macd_hist" in df.columns:
+                for period in macd_roc_periods:
+                    df[f"macd_hist_roc{period}"] = df["macd_hist"].diff(period)
+                    roc_columns.append(f"macd_hist_roc{period}")
 
         # ADX rate of change (trend strength change)
         adx_cols = [c for c in df.columns if c.startswith("adx_")]
         for col in adx_cols:
-            df[f"{col}_roc3"] = df[col].diff(3)
-            roc_columns.append(f"{col}_roc3")
+            for period in adx_roc_periods:
+                df[f"{col}_roc{period}"] = df[col].diff(period)
+                roc_columns.append(f"{col}_roc{period}")
 
         # ATR rate of change (volatility change)
         atr_cols = [c for c in df.columns if c.startswith("atr_")]
         for col in atr_cols:
-            df[f"{col}_roc3"] = df[col].diff(3)
-            df[f"{col}_roc6"] = df[col].diff(6)
-            roc_columns.extend([f"{col}_roc3", f"{col}_roc6"])
+            for period in atr_roc_periods:
+                df[f"{col}_roc{period}"] = df[col].diff(period)
+                roc_columns.append(f"{col}_roc{period}")
 
         # Price momentum (acceleration)
-        df["price_roc1"] = df["close"].pct_change(1)
-        df["price_roc3"] = df["close"].pct_change(3)
-        df["price_roc6"] = df["close"].pct_change(6)
-        df["price_roc12"] = df["close"].pct_change(12)
+        for period in price_roc_periods:
+            df[f"price_roc{period}"] = df["close"].pct_change(period)
 
-        # Acceleration (second derivative)
-        df["price_accel"] = df["price_roc3"].diff(3)
+        # Acceleration (second derivative) - using first price ROC period
+        if len(price_roc_periods) > 0:
+            first_period = price_roc_periods[0]
+            df["price_accel"] = df[f"price_roc{first_period}"].diff(first_period)
 
         # Volume momentum
         if "volume" in df.columns:
-            df["volume_roc3"] = df["volume"].pct_change(3)
-            df["volume_roc6"] = df["volume"].pct_change(6)
+            for period in volume_roc_periods:
+                df[f"volume_roc{period}"] = df["volume"].pct_change(period)
 
         return df
 

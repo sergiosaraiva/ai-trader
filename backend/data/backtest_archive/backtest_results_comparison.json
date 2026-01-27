@@ -1,0 +1,86 @@
+{
+  "comparison_date": "2026-01-26",
+  "models": "MTF Ensemble (1H/4H/Daily with Stacking)",
+  "test_period": "~2 years, 7460 hourly bars",
+  
+  "thresholds": {
+    "0.55": {
+      "total_trades": 1151,
+      "win_rate": 55.5,
+      "total_pips": 7143.2,
+      "avg_pips_per_trade": 6.2,
+      "profit_factor": 1.97,
+      "trades_per_day": 3.7,
+      "trades_per_week": 26,
+      "take_profit_pct": 47.8,
+      "stop_loss_pct": 42.1,
+      "long_win_rate": 67.3,
+      "short_win_rate": 51.1
+    },
+    "0.60": {
+      "total_trades": 1092,
+      "win_rate": 56.0,
+      "total_pips": 6993.9,
+      "avg_pips_per_trade": 6.4,
+      "profit_factor": 2.01,
+      "trades_per_day": 3.5,
+      "trades_per_week": 24,
+      "take_profit_pct": 48.5,
+      "stop_loss_pct": 41.4,
+      "long_win_rate": 67.8,
+      "short_win_rate": 51.8,
+      "recommended": true,
+      "reason": "Achievable with current model (75% of predictions), profitable, reasonable frequency"
+    },
+    "0.65": {
+      "total_trades": 1018,
+      "win_rate": 57.8,
+      "total_pips": 7191.5,
+      "avg_pips_per_trade": 7.1,
+      "profit_factor": 2.17,
+      "trades_per_day": 3.3,
+      "trades_per_week": 23,
+      "take_profit_pct": 49.8,
+      "stop_loss_pct": 39.6,
+      "long_win_rate": 72.5,
+      "short_win_rate": 52.8
+    },
+    "0.70": {
+      "total_trades": 926,
+      "win_rate": 60.0,
+      "total_pips": 7346.9,
+      "avg_pips_per_trade": 7.9,
+      "profit_factor": 2.39,
+      "trades_per_day": 3.0,
+      "trades_per_week": 21,
+      "take_profit_pct": 51.9,
+      "stop_loss_pct": 37.6,
+      "long_win_rate": 74.2,
+      "short_win_rate": 55.4,
+      "best_backtest": true,
+      "not_achievable_live": true,
+      "reason": "Best historical results but current model produces 0% predictions at this level"
+    }
+  },
+  
+  "key_findings": {
+    "old_results_were_incorrect": "Previous backtest_results.json showed identical results for all thresholds (impossible)",
+    "70_threshold_works_historically": "926 trades, 60% WR, best metrics",
+    "70_threshold_fails_live": "Current model produces 0% predictions at 70% confidence",
+    "confidence_degradation": "Live model ~8% lower confidence than historical test set",
+    "recommended_threshold": "60%",
+    "achievability": "75% of current live predictions meet 60% threshold"
+  },
+  
+  "live_model_analysis": {
+    "predictions_analyzed": 32,
+    "confidence_distribution": {
+      "above_70": "0%",
+      "above_65": "75%",
+      "above_60": "75%",
+      "above_55": "100%"
+    },
+    "mean_confidence": "59.7%",
+    "dominant_range": "65-68%"
+  }
+}

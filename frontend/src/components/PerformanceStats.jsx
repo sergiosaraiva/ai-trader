@@ -27,19 +27,18 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
     );
   }
 
-  // Backtest performance defaults (from backtest with 75/10/15 weights)
-  // Baseline: 55% confidence threshold (all trades)
-  // High-confidence: 70% threshold (filtered to best signals)
+  // Backtest performance defaults (Config C: 60% threshold, 18mo training)
+  // WFO validated on 9 windows (2021-2025)
   const backtestDefaults = {
-    total_pips: 7238,
-    win_rate: 0.571,           // Baseline (55% confidence)
-    win_rate_high_conf: 0.609, // High-confidence (70% threshold)
-    profit_factor: 2.10,
-    profit_factor_high_conf: 2.51,
-    total_trades: 1078,
-    total_trades_high_conf: 984,
-    sharpe_ratio: 5.74,
-    avg_pips_per_trade: 6.7,
+    total_pips: 6202,
+    win_rate: 0.539,           // 60% confidence threshold
+    win_rate_high_conf: 0.609, // High-confidence (65%+ threshold)
+    profit_factor: 1.85,
+    profit_factor_high_conf: 2.20,
+    total_trades: 1257,
+    total_trades_high_conf: 890,
+    sharpe_ratio: 4.2,
+    avg_pips_per_trade: 4.9,
   };
 
   // Use backtest defaults if no trades have been made yet
@@ -109,10 +108,10 @@ export function PerformanceStats({ performance, loading, error, assetMetadata })
       className="card-hover"
     >
       <p className="text-xs text-gray-500 mb-2">
-        Based on backtested results with 75/10/15 weight configuration
+        Config C: 60% confidence, 18mo training, WFO validated (9 windows)
       </p>
       <p className="text-xs text-gray-600 mb-3">
-        <span className="text-green-400">High-conf</span> = predictions with ≥70% model confidence (fewer but more accurate trades)
+        <span className="text-green-400">High-conf</span> = predictions with ≥65% model confidence (fewer but more accurate trades)
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3" role="list">

@@ -1,8 +1,11 @@
 """Volume indicators for technical analysis."""
 
-from typing import List
+from typing import List, Optional
 import numpy as np
 import pandas as pd
+
+from src.config.trading_config import TradingConfig
+from src.config.indicator_config import VolumeIndicators as VolumeConfig
 
 
 class VolumeIndicators:
@@ -16,8 +19,22 @@ class VolumeIndicators:
         """Get list of generated feature names."""
         return self._feature_names.copy()
 
-    def calculate_all(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate all volume indicators."""
+    def calculate_all(self, df: pd.DataFrame, config: Optional[TradingConfig] = None) -> pd.DataFrame:
+        """Calculate all volume indicators.
+
+        Args:
+            df: DataFrame with OHLCV data
+            config: Optional TradingConfig instance. If None, uses fresh defaults.
+
+        Returns:
+            DataFrame with volume indicators added
+        """
+        # Use fresh default config if none provided (avoid singleton)
+        if config is None:
+            volume_config = VolumeConfig()
+        else:
+            volume_config = config.indicators.volume
+
         df = df.copy()
         self._feature_names = []
 
@@ -27,13 +44,21 @@ class VolumeIndicators:
 
         df = self.obv(df)
         df = self.ad_line(df)
-        df = self.adosc(df)
-        df = self.cmf(df, period=20)
+        df = self.adosc(
+            df,
+            fast=volume_config.adosc_fast,
+            slow=volume_config.adosc_slow,
+        )
+        df = self.cmf(df, period=volume_config.cmf_period)
         df = self.vpt(df)
-        df = self.emv(df, period=14)
-        df = self.force_index(df, period=13)
-        df = self.volume_sma(df, periods=[10, 20])
-        df = self.volume_ratio(df)
+        df = self.emv(
+            df,
+            period=volume_config.emv_period,
+            scaling_factor=volume_config.emv_scaling_factor,
+        )
+        df = self.force_index(df, period=volume_config.force_index_period)
+        df = self.volume_sma(df, periods=volume_config.volume_sma_periods)
+        df = self.volume_ratio(df, period=volume_config.volume_ratio_period)
 
         return df
 
@@ -108,14 +133,23 @@ class VolumeIndicators:
         self._feature_names.append("vpt")
         return df
 
-    def emv(self, df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
-        """Ease of Movement."""
+    def emv(self, df: pd.DataFrame, period: int = 14, scaling_factor: float = 1e8) -> pd.DataFrame:
+        """Ease of Movement.
+
+        Args:
+            df: DataFrame with OHLCV data
+            period: Smoothing period
+            scaling_factor: Volume scaling factor (default 1e8)
+
+        Returns:
+            DataFrame with EMV column added
+        """
         high = df["high"]
         low = df["low"]
         volume = df["volume"]
 
         distance = ((high + low) / 2) - ((high.shift(1) + low.shift(1)) / 2)
-        box_ratio = (volume / 1e8) / (high - low + 1e-10)
+        box_ratio = (volume / scaling_factor) / (high - low + 1e-10)
         emv = distance / (box_ratio + 1e-10)
 
         col_name = f"emv_{period}"

@@ -1,17 +1,21 @@
 """Sentiment data loading and alignment with price data."""
 
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 import pandas as pd
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 
 class SentimentLoader:
     """
-    Load and align daily sentiment data with price data.
+    Load and align sentiment data with price data.
 
-    Sentiment data has daily resolution (same value for all intraday candles).
-    Critical: Shifts sentiment by 1 day to avoid look-ahead bias.
+    Supports both daily (EPU/VIX) and intraday (GDELT) sentiment data.
+    Automatically detects data frequency and adjusts shift accordingly.
+    Critical: Shifts sentiment to avoid look-ahead bias.
 
     Attributes:
         sentiment_path: Path to the sentiment CSV file
@@ -253,10 +257,18 @@ class SentimentLoader:
         us_only: bool = False,
     ) -> pd.DataFrame:
         """
-        Align daily sentiment to price data (any timeframe).
+        Align sentiment data to price data (any timeframe).
 
         CRITICAL: Shifts sentiment by shift_days to avoid look-ahead bias.
-        Daily sentiment will be the same for all intraday candles of that day.
+        Automatically detects sentiment data frequency (daily or intraday) and
+        adjusts shift accordingly:
+        - Daily sentiment (EPU/VIX): shift_days=1 → shifts by 1 day
+        - Hourly sentiment: shift_days=1 → shifts by 24 periods (1 day)
+        - 4H sentiment: shift_days=1 → shifts by 6 periods (1 day)
+
+        Merge behavior:
+        - Daily sentiment: All intraday candles get the same value for that day
+        - Intraday sentiment: Hour-to-hour matching with price data
 
         Args:
             price_df: DataFrame with DatetimeIndex (any timeframe)
@@ -264,7 +276,7 @@ class SentimentLoader:
             shift_days: Days to shift sentiment (default 1 for no look-ahead)
             include_country_sentiments: Include relevant country sentiments
             include_epu: Include raw EPU values
-            us_only: Use only US sentiment (EPU + VIX) - RECOMMENDED for best results
+            us_only: Use only US sentiment (EPU + VIX) - RECOMMENDED
 
         Returns:
             Price DataFrame with sentiment columns added
@@ -273,6 +285,50 @@ class SentimentLoader:
             self.load()
 
         result = price_df.copy()
+
+        # Detect sentiment data frequency to handle both daily and intraday
+        # sentiment data correctly
+        try:
+            sent_freq = pd.infer_freq(
+                self.sentiment_data.index[:min(100, len(self.sentiment_data))]
+            )
+
+            # Calculate periods per day for sentiment data
+            if sent_freq is None:
+                # Fallback: calculate from actual time deltas
+                time_diffs = (self.sentiment_data.index[1:] -
+                             self.sentiment_data.index[:-1])
+                median_diff = time_diffs.median()
+                sent_periods_per_day = pd.Timedelta(days=1) / median_diff
+            elif 'h' in str(sent_freq).lower():  # Hourly (1h, 2h, 4h, etc.)
+                hours = int(''.join(filter(str.isdigit, sent_freq)) or '1')
+                sent_periods_per_day = 24 / hours
+            elif 'T' in str(sent_freq) or 'min' in str(sent_freq).lower():
+                # Minutes
+                minutes = int(''.join(filter(str.isdigit, sent_freq)) or '1')
+                sent_periods_per_day = (24 * 60) / minutes
+            elif 'D' in str(sent_freq) or 'B' in str(sent_freq):  # Daily
+                sent_periods_per_day = 1
+            else:
+                # Default to daily
+                sent_periods_per_day = 1
+
+        except Exception:
+            # Default to daily if frequency detection fails
+            sent_periods_per_day = 1
+
+        # Convert shift_days to shift_periods based on sentiment frequency
+        # For daily sentiment (EPU/VIX): shift_days=1 → shift_periods=1
+        # For hourly sentiment (GDELT): shift_days=1 → shift_periods=24
+        # For 4H sentiment: shift_days=1 → shift_periods=6
+        shift_periods = int(shift_days * sent_periods_per_day)
+
+        # Log shift calculation for debugging
+        logger.debug(
+            f"Sentiment alignment: detected freq={sent_freq}, "
+            f"periods_per_day={sent_periods_per_day:.1f}, "
+            f"shift_days={shift_days} → shift_periods={shift_periods}"
+        )
 
         # Extract date from price index for merging
         if hasattr(result.index, 'date'):
@@ -326,26 +382,62 @@ class SentimentLoader:
                     sentiment_to_merge[new_name] = epu_df[col]
 
         # Shift sentiment to avoid look-ahead bias
-        # shift_days=1 means we use yesterday's sentiment for today
-        sentiment_shifted = sentiment_to_merge.shift(shift_days)
+        # shift_periods calculated from shift_days * sent_periods_per_day
+        # Daily sentiment: shift_days=1 → shift_periods=1 (shift by 1 day)
+        # Hourly sentiment: shift_days=1 → shift_periods=24 (shift by 1 day)
+        sentiment_shifted = sentiment_to_merge.shift(shift_periods)
 
-        # Prepare for merge - set index to date
-        sentiment_shifted['_merge_date'] = sentiment_shifted.index
-        sentiment_shifted = sentiment_shifted.reset_index(drop=True)
+        # Merge strategy depends on sentiment frequency
+        if sent_periods_per_day == 1:
+            # DAILY sentiment: Merge on DATE (all intraday candles get same
+            # sentiment value)
+            if hasattr(sentiment_shifted.index, 'date'):
+                sentiment_shifted['_merge_date'] = pd.to_datetime(
+                    sentiment_shifted.index.date
+                )
+            else:
+                sentiment_shifted['_merge_date'] = sentiment_shifted.index
 
-        # Merge on date
-        result = result.reset_index()
-        original_index_name = result.columns[0]
+            sentiment_shifted = sentiment_shifted.reset_index(drop=True)
 
-        result = result.merge(
-            sentiment_shifted,
-            on='_merge_date',
-            how='left',
-        )
+            # Merge on date
+            result = result.reset_index()
+            original_index_name = result.columns[0]
 
-        # Restore index
-        result = result.set_index(original_index_name)
-        result = result.drop('_merge_date', axis=1)
+            result = result.merge(
+                sentiment_shifted,
+                on='_merge_date',
+                how='left',
+            )
+
+            # Restore index and cleanup
+            result = result.set_index(original_index_name)
+            result = result.drop('_merge_date', axis=1)
+
+        else:
+            # INTRADAY sentiment: Merge on exact datetime
+            # Prepare sentiment for merge
+            sentiment_shifted = sentiment_shifted.reset_index()
+            sentiment_shifted.columns = ['_merge_datetime'] + list(
+                sentiment_shifted.columns[1:]
+            )
+
+            # Prepare price data
+            result = result.reset_index()
+            original_index_name = result.columns[0]
+            result['_merge_datetime'] = result[original_index_name]
+
+            # Merge on datetime
+            result = result.merge(
+                sentiment_shifted,
+                on='_merge_datetime',
+                how='left',
+            )
+
+            # Restore index and cleanup
+            result = result.set_index(original_index_name)
+            result = result.drop(['_merge_date', '_merge_datetime'], axis=1,
+                               errors='ignore')
 
         # Forward fill missing values (weekends, holidays)
         sentiment_cols = [c for c in result.columns if 'sentiment' in c.lower() or 'sent_' in c.lower() or 'epu_' in c.lower() or 'vix' in c.lower()]

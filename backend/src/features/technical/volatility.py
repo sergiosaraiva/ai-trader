@@ -1,8 +1,11 @@
 """Volatility indicators for technical analysis."""
 
-from typing import List
+from typing import List, Optional
 import numpy as np
 import pandas as pd
+
+from src.config.trading_config import TradingConfig
+from src.config.indicator_config import VolatilityIndicators as VolatilityConfig
 
 
 class VolatilityIndicators:
@@ -16,18 +19,44 @@ class VolatilityIndicators:
         """Get list of generated feature names."""
         return self._feature_names.copy()
 
-    def calculate_all(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate all volatility indicators."""
+    def calculate_all(self, df: pd.DataFrame, config: Optional[TradingConfig] = None) -> pd.DataFrame:
+        """Calculate all volatility indicators.
+
+        Args:
+            df: DataFrame with OHLCV data
+            config: Optional TradingConfig instance. If None, uses fresh defaults.
+
+        Returns:
+            DataFrame with volatility indicators added
+        """
+        # Use fresh default config if none provided (avoid singleton)
+        if config is None:
+            volatility_config = VolatilityConfig()
+        else:
+            volatility_config = config.indicators.volatility
+
         df = df.copy()
         self._feature_names = []
 
-        df = self.atr(df, periods=[14])
-        df = self.natr(df, period=14)
-        df = self.bollinger_bands(df, period=20, std_dev=2)
-        df = self.keltner_channel(df, period=20, multiplier=2)
-        df = self.donchian_channel(df, period=20)
-        df = self.stddev(df, periods=[10, 20])
-        df = self.historical_volatility(df, periods=[10, 20, 30])
+        df = self.atr(df, periods=[volatility_config.atr_period])
+        df = self.natr(df, period=volatility_config.natr_period)
+        df = self.bollinger_bands(
+            df,
+            period=volatility_config.bollinger_period,
+            std_dev=volatility_config.bollinger_std,
+        )
+        df = self.keltner_channel(
+            df,
+            period=volatility_config.keltner_period,
+            multiplier=volatility_config.keltner_multiplier,
+        )
+        df = self.donchian_channel(df, period=volatility_config.donchian_period)
+        df = self.stddev(df, periods=volatility_config.std_periods)
+        df = self.historical_volatility(
+            df,
+            periods=volatility_config.hvol_periods,
+            annualization_factor=volatility_config.hvol_annualization_factor,
+        )
 
         return df
 
@@ -134,15 +163,30 @@ class VolatilityIndicators:
         return df
 
     def historical_volatility(
-        self, df: pd.DataFrame, periods: List[int], column: str = "close"
+        self,
+        df: pd.DataFrame,
+        periods: List[int],
+        column: str = "close",
+        annualization_factor: int = 252,
     ) -> pd.DataFrame:
-        """Historical Volatility (annualized)."""
+        """Historical Volatility (annualized).
+
+        Args:
+            df: DataFrame with price data
+            periods: List of periods to calculate
+            column: Column to use for calculation
+            annualization_factor: Factor to annualize volatility (default 252 for daily)
+
+        Returns:
+            DataFrame with historical volatility columns added
+        """
         log_returns = np.log(df[column] / df[column].shift(1))
 
         for period in periods:
             col_name = f"hvol_{period}"
-            # Annualized volatility (assuming 252 trading days)
-            df[col_name] = log_returns.rolling(window=period).std() * np.sqrt(252)
+            df[col_name] = log_returns.rolling(window=period).std() * np.sqrt(
+                annualization_factor
+            )
             self._feature_names.append(col_name)
 
         return df

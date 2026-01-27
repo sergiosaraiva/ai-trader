@@ -1,12 +1,15 @@
 """Agent configuration management.
 
 Loads configuration from environment variables with validation and defaults.
+Integrates with the centralized TradingConfig system.
 """
 
 import os
 import logging
 from dataclasses import dataclass, field, asdict
 from typing import Optional, Dict, Any
+
+from ..config import trading_config
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +25,9 @@ class AgentConfig:
     # Trading mode
     mode: str = "simulation"  # simulation, paper, live
 
-    # Trading parameters
+    # Trading parameters (synced with centralized config)
     symbol: str = "EURUSD"  # Trading symbol
-    confidence_threshold: float = 0.70  # Minimum confidence to trade
+    confidence_threshold: float = field(default_factory=lambda: trading_config.trading.confidence_threshold)  # From TradingConfig (Config C)
     max_position_size: float = 0.1  # Maximum lot size
     use_kelly_sizing: bool = True  # Use Kelly Criterion for position sizing
 
@@ -45,11 +48,12 @@ class AgentConfig:
     # Initial capital (for simulation/paper)
     initial_capital: float = 100000.0
 
-    # Safety settings
-    max_consecutive_losses: int = 5
-    max_drawdown_percent: float = 10.0
-    max_daily_loss_percent: float = 5.0
-    enable_model_degradation: bool = False
+    # Safety settings (synced with centralized config)
+    # DEPRECATED: These fields are kept for backward compatibility but now read from TradingConfig
+    max_consecutive_losses: int = field(default_factory=lambda: trading_config.risk.max_consecutive_losses)  # From TradingConfig
+    max_drawdown_percent: float = field(default_factory=lambda: trading_config.risk.max_drawdown_percent)  # From TradingConfig (15.0)
+    max_daily_loss_percent: float = field(default_factory=lambda: trading_config.risk.max_daily_loss_percent)  # From TradingConfig
+    enable_model_degradation: bool = field(default_factory=lambda: trading_config.risk.enable_model_degradation)  # From TradingConfig
 
     # Timeout settings (configurable)
     db_timeout_seconds: float = 10.0  # Database operation timeout
@@ -70,16 +74,28 @@ class AgentConfig:
     def from_env(cls) -> "AgentConfig":
         """Load configuration from environment variables.
 
+        Syncs with centralized TradingConfig for consistency.
+
         Returns:
             AgentConfig instance with values from environment
 
         Raises:
             ValueError: If configuration is invalid
         """
+        # Get configuration from centralized config if not explicitly set in env
+        default_confidence = str(trading_config.trading.confidence_threshold)
+        confidence_env = os.getenv("AGENT_CONFIDENCE_THRESHOLD", default_confidence)
+
+        # Sync safety settings from centralized config (with env override)
+        default_max_consecutive_losses = str(trading_config.risk.max_consecutive_losses)
+        default_max_drawdown = str(trading_config.risk.max_drawdown_percent)
+        default_max_daily_loss = str(trading_config.risk.max_daily_loss_percent)
+        default_enable_degradation = "true" if trading_config.risk.enable_model_degradation else "false"
+
         config = cls(
             mode=os.getenv("AGENT_MODE", "simulation"),
             symbol=os.getenv("AGENT_SYMBOL", "EURUSD"),
-            confidence_threshold=float(os.getenv("AGENT_CONFIDENCE_THRESHOLD", "0.70")),
+            confidence_threshold=float(confidence_env),
             max_position_size=float(os.getenv("AGENT_MAX_POSITION_SIZE", "0.1")),
             use_kelly_sizing=os.getenv("AGENT_USE_KELLY_SIZING", "true").lower() == "true",
             cycle_interval_seconds=int(os.getenv("AGENT_CYCLE_INTERVAL", "60")),
@@ -89,10 +105,11 @@ class AgentConfig:
             health_port=int(os.getenv("AGENT_HEALTH_PORT", "8002")),
             database_url=os.getenv("DATABASE_URL"),
             initial_capital=float(os.getenv("AGENT_INITIAL_CAPITAL", "100000.0")),
-            max_consecutive_losses=int(os.getenv("AGENT_MAX_CONSECUTIVE_LOSSES", "5")),
-            max_drawdown_percent=float(os.getenv("AGENT_MAX_DRAWDOWN_PERCENT", "10.0")),
-            max_daily_loss_percent=float(os.getenv("AGENT_MAX_DAILY_LOSS_PERCENT", "5.0")),
-            enable_model_degradation=os.getenv("AGENT_ENABLE_MODEL_DEGRADATION", "false").lower() == "true",
+            # Safety settings now sync from centralized config
+            max_consecutive_losses=int(os.getenv("AGENT_MAX_CONSECUTIVE_LOSSES", default_max_consecutive_losses)),
+            max_drawdown_percent=float(os.getenv("AGENT_MAX_DRAWDOWN_PERCENT", default_max_drawdown)),  # 15.0
+            max_daily_loss_percent=float(os.getenv("AGENT_MAX_DAILY_LOSS_PERCENT", default_max_daily_loss)),
+            enable_model_degradation=os.getenv("AGENT_ENABLE_MODEL_DEGRADATION", default_enable_degradation).lower() == "true",
             # Timeout settings
             db_timeout_seconds=float(os.getenv("AGENT_DB_TIMEOUT", "10.0")),
             broker_timeout_seconds=float(os.getenv("AGENT_BROKER_TIMEOUT", "30.0")),

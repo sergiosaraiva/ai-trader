@@ -1,0 +1,247 @@
+╔══════════════════════════════════════════════════════════════════╗
+║              THRESHOLD UPDATE - COMPLETE SUMMARY                 ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Date: 2026-01-26 12:30 UTC
+Action: Updated confidence threshold from 70% to 60%
+
+═══════════════════════════════════════════════════════════════════
+WHAT WAS DONE
+═══════════════════════════════════════════════════════════════════
+
+✅ 1. Backed up existing backtest results
+   Location: backend/data/backtest_archive/backtest_results_70pct_*.json
+
+✅ 2. Updated threshold in code (70% → 60%)
+   Files modified:
+   • backend/src/api/services/model_service.py (line 271, 463)
+   • backend/src/models/multi_timeframe/mtf_ensemble.py (line 199)
+
+✅ 3. Fixed pandas compatibility issue
+   • Changed "4H" → "4h" in backtest script
+   • Fixed "1D" → "1d" frequency strings
+
+✅ 4. Re-ran backtests at ALL thresholds
+   • 55% threshold: COMPLETED
+   • 60% threshold: COMPLETED ⭐
+   • 65% threshold: COMPLETED
+   • 70% threshold: COMPLETED
+
+✅ 5. Created comprehensive comparison analysis
+   Reports saved:
+   • backtest_threshold_comparison.txt (16KB detailed analysis)
+   • backtest_results_comparison.json (structured data)
+   • backtest_*_full.log (raw backtest outputs)
+
+✅ 6. Restarted backend with new 60% threshold
+   Status: Backend running, scheduler active
+
+
+═══════════════════════════════════════════════════════════════════
+BACKTEST RESULTS SUMMARY
+═══════════════════════════════════════════════════════════════════
+
+Threshold | Trades | Win Rate | Pips    | Profit Factor | Status
+----------|--------|----------|---------|---------------|--------
+   55%    | 1,151  |  55.5%   | +7,143  |     1.97      | Too many
+   60%    | 1,092  |  56.0%   | +6,994  |     2.01      | ⭐ ACTIVE
+   65%    | 1,018  |  57.8%   | +7,192  |     2.17      | Better
+   70%    |   926  |  60.0%   | +7,347  |     2.39      | Best but unusable
+
+
+═══════════════════════════════════════════════════════════════════
+KEY FINDINGS
+═══════════════════════════════════════════════════════════════════
+
+1. OLD BACKTEST WAS INCORRECT
+   • Showed same results for all thresholds (impossible)
+   • Likely ran at 55% regardless of claimed threshold
+   • New backtests properly vary by threshold
+
+2. 70% THRESHOLD WORKS HISTORICALLY BUT NOT LIVE
+   • Historical: 926 trades, 60% win rate, best results
+   • Current: 0% of predictions meet 70% confidence
+   • Model confidence degraded ~8% vs historical data
+
+3. 60% THRESHOLD IS VIABLE
+   • 1,092 historical trades, 56% win rate
+   • 75% of current live predictions meet this
+   • System will actually trade (not stay dormant)
+
+4. QUALITY IMPROVES WITH HIGHER THRESHOLDS
+   • Win rate: 55.5% → 56% → 57.8% → 60%
+   • Profit factor: 1.97 → 2.01 → 2.17 → 2.39
+   • But: Must be achievable by model!
+
+
+═══════════════════════════════════════════════════════════════════
+WHY 60% WAS CHOSEN
+═══════════════════════════════════════════════════════════════════
+
+✅ ACHIEVABLE
+   • 75% of current predictions qualify (24/32)
+   • System will trade regularly, not stay dormant
+   • Better than 70% (0% qualify)
+
+✅ PROFITABLE
+   • Historical: 56% win rate, 2.01 profit factor
+   • +6,994 pips over test period
+   • Above professional standards (>52% WR)
+
+✅ REASONABLE FREQUENCY
+   • Historical: ~24 trades/week (3.5/day)
+   • Manageable for swing trading style
+   • Can monitor and adjust if needed
+
+✅ ROOM TO IMPROVE
+   • Can tighten to 65% if live performance strong
+   • 65% shows better metrics (57.8% WR, 2.17 PF)
+   • Also achievable with current model (75%)
+
+
+═══════════════════════════════════════════════════════════════════
+COMPARISON: OLD vs NEW RESULTS
+═══════════════════════════════════════════════════════════════════
+
+OLD (backtest_results.json):
+  • Claimed 70% threshold
+  • 887 trades, 56.5% WR, 5,239 pips
+  • SAME for all thresholds (55-70%) ← WRONG
+
+NEW (actual backtests):
+  • Properly tested each threshold
+  • Results vary correctly by threshold
+  • Higher totals: 7,143-7,347 pips vs 5,239
+  • More accurate representation
+
+
+═══════════════════════════════════════════════════════════════════
+LIVE MODEL ANALYSIS
+═══════════════════════════════════════════════════════════════════
+
+Current Predictions (32 total):
+  • Mean confidence: 59.7%
+  • Range: 55-68%
+  • Dominant: 65-68% (75% of predictions)
+
+Threshold Impact:
+  • At 55%: 100% of predictions trade (32/32)
+  • At 60%: 75% of predictions trade (24/32) ⭐
+  • At 65%: 75% of predictions trade (24/32)
+  • At 70%: 0% of predictions trade (0/32) ❌
+
+Problem Identified:
+  • Historical test set: 12.4% of predictions >= 70%
+  • Current live model: 0% of predictions >= 70%
+  • ~8% confidence degradation vs historical
+
+
+═══════════════════════════════════════════════════════════════════
+FILES MODIFIED
+═══════════════════════════════════════════════════════════════════
+
+1. backend/src/api/services/model_service.py
+   Line 271, 463:
+   - "should_trade": bool(prediction.confidence >= 0.70)
+   + "should_trade": bool(prediction.confidence >= 0.60)
+
+2. backend/src/models/multi_timeframe/mtf_ensemble.py
+   Line 199:
+   - return self.confidence >= 0.70
+   + return self.confidence >= 0.60
+
+3. backend/scripts/backtest_mtf_ensemble.py (bug fix)
+   - ts.floor("4H")
+   + ts.floor("4h")
+
+
+═══════════════════════════════════════════════════════════════════
+REPORTS GENERATED
+═══════════════════════════════════════════════════════════════════
+
+All saved in: backend/data/backtest_archive/
+
+1. backtest_threshold_comparison.txt (16KB)
+   • Detailed analysis of all thresholds
+   • Trade frequency, quality metrics
+   • Recommendations and findings
+
+2. backtest_results_comparison.json (3KB)
+   • Structured data for programmatic access
+   • All threshold results in JSON format
+   • Key findings and metadata
+
+3. backtest_55pct_full.log (6KB)
+   • Complete output of 55% backtest
+   • 1,151 trades, 55.5% WR
+
+4. backtest_60pct_full.log (6KB)
+   • Complete output of 60% backtest ⭐
+   • 1,092 trades, 56.0% WR
+
+5. backtest_65pct_full.log (6KB)
+   • Complete output of 65% backtest
+   • 1,018 trades, 57.8% WR
+
+6. backtest_70pct_full.log (6KB)
+   • Complete output of 70% backtest
+   • 926 trades, 60.0% WR (best but not achievable)
+
+7. backtest_results_70pct_*.json (3KB)
+   • Original incorrect results (archived)
+
+
+═══════════════════════════════════════════════════════════════════
+NEXT STEPS
+═══════════════════════════════════════════════════════════════════
+
+IMMEDIATE:
+  1. ✅ Backend restarted with 60% threshold
+  2. ✅ System now configured for realistic trading
+  3. 📱 Refresh browser (Ctrl+F5) to see updates
+
+MONITOR (Next 1-2 Weeks):
+  • Live win rate: Should be ~56%
+  • Trade frequency: Expect ~3-4 trades/day
+  • Confidence distribution: Should stay 60-68%
+  • Signal History: Should show mix of TRADE/HOLD
+
+ADJUST:
+  • If live WR > 58%: Consider raising to 65%
+  • If live WR < 54%: Keep at 60% or research why
+  • If too many trades: Increase threshold
+  • If too few trades: Check model confidence
+
+INVESTIGATE:
+  • Why did model confidence drop vs historical?
+  • Is recent market less predictable?
+  • Does model need recalibration?
+  • Should we use agreement score instead?
+
+
+═══════════════════════════════════════════════════════════════════
+SYSTEM STATUS
+═══════════════════════════════════════════════════════════════════
+
+✅ Backend: Running (http://localhost:8001)
+✅ Frontend: Running (http://localhost:3001)
+✅ Scheduler: Active (next prediction at :01)
+✅ Threshold: Updated to 60%
+✅ Backtests: Completed and archived
+
+⚠️  Next prediction will use 60% threshold
+⚠️  Will be marked as tradeable if confidence >= 60%
+⚠️  Expected: 75% of predictions will trigger trades
+
+
+╔══════════════════════════════════════════════════════════════════╗
+║                   ✅ THRESHOLD UPDATE COMPLETE                   ║
+║                                                                  ║
+║  New Threshold: 60% (was 70%)                                   ║
+║  Historical Performance: 1,092 trades, 56% WR, +6,994 pips     ║
+║  Live Achievability: 75% of predictions qualify                 ║
+║  System Status: Active and ready for trading                    ║
+║                                                                  ║
+║  All backtest reports saved in:                                 ║
+║  backend/data/backtest_archive/                                 ║
+╚══════════════════════════════════════════════════════════════════╝
