@@ -41,6 +41,8 @@ import pandas as pd
 
 from src.models.multi_timeframe import MTFEnsemble, MTFEnsembleConfig, StackingConfig
 from src.features.regime.regime_detector import RegimeDetector, MarketRegime
+from src.features.sentiment.sentiment_loader import SentimentLoader
+from src.config import TradingConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -202,7 +204,7 @@ class WFOSummary:
 def create_wfo_windows(
     data_start: pd.Timestamp,
     data_end: pd.Timestamp,
-    train_months: int = 24,
+    train_months: int = 18,
     test_months: int = 6,
     step_months: int = 6,
 ) -> List[WFOWindow]:
@@ -482,7 +484,7 @@ def calculate_threshold_metrics(trades_df: pd.DataFrame, thresholds: List[float]
 def run_window_backtest(
     ensemble: MTFEnsemble,
     df_5min: pd.DataFrame,
-    min_confidence: float = 0.70,
+    min_confidence: float = 0.60,
     min_agreement: float = 0.5,
     tp_pips: float = 25.0,
     sl_pips: float = 15.0,
@@ -496,6 +498,7 @@ def run_window_backtest(
     use_equity_filter: bool = True,
     use_volatility_sizing: bool = True,
     daily_loss_limit: float = 0.03,
+    return_trades: bool = False,
 ) -> Dict:
     """Run backtest on test data using the ensemble with proper position sizing.
 
@@ -564,6 +567,20 @@ def run_window_backtest(
     model_d = ensemble.models["D"]
     df_d = ensemble.resample_data(df_5min, "D")
     df_d_features = calc.calculate(df_d)
+
+    # Check if Daily model expects sentiment features by comparing feature counts
+    expected_features = len(model_d.feature_names)
+    current_features_without_sentiment = len(df_d_features.columns) + len([f for f in model_d.feature_names if not any(s in f for s in ['sent', 'epu', 'vix', 'sentiment'])])
+
+    # Enable sentiment if model was trained with it (feature count mismatch indicates this)
+    if expected_features > 120 and not model_d.feature_engine.include_sentiment_features:
+        logger.info(f"Enabling sentiment features for Daily model (expects {expected_features} features)")
+        model_d.feature_engine.include_sentiment_features = True
+        # Update sentiment path to current data
+        sentiment_path = project_root / "data" / "sentiment" / f"sentiment_{model_d.feature_engine.sentiment_source}_20200101_20260126_daily.csv"
+        if sentiment_path.exists():
+            model_d.feature_engine.sentiment_path = sentiment_path
+
     df_d_features = model_d.feature_engine.add_all_features(df_d_features, {})
     df_d_features = df_d_features.dropna()
 
@@ -873,6 +890,8 @@ def run_window_backtest(
                 "balance_after": balance,
                 "exit_reason": exit_reason,
                 "risk_used": current_risk,
+                "entry_time": entry_time,
+                "exit_time": timestamps[exit_idx],
             })
 
             i = exit_idx
@@ -920,7 +939,7 @@ def run_window_backtest(
     final_balance = balance
     total_return_pct = ((final_balance - initial_balance) / initial_balance) * 100
 
-    return {
+    result = {
         "total_trades": len(trades_df),
         "winning_trades": len(wins),
         "losing_trades": len(losses),
@@ -951,13 +970,18 @@ def run_window_backtest(
         "by_threshold": calculate_threshold_metrics(trades_df),
     }
 
+    if return_trades:
+        result["trades"] = trades
+
+    return result
+
 
 def run_wfo_window(
     window: WFOWindow,
     df_5min: pd.DataFrame,
     config: MTFEnsembleConfig,
     output_dir: Path,
-    min_confidence: float = 0.70,
+    min_confidence: float = 0.60,
     initial_balance: float = 10000.0,
     risk_per_trade: float = 0.02,
     reduce_risk_on_losses: bool = True,
@@ -1012,7 +1036,9 @@ def run_wfo_window(
 
     # Create and train ensemble for this window
     window_model_dir = output_dir / f"window_{window.window_id}"
-    ensemble = MTFEnsemble(config=config, model_dir=window_model_dir)
+    # Load centralized trading config for hyperparameters
+    trading_config = TradingConfig()
+    ensemble = MTFEnsemble(config=config, model_dir=window_model_dir, trading_config=trading_config)
 
     # Train using 80/20 train/val split within training period
     train_results = ensemble.train(
@@ -1399,8 +1425,8 @@ def main():
         help="Output directory for WFO models and results"
     )
     parser.add_argument(
-        "--train-months", type=int, default=24,
-        help="Training window duration in months"
+        "--train-months", type=int, default=18,
+        help="Training window duration in months (Config C: 18)"
     )
     parser.add_argument(
         "--test-months", type=int, default=6,
@@ -1411,8 +1437,8 @@ def main():
         help="Step size in months between windows"
     )
     parser.add_argument(
-        "--confidence", type=float, default=0.70,
-        help="Minimum confidence threshold for trading (default: 0.70)"
+        "--confidence", type=float, default=0.60,
+        help="Minimum confidence threshold for trading (Config C: 0.60)"
     )
     parser.add_argument(
         "--sentiment", action="store_true",

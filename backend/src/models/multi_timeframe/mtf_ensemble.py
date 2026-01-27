@@ -23,19 +23,23 @@ import pandas as pd
 
 from .improved_model import ImprovedModelConfig, ImprovedTimeframeModel
 from .stacking_meta_learner import StackingMetaLearner, StackingConfig
+from ...config import TradingConfig
 
 logger = logging.getLogger(__name__)
+
+# Load centralized configuration
+_config = TradingConfig()
 
 
 @dataclass
 class MTFEnsembleConfig:
     """Configuration for Multi-Timeframe Ensemble."""
 
-    # Model weights
+    # Model weights (from centralized config)
     weights: Dict[str, float] = field(default_factory=lambda: {
-        "1H": 0.6,   # Short-term: dominant for entry timing
-        "4H": 0.3,   # Medium-term: trend confirmation
-        "D": 0.1,    # Long-term: regime context
+        "1H": _config.model.weight_1h,   # Short-term: dominant for entry timing (from TradingConfig)
+        "4H": _config.model.weight_4h,   # Medium-term: trend confirmation (from TradingConfig)
+        "D": _config.model.weight_daily,    # Long-term: regime context (from TradingConfig)
     })
 
     # Agreement bonus
@@ -195,8 +199,17 @@ class MTFPrediction:
 
     @property
     def should_trade(self) -> bool:
-        """Whether confidence is high enough to trade."""
-        return self.confidence >= 0.55
+        """Whether confidence is high enough to trade.
+
+        Uses confidence threshold from centralized configuration.
+        """
+        # Import here to avoid circular dependency
+        try:
+            from src.config import trading_config
+            return self.confidence >= trading_config.trading.confidence_threshold
+        except ImportError:
+            # Fallback if config not available
+            return self.confidence >= 0.66
 
     @property
     def all_agree(self) -> bool:
@@ -218,9 +231,14 @@ class MTFEnsemble:
         self,
         config: Optional[MTFEnsembleConfig] = None,
         model_dir: Optional[Path] = None,
+        trading_config: Optional[TradingConfig] = None,
     ):
         self.config = config or MTFEnsembleConfig.default()
         self.model_dir = Path(model_dir) if model_dir else Path("models/mtf_ensemble")
+        self.trading_config = trading_config or TradingConfig()
+
+        # Validate ensemble configuration against centralized config
+        self._validate_with_centralized_config()
 
         # Initialize models with sentiment support if enabled
         self.models: Dict[str, ImprovedTimeframeModel] = {}
@@ -269,12 +287,21 @@ class MTFEnsemble:
         for tf, cfg in self.model_configs.items():
             cfg.model_type = self.config.model_type
 
-        # Create model instances
+        # Create model instances with centralized TradingConfig
         for tf, cfg in self.model_configs.items():
-            self.models[tf] = ImprovedTimeframeModel(cfg)
+            self.models[tf] = ImprovedTimeframeModel(cfg, trading_config=self.trading_config)
+            logger.info(f"Created {tf} model with centralized hyperparameters")
 
         # Current weights (may be adjusted for regime or dynamic adjustment)
         self.current_weights = self.config.weights.copy()
+
+        # Register callback for model config changes (hot-reload support)
+        try:
+            from src.config import trading_config
+            trading_config.register_callback("model", self._on_model_config_change)
+            logger.debug("Registered callback for model config changes")
+        except ImportError:
+            logger.warning("Could not register model config callback - TradingConfig not available")
 
         # Prediction history for dynamic weight adjustment (deque for automatic FIFO)
         self.prediction_history: Deque[Dict[str, Any]] = deque(
@@ -292,6 +319,70 @@ class MTFEnsemble:
             stacking_config = self.config.stacking_config or StackingConfig.default()
             self.stacking_meta_learner = StackingMetaLearner(stacking_config)
             logger.info("Stacking meta-learner initialized")
+
+    def _validate_with_centralized_config(self) -> None:
+        """Validate ensemble configuration against centralized TradingConfig.
+
+        Logs warnings if ensemble config differs from centralized config.
+        Does NOT override ensemble config to preserve training consistency.
+        """
+        try:
+            from src.config import trading_config
+
+            # Check if weights match centralized config
+            centralized_weights = trading_config.model.get_weights()
+            if self.config.weights != centralized_weights:
+                logger.warning(
+                    f"Ensemble weights differ from centralized config: "
+                    f"ensemble={self.config.weights}, config={centralized_weights}. "
+                    f"Using ensemble weights (training consistency)."
+                )
+
+            # Check if agreement bonus matches
+            if self.config.agreement_bonus != trading_config.model.agreement_bonus:
+                logger.warning(
+                    f"Agreement bonus differs from centralized config: "
+                    f"ensemble={self.config.agreement_bonus}, config={trading_config.model.agreement_bonus}. "
+                    f"Using ensemble value (training consistency)."
+                )
+
+            # Check if regime adjustment matches
+            if self.config.use_regime_adjustment != trading_config.model.use_regime_adjustment:
+                logger.warning(
+                    f"Regime adjustment differs from centralized config: "
+                    f"ensemble={self.config.use_regime_adjustment}, config={trading_config.model.use_regime_adjustment}. "
+                    f"Using ensemble value (training consistency)."
+                )
+
+        except ImportError:
+            logger.debug("TradingConfig not available - skipping validation")
+
+    def _on_model_config_change(self, model_params) -> None:
+        """Callback for model configuration changes.
+
+        Updates ensemble weights when centralized config changes.
+        Only affects runtime weights, not saved model config.
+
+        Args:
+            model_params: Updated ModelParameters object
+        """
+        logger.info("Model config changed - updating ensemble weights")
+
+        # Update current weights (not config.weights - that's from training)
+        new_weights = model_params.get_weights()
+        self.current_weights = self._normalize_weights(new_weights)
+
+        # Update agreement bonus (affects confidence calculation)
+        self.config.agreement_bonus = model_params.agreement_bonus
+
+        # Update regime adjustment setting
+        self.config.use_regime_adjustment = model_params.use_regime_adjustment
+
+        logger.info(
+            f"Applied config changes: weights={self.current_weights}, "
+            f"agreement_bonus={self.config.agreement_bonus}, "
+            f"regime_adjustment={self.config.use_regime_adjustment}"
+        )
 
     def _normalize_weights(self, weights: Dict[str, float]) -> Dict[str, float]:
         """Normalize weights to sum to 1."""

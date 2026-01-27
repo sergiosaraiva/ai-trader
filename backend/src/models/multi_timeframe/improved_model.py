@@ -38,11 +38,15 @@ except ImportError:
 
 from .labeling import AdvancedLabeler, LabelingConfig, LabelMethod
 from .enhanced_features import EnhancedFeatureEngine
+from ...config import TradingConfig
 
 if TYPE_CHECKING:
     from ..feature_selection import RFECVConfig
 
 logger = logging.getLogger(__name__)
+
+# Load centralized configuration
+_config = TradingConfig()
 
 
 @dataclass
@@ -99,9 +103,9 @@ class ImprovedModelConfig:
         return cls(
             name="1H",
             base_timeframe="1H",
-            tp_pips=25.0,
-            sl_pips=15.0,
-            max_holding_bars=12,  # 12 hours max
+            tp_pips=_config.timeframes["1H"].tp_pips,  # From centralized config
+            sl_pips=_config.timeframes["1H"].sl_pips,  # From centralized config
+            max_holding_bars=_config.timeframes["1H"].max_holding_bars,  # From centralized config
             n_estimators=150,
             max_depth=5,
             learning_rate=0.03,
@@ -113,9 +117,9 @@ class ImprovedModelConfig:
         return cls(
             name="4H",
             base_timeframe="4H",
-            tp_pips=50.0,   # Original value - stable
-            sl_pips=25.0,   # Original value - stable
-            max_holding_bars=18,  # Original value - 3 days max
+            tp_pips=_config.timeframes["4H"].tp_pips,  # From centralized config
+            sl_pips=_config.timeframes["4H"].sl_pips,  # From centralized config
+            max_holding_bars=_config.timeframes["4H"].max_holding_bars,  # From centralized config
             n_estimators=120,
             max_depth=4,
             learning_rate=0.03,
@@ -127,9 +131,9 @@ class ImprovedModelConfig:
         return cls(
             name="D",
             base_timeframe="D",
-            tp_pips=150.0,  # Increased from 100 - wider target for position trades
-            sl_pips=75.0,   # Increased from 50 - more room for daily volatility
-            max_holding_bars=15,  # Increased from 10 - 3 weeks max
+            tp_pips=_config.timeframes["D"].tp_pips,  # From centralized config
+            sl_pips=_config.timeframes["D"].sl_pips,  # From centralized config
+            max_holding_bars=_config.timeframes["D"].max_holding_bars,  # From centralized config
             n_estimators=80,
             max_depth=3,
             learning_rate=0.03,
@@ -139,12 +143,16 @@ class ImprovedModelConfig:
 class ImprovedTimeframeModel:
     """Improved model for a single timeframe."""
 
-    def __init__(self, config: ImprovedModelConfig):
+    def __init__(self, config: ImprovedModelConfig, trading_config: Optional[TradingConfig] = None):
         self.config = config
+        self.trading_config = trading_config or TradingConfig()
         self.model = None
         self.scaler: Optional[StandardScaler] = None
         self.feature_names: List[str] = []
         self.is_trained: bool = False
+
+        # Load hyperparameters from centralized config based on timeframe
+        self.hyperparams = self._load_hyperparameters()
 
         # RFECV feature selection
         self.selected_features: Optional[List[str]] = None
@@ -181,27 +189,73 @@ class ImprovedTimeframeModel:
         self.val_accuracy: float = 0.0
         self.feature_importance: Dict[str, float] = {}
 
+    def _load_hyperparameters(self):
+        """Load hyperparameters from centralized config based on timeframe.
+
+        Returns hyperparameters object for the model's timeframe from TradingConfig.
+        Falls back to config.hyperparams if provided, then to default config values.
+        """
+        # Priority 1: Use optimized hyperparams from ImprovedModelConfig if provided
+        if self.config.hyperparams:
+            logger.info(f"{self.config.name}: Using optimized hyperparameters from config")
+            return self.config.hyperparams
+
+        # Priority 2: Load from centralized TradingConfig based on timeframe
+        timeframe = self.config.base_timeframe
+        if timeframe == "1H":
+            logger.info(f"{self.config.name}: Loading hyperparameters from TradingConfig.model_1h")
+            return self.trading_config.hyperparameters.model_1h
+        elif timeframe == "4H":
+            logger.info(f"{self.config.name}: Loading hyperparameters from TradingConfig.model_4h")
+            return self.trading_config.hyperparameters.model_4h
+        elif timeframe == "D":
+            logger.info(f"{self.config.name}: Loading hyperparameters from TradingConfig.model_daily")
+            return self.trading_config.hyperparameters.model_daily
+        else:
+            # Fallback: Use ImprovedModelConfig defaults
+            logger.warning(
+                f"{self.config.name}: Unknown timeframe '{timeframe}', using ImprovedModelConfig defaults"
+            )
+            return None
+
     def _create_model(self):
         """Create the ML model based on config.
 
-        Uses optimized hyperparameters if provided in config.hyperparams,
-        otherwise falls back to default config values.
+        Uses hyperparameters from centralized TradingConfig (via self.hyperparams),
+        falling back to ImprovedModelConfig defaults if centralized config not available.
         """
         if self.config.model_type == "xgboost":
-            # Use optimized hyperparams if provided, otherwise use config defaults
-            if self.config.hyperparams:
+            # Use centralized hyperparams from TradingConfig
+            if self.hyperparams and hasattr(self.hyperparams, 'n_estimators'):
+                # self.hyperparams is XGBoostHyperparameters from TradingConfig
                 params = {
-                    "n_estimators": self.config.hyperparams.get("n_estimators", self.config.n_estimators),
-                    "max_depth": self.config.hyperparams.get("max_depth", self.config.max_depth),
-                    "learning_rate": self.config.hyperparams.get("learning_rate", self.config.learning_rate),
-                    "min_child_weight": self.config.hyperparams.get("min_child_weight", self.config.min_child_weight),
-                    "subsample": self.config.hyperparams.get("subsample", self.config.subsample),
-                    "colsample_bytree": self.config.hyperparams.get("colsample_bytree", self.config.colsample_bytree),
-                    "reg_alpha": self.config.hyperparams.get("reg_alpha", self.config.reg_alpha),
-                    "reg_lambda": self.config.hyperparams.get("reg_lambda", self.config.reg_lambda),
-                    "gamma": self.config.hyperparams.get("gamma", self.config.gamma),
+                    "n_estimators": self.hyperparams.n_estimators,
+                    "max_depth": self.hyperparams.max_depth,
+                    "learning_rate": self.hyperparams.learning_rate,
+                    "min_child_weight": self.hyperparams.min_child_weight,
+                    "subsample": self.hyperparams.subsample,
+                    "colsample_bytree": self.hyperparams.colsample_bytree,
+                    "reg_alpha": self.hyperparams.reg_alpha,
+                    "reg_lambda": self.hyperparams.reg_lambda,
+                    "gamma": self.hyperparams.gamma,
                 }
+                logger.debug(f"{self.config.name}: Using centralized hyperparams: n_estimators={params['n_estimators']}, max_depth={params['max_depth']}, lr={params['learning_rate']}")
+            elif self.hyperparams and isinstance(self.hyperparams, dict):
+                # self.hyperparams is a dict (from config.hyperparams override)
+                params = {
+                    "n_estimators": self.hyperparams.get("n_estimators", self.config.n_estimators),
+                    "max_depth": self.hyperparams.get("max_depth", self.config.max_depth),
+                    "learning_rate": self.hyperparams.get("learning_rate", self.config.learning_rate),
+                    "min_child_weight": self.hyperparams.get("min_child_weight", self.config.min_child_weight),
+                    "subsample": self.hyperparams.get("subsample", self.config.subsample),
+                    "colsample_bytree": self.hyperparams.get("colsample_bytree", self.config.colsample_bytree),
+                    "reg_alpha": self.hyperparams.get("reg_alpha", self.config.reg_alpha),
+                    "reg_lambda": self.hyperparams.get("reg_lambda", self.config.reg_lambda),
+                    "gamma": self.hyperparams.get("gamma", self.config.gamma),
+                }
+                logger.debug(f"{self.config.name}: Using dict hyperparams override")
             else:
+                # Fallback to ImprovedModelConfig defaults
                 params = {
                     "n_estimators": self.config.n_estimators,
                     "max_depth": self.config.max_depth,
@@ -213,6 +267,7 @@ class ImprovedTimeframeModel:
                     "reg_lambda": self.config.reg_lambda,
                     "gamma": self.config.gamma,
                 }
+                logger.debug(f"{self.config.name}: Using ImprovedModelConfig defaults")
 
             return XGBClassifier(
                 **params,
@@ -226,25 +281,40 @@ class ImprovedTimeframeModel:
                 raise ImportError(
                     "LightGBM is not installed. Install it with: pip install lightgbm>=4.0.0"
                 )
-            # LightGBM parameters - equivalent to shallow_fast XGBoost config
-            if self.config.hyperparams:
+            # LightGBM parameters - equivalent to XGBoost config
+            if self.hyperparams and hasattr(self.hyperparams, 'n_estimators'):
+                # Use centralized hyperparams from TradingConfig
                 params = {
-                    "n_estimators": self.config.hyperparams.get("n_estimators", self.config.n_estimators),
-                    "max_depth": self.config.hyperparams.get("max_depth", self.config.max_depth),
-                    "learning_rate": self.config.hyperparams.get("learning_rate", self.config.learning_rate),
-                    "num_leaves": self.config.hyperparams.get("num_leaves", 15),  # 2^max_depth - 1
-                    "min_child_samples": self.config.hyperparams.get("min_child_samples", 20),
-                    "subsample": self.config.hyperparams.get("subsample", self.config.subsample),
-                    "colsample_bytree": self.config.hyperparams.get("colsample_bytree", self.config.colsample_bytree),
-                    "reg_alpha": self.config.hyperparams.get("reg_alpha", self.config.reg_alpha),
-                    "reg_lambda": self.config.hyperparams.get("reg_lambda", self.config.reg_lambda),
+                    "n_estimators": self.hyperparams.n_estimators,
+                    "max_depth": self.hyperparams.max_depth,
+                    "learning_rate": self.hyperparams.learning_rate,
+                    "num_leaves": 2 ** self.hyperparams.max_depth - 1,  # 2^max_depth - 1
+                    "min_child_samples": self.hyperparams.min_child_weight * 7,  # Approximate conversion
+                    "subsample": self.hyperparams.subsample,
+                    "colsample_bytree": self.hyperparams.colsample_bytree,
+                    "reg_alpha": self.hyperparams.reg_alpha,
+                    "reg_lambda": self.hyperparams.reg_lambda,
+                }
+            elif self.hyperparams and isinstance(self.hyperparams, dict):
+                # Dict hyperparams override
+                params = {
+                    "n_estimators": self.hyperparams.get("n_estimators", self.config.n_estimators),
+                    "max_depth": self.hyperparams.get("max_depth", self.config.max_depth),
+                    "learning_rate": self.hyperparams.get("learning_rate", self.config.learning_rate),
+                    "num_leaves": self.hyperparams.get("num_leaves", 15),
+                    "min_child_samples": self.hyperparams.get("min_child_samples", 20),
+                    "subsample": self.hyperparams.get("subsample", self.config.subsample),
+                    "colsample_bytree": self.hyperparams.get("colsample_bytree", self.config.colsample_bytree),
+                    "reg_alpha": self.hyperparams.get("reg_alpha", self.config.reg_alpha),
+                    "reg_lambda": self.hyperparams.get("reg_lambda", self.config.reg_lambda),
                 }
             else:
+                # Fallback to ImprovedModelConfig defaults
                 params = {
                     "n_estimators": self.config.n_estimators,
                     "max_depth": self.config.max_depth,
                     "learning_rate": self.config.learning_rate,
-                    "num_leaves": 15,  # 2^4 - 1 for similar complexity to max_depth=4
+                    "num_leaves": 15,
                     "min_child_samples": 20,
                     "subsample": self.config.subsample,
                     "colsample_bytree": self.config.colsample_bytree,
@@ -263,15 +333,25 @@ class ImprovedTimeframeModel:
                 raise ImportError(
                     "CatBoost is not installed. Install it with: pip install catboost>=1.2.0"
                 )
-            # CatBoost parameters - equivalent to shallow_fast XGBoost config
-            if self.config.hyperparams:
+            # CatBoost parameters - equivalent to XGBoost config
+            if self.hyperparams and hasattr(self.hyperparams, 'n_estimators'):
+                # Use centralized hyperparams from TradingConfig
                 params = {
-                    "iterations": self.config.hyperparams.get("n_estimators", self.config.n_estimators),
-                    "depth": self.config.hyperparams.get("max_depth", self.config.max_depth),
-                    "learning_rate": self.config.hyperparams.get("learning_rate", self.config.learning_rate),
-                    "l2_leaf_reg": self.config.hyperparams.get("reg_lambda", self.config.reg_lambda),
+                    "iterations": self.hyperparams.n_estimators,
+                    "depth": self.hyperparams.max_depth,
+                    "learning_rate": self.hyperparams.learning_rate,
+                    "l2_leaf_reg": self.hyperparams.reg_lambda,
+                }
+            elif self.hyperparams and isinstance(self.hyperparams, dict):
+                # Dict hyperparams override
+                params = {
+                    "iterations": self.hyperparams.get("n_estimators", self.config.n_estimators),
+                    "depth": self.hyperparams.get("max_depth", self.config.max_depth),
+                    "learning_rate": self.hyperparams.get("learning_rate", self.config.learning_rate),
+                    "l2_leaf_reg": self.hyperparams.get("reg_lambda", self.config.reg_lambda),
                 }
             else:
+                # Fallback to ImprovedModelConfig defaults
                 params = {
                     "iterations": self.config.n_estimators,
                     "depth": self.config.max_depth,
@@ -286,19 +366,47 @@ class ImprovedTimeframeModel:
                 thread_count=-1,
             )
         elif self.config.model_type == "gbm":
+            # Use centralized hyperparams if available
+            if self.hyperparams and hasattr(self.hyperparams, 'n_estimators'):
+                n_est = self.hyperparams.n_estimators
+                depth = self.hyperparams.max_depth
+                lr = self.hyperparams.learning_rate
+                sub = self.hyperparams.subsample
+            elif self.hyperparams and isinstance(self.hyperparams, dict):
+                n_est = self.hyperparams.get("n_estimators", self.config.n_estimators)
+                depth = self.hyperparams.get("max_depth", self.config.max_depth)
+                lr = self.hyperparams.get("learning_rate", self.config.learning_rate)
+                sub = self.hyperparams.get("subsample", self.config.subsample)
+            else:
+                n_est = self.config.n_estimators
+                depth = self.config.max_depth
+                lr = self.config.learning_rate
+                sub = self.config.subsample
+
             return GradientBoostingClassifier(
-                n_estimators=self.config.n_estimators,
-                max_depth=self.config.max_depth,
-                learning_rate=self.config.learning_rate,
+                n_estimators=n_est,
+                max_depth=depth,
+                learning_rate=lr,
                 min_samples_split=20,
                 min_samples_leaf=10,
-                subsample=self.config.subsample,
+                subsample=sub,
                 random_state=42,
             )
         elif self.config.model_type == "rf":
+            # Use centralized hyperparams if available
+            if self.hyperparams and hasattr(self.hyperparams, 'n_estimators'):
+                n_est = self.hyperparams.n_estimators
+                depth = self.hyperparams.max_depth
+            elif self.hyperparams and isinstance(self.hyperparams, dict):
+                n_est = self.hyperparams.get("n_estimators", self.config.n_estimators)
+                depth = self.hyperparams.get("max_depth", self.config.max_depth)
+            else:
+                n_est = self.config.n_estimators
+                depth = self.config.max_depth
+
             return RandomForestClassifier(
-                n_estimators=self.config.n_estimators,
-                max_depth=self.config.max_depth,
+                n_estimators=n_est,
+                max_depth=depth,
                 min_samples_split=20,
                 min_samples_leaf=10,
                 random_state=42,
@@ -625,6 +733,81 @@ class ImprovedTimeframeModel:
         logger.info(f"Loaded {self.config.name} model from {path}")
         if self.calibrator is not None:
             logger.info(f"  - Calibrator loaded (isotonic regression)")
+
+    @classmethod
+    def create_1h_model(
+        cls,
+        trading_config: Optional[TradingConfig] = None,
+        **kwargs
+    ) -> "ImprovedTimeframeModel":
+        """Factory method to create 1H model with centralized config.
+
+        Args:
+            trading_config: Optional TradingConfig instance (uses default if None)
+            **kwargs: Additional overrides for ImprovedModelConfig
+
+        Returns:
+            ImprovedTimeframeModel configured for 1H timeframe
+        """
+        trading_config = trading_config or TradingConfig()
+        model_config = ImprovedModelConfig.hourly_model()
+
+        # Apply any kwargs overrides
+        for key, value in kwargs.items():
+            if hasattr(model_config, key):
+                setattr(model_config, key, value)
+
+        return cls(model_config, trading_config=trading_config)
+
+    @classmethod
+    def create_4h_model(
+        cls,
+        trading_config: Optional[TradingConfig] = None,
+        **kwargs
+    ) -> "ImprovedTimeframeModel":
+        """Factory method to create 4H model with centralized config.
+
+        Args:
+            trading_config: Optional TradingConfig instance (uses default if None)
+            **kwargs: Additional overrides for ImprovedModelConfig
+
+        Returns:
+            ImprovedTimeframeModel configured for 4H timeframe
+        """
+        trading_config = trading_config or TradingConfig()
+        model_config = ImprovedModelConfig.four_hour_model()
+
+        # Apply any kwargs overrides
+        for key, value in kwargs.items():
+            if hasattr(model_config, key):
+                setattr(model_config, key, value)
+
+        return cls(model_config, trading_config=trading_config)
+
+    @classmethod
+    def create_daily_model(
+        cls,
+        trading_config: Optional[TradingConfig] = None,
+        **kwargs
+    ) -> "ImprovedTimeframeModel":
+        """Factory method to create Daily model with centralized config.
+
+        Args:
+            trading_config: Optional TradingConfig instance (uses default if None)
+            **kwargs: Additional overrides for ImprovedModelConfig
+
+        Returns:
+            ImprovedTimeframeModel configured for Daily timeframe
+        """
+        trading_config = trading_config or TradingConfig()
+        model_config = ImprovedModelConfig.daily_model()
+
+        # Apply any kwargs overrides
+        for key, value in kwargs.items():
+            if hasattr(model_config, key):
+                setattr(model_config, key, value)
+
+        return cls(model_config, trading_config=trading_config)
 
 
 class ImprovedMultiTimeframeModel:

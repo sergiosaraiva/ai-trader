@@ -31,6 +31,7 @@ from src.models.multi_timeframe import (
     MTFEnsembleConfig,
     StackingConfig,
 )
+from src.config import TradingConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -277,7 +278,7 @@ def main():
     parser.add_argument(
         "--use-optimized-params",
         action="store_true",
-        help="Use hyperparameters optimized by optimize_hyperparameters.py (from configs/optimized_hyperparams.json)",
+        help="Use hyperparameters optimized by optimize_hyperparameters.py (from data/optimized_hyperparams.json)",
     )
     parser.add_argument(
         "--model-type",
@@ -390,7 +391,7 @@ def main():
     # Load optimized hyperparameters if requested
     optimized_hyperparams = None
     if args.use_optimized_params:
-        hyperparams_path = project_root / "configs" / "optimized_hyperparams.json"
+        hyperparams_path = project_root / "data" / "optimized_hyperparams.json"
         if hyperparams_path.exists():
             logger.info(f"Loading optimized hyperparameters from {hyperparams_path}")
             try:
@@ -443,9 +444,13 @@ def main():
     # Use all data for training
     df_train_val = df_5min
 
-    # Create ensemble
+    # Load centralized trading configuration
+    trading_config = TradingConfig()
+    logger.info("Loaded centralized TradingConfig (hyperparameters, indicators, timeframes)")
+
+    # Create ensemble with centralized config
     model_dir = project_root / args.output
-    ensemble = MTFEnsemble(config=config, model_dir=model_dir)
+    ensemble = MTFEnsemble(config=config, model_dir=model_dir, trading_config=trading_config)
 
     # Train all models
     print("\n" + "=" * 70)
